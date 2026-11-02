@@ -4,6 +4,8 @@ import { preparePaths, assertRegular, privateFile, type DataPaths } from './path
 import { acquireInstance } from './instance.js';
 import { openDatabase } from './storage/database.js';
 import { createLogger } from './logger.js';
+import { Channels } from './channels/service.js';
+import { registerChannels } from './channels/routes.js';
 import { ChatService } from './ai/chat.js';
 import { registerLife } from './memory/routes.js';
 import { registerAi } from './ai/routes.js';
@@ -19,6 +21,7 @@ export async function startRuntime(p: DataPaths, port = 0) {
   let app: ReturnType<typeof createServer> | undefined;
   let stopping = false;
   let chat: ChatService | undefined;
+  let channels: Channels | undefined;
   const connection: Connection = { version: 1, pid: process.pid, port, token: randomBytes(32).toString('hex'), instanceId: randomUUID(), startedAt: new Date().toISOString() };
   let initialized!: () => void;
   const initialization = new Promise<void>(resolve => { initialized = resolve; });
@@ -31,6 +34,7 @@ export async function startRuntime(p: DataPaths, port = 0) {
     // Fastify close must not race with an unresolved listen, even during startup failure.
     await initialization;
     const errors: unknown[] = [];
+    try { await channels?.close(); } catch (error) { errors.push(error); }
     try { await chat?.close(); } catch (error) { errors.push(error); }
     try { await app?.close(); } catch (error) { errors.push(error); }
     if (app?.server.listening) {
@@ -78,6 +82,8 @@ export async function startRuntime(p: DataPaths, port = 0) {
       chat = new ChatService(db, p);
       await registerAi(app, chat);
       registerLife(app, chat.life);
+      channels = new Channels(db,chat); await channels.initialize();
+      registerChannels(app,channels);
       const address = await app.listen({ host: '127.0.0.1', port });
       if (stopping) throw new Error('START_INTERRUPTED');
       connection.port = Number(new URL(address).port);

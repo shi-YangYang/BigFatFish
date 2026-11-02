@@ -32,9 +32,9 @@ export class LifeService {
   tasks() { return this.db.prepare('SELECT id FROM memory_tasks ORDER BY created_at DESC LIMIT 100').all().map(r=>this.task(r.id as string)); }
   private extractionSources(conversationId: string): Source[] {
     if (!this.db.prepare('SELECT id FROM conversations WHERE id=?').get(conversationId)) throw new InputError('CONVERSATION_NOT_FOUND',404);
-    const rows = this.db.prepare("SELECT id,content FROM messages u WHERE conversation_id=? AND role='user' AND status='completed' AND EXISTS (SELECT 1 FROM messages a WHERE a.conversation_id=u.conversation_id AND a.request_id=u.request_id AND a.role='assistant' AND a.status='completed') ORDER BY rowid DESC LIMIT 50").all(conversationId);
+    const rows = this.db.prepare("SELECT id,content,author FROM messages u WHERE conversation_id=? AND role='user' AND status='completed' AND EXISTS (SELECT 1 FROM messages a WHERE a.conversation_id=u.conversation_id AND a.request_id=u.request_id AND a.role='assistant' AND a.status='completed') ORDER BY rowid DESC LIMIT 50").all(conversationId);
     const sources: Source[] = []; let chars=0;
-    for (const row of rows) { const quote=(row.content as string).slice(0,4000); if(chars+quote.length>16000)break; sources.push({type:'message',id:row.id as string,quote});chars+=quote.length; }
+    for (const row of rows) { const quote=(row.content as string).slice(0,4000); if(chars+quote.length>16000)break; sources.push({type:'message',id:row.id as string,quote,author:row.author as string});chars+=quote.length; }
     if (!sources.length) throw new InputError('NO_COMPLETED_SOURCES',409); return sources.reverse();
   }
   private diarySources(day: string, timezone: string) {
@@ -95,6 +95,9 @@ export class LifeService {
           const values=parsed.memories.map(m=>{
             const value=this.memories.validate(m);
             for(const source of value.sources)if(!sources.some(s=>s.type===source.type&&s.id===source.id&&s.quote.includes(source.quote)))throw new InputError('INVALID_MEMORY_SOURCE');
+            // External group claims retain the verified author and never become owner facts.
+            const authors = [...new Set(value.sources.map(s => sources.find(x=>x.id===s.id)?.author).filter(a=>a && a !== 'local-owner' && !a.startsWith('qq-owner:')))];
+            if (authors.length) { value.subject = `${authors.join(',')}: ${value.subject.replaceAll('主人','该用户')}`.slice(0,120); value.content = `${authors.join(',')} 的陈述：${value.content.replaceAll('主人','该用户')}`.slice(0,2000); }
             return value;
           });
           result=this.memories.transaction(()=>values.map(value=>this.memories.insert(value)));

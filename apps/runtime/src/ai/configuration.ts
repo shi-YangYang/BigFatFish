@@ -6,9 +6,11 @@ export const defaultPersona: Persona = { name: '大肥鱼', avatar: '', role: '�
 export class Configuration {
   private secrets: SecretStore;
   constructor(private db: DatabaseSync, p: DataPaths) {
-    this.secrets = new SecretStore(p, !!db.prepare('SELECT id FROM models WHERE secret IS NOT NULL LIMIT 1').get());
+    this.secrets = new SecretStore(p, !!db.prepare('SELECT id FROM models WHERE secret IS NOT NULL UNION ALL SELECT id FROM plugin_config WHERE secret IS NOT NULL LIMIT 1').get());
     if (!db.prepare('SELECT version FROM personas LIMIT 1').get()) db.prepare('INSERT INTO personas(version, config, created_at) VALUES(1, ?, ?)').run(JSON.stringify(defaultPersona), new Date().toISOString());
   }
+  encryptSecret(value: string) { return this.secrets.encrypt(value); }
+  decryptSecret(value: string) { return this.secrets.decrypt(value); }
   models() { return this.db.prepare('SELECT id, config, secret FROM models ORDER BY id').all().map(row => ({ ...JSON.parse(row.config as string) as ModelConfig, hasKey: !!row.secret })); }
   model(id: string) {
     const row = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);

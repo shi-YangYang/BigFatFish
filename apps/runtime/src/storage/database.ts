@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -22,6 +22,15 @@ export const migrations = [
    CREATE TABLE relationships (memory_id TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE);
    CREATE TABLE memory_tasks (id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, input TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, result TEXT, error TEXT, created_at TEXT NOT NULL);
    CREATE TABLE daily_diaries (id TEXT PRIMARY KEY, day TEXT NOT NULL, timezone TEXT NOT NULL, content TEXT NOT NULL, sources TEXT NOT NULL, version INTEGER NOT NULL, model_id TEXT NOT NULL, updated_at TEXT NOT NULL, copy_status TEXT NOT NULL, UNIQUE(day,timezone));`,
+  `ALTER TABLE memories ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
+   ALTER TABLE conversations ADD COLUMN audience TEXT NOT NULL DEFAULT 'owner';
+   ALTER TABLE conversations ADD COLUMN principal TEXT NOT NULL DEFAULT 'local-owner';
+   ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT 'local-owner';
+   ALTER TABLE agent_sessions ADD COLUMN context_hash TEXT NOT NULL DEFAULT '';
+   CREATE TABLE plugin_config (id TEXT PRIMARY KEY, config TEXT NOT NULL, secret TEXT, revision TEXT NOT NULL);
+   CREATE TABLE channel_sessions (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id));
+   CREATE TABLE channel_deliveries (id TEXT PRIMARY KEY, target TEXT NOT NULL, author TEXT NOT NULL, segments TEXT, status TEXT NOT NULL, message_id TEXT, error TEXT, created_at TEXT NOT NULL);
+   CREATE TABLE approvals (id TEXT PRIMARY KEY, payload TEXT NOT NULL, digest TEXT NOT NULL, revision TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);`,
 ];
 export function migrate(db: DatabaseSync, steps = migrations) {
   const current = Number(db.prepare('PRAGMA user_version').get()?.user_version);

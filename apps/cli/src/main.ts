@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { channelCommand } from './channels.js';
 import { lifeCommand } from './life.js';
 import { aiCommand } from './ai.js';
 import { existsSync } from 'node:fs';
@@ -12,13 +13,15 @@ try {
   const options = parseOptions(process.argv.slice(2));
   json = options.json;
   if (options.help || !options.command) {
-    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
+    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks|channels|permissions> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
   } else {
+    const channel = ['channels','permissions'].includes(options.command);
     const life = ['life','memories','diaries','memory-tasks'].includes(options.command);
     const ai = ['models','routes','persona','sessions','chat','cancel'].includes(options.command);
-    if (!ai && !life && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
+    if (!ai && !life && !channel && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
     const p = paths(dataRoot(options['data-dir']));
-    if (life) await lifeCommand(p, options.positionals, output);
+    if (channel) await channelCommand(p,options.positionals,output);
+    else if (life) await lifeCommand(p, options.positionals, output);
     else if (ai) await aiCommand(p, options.positionals, json, output);
     else switch (options.command) {
       case 'start': output(await start(p, options.port)); break;

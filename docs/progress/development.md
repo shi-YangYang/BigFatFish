@@ -58,3 +58,14 @@
 - 已创建新的独立accept_p2审阅实际diff/源码/证据；当前不将本机通过等同Windows/云模型验证，尚未提交P2。更新README/CHANGELOG/ARCHITECTURE/STATUS与既有使用文档，避免继续声称记忆未实现。
 - 首轮accept_p2返回FAIL：内存库复现201来源后拒绝INVALID_MEMORY、前日501活动遮蔽目标日1活动误报NO_DIARY_SOURCES；静态确认保存迟到清新草稿。报告落盘Acceptance，范围记录Rework；已创建新rework_p2串行修复，随后新的独立复验。本轮不重复无关P0/P1矩阵。
 - rework_p2完成三项修复，17项Memory/日期定向用例、修改范围类型/Lint、真实React延迟响应夹具通过。新的accept_p2_rework独立审阅源码/diff/用例和执行证据，给PASS，未重复已通过检查。完整来源保留、检索引用有界；日期扫描有明确完整性/预算；保存锁定且失败留草稿。代码验收已闭环，Windows/云/P2 Linux缺口继续单列；按授权准备P2本地提交。
+- P2在dev本地提交`86bc867 feat: 实现 P2 长期记忆与养成系统`，39文件，未来Spec005–009未夹带，无push。按已授权Goal继续P3。
+
+## P3 QQ 接入开始
+
+- Spec005与Decision005具备实施条件：外部NapCat/正向OneBot11、主人稳定身份、默认私有记忆/受众隔离、统一聊天、发送审批/撤权和真实插件生命周期。核实P2接口与加密key检查、构建插件路径约束，当前不连接真实账号或发送真实消息。
+- 实施者报告主要路径已实现且首轮类型检查通过，S3协议/真实DSH验证进行中。媒体当前为入站真实类型/安全元数据、文本引用回复与受限图片/语音引用；文件发送和理解消费者尚未接入，明确保留到P7已有收口范围，不能当已完整实现。要求核实真实NapCat引用解析并按账号/来源校验。
+- 继续核对固定NapCat源码发现handleOb11FileLikeMessage在引用缓存未命中时回落uriToLocalFile，本机路径风险不能靠已收到引用完全消除；实施方案改为认证入口显式有界base64媒体、类型/大小检查、审批绑定，拒绝URL/路径/缓存名透传，记录Decision005。真实QQ媒体仍未验证。
+- P3真实DSH+本地OneBot核心链路已覆盖私聊/群聊、私密marker、共享撤销、主人身份变化和撤权取消，协议/审批边界继续验证。Node/前端/macOS原生构建及构建后CLI smoke通过，原生UI操作进行中；尚未独立验收。
+- 实测发现Runtime客户端2秒超时短于OneBot5秒未知结果等待，批准接口改为立即返回executing并通过持久状态查询sent/failed/unknown，避免HTTP等待超时被误作审批失败。受影响检查由实施者完成，不无故重复其他矩阵。
+- implement_p3完整报告已记Plan，新的accept_p3独立验收FAIL：两次隔离复现确认已生成群回复在发送前健康等待时撤销共享仍泄露marker；中文HTTP头token被保存后导致Runtime重启失败。已记录Acceptance/Rework，创建新的rework_p3修复，之后新的独立复验；本轮不提交未通过代码。
+- 新rework_p3完成生成快照到最终发送门、Bearer原子验证和WS初始化错误隔离，旧坏配置可启动/停用/修正；新2项+既有协议健康3项过，最后仅token停用用例复跑通过，Node构建/定向Lint/diff通过。新的accept_p3_rework独立检查源码与断言给PASS，无重复测试；确定性桩、原真实DSH/原生证据及外部/完整媒体缺口分开。准备阶段本地commit。

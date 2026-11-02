@@ -16,7 +16,7 @@ const candidate=(content='主人喜欢茶',subject='主人饮品偏好',id='manu
 it('preserves P1 data while migrating and rolls back a failed P2 migration',()=>{
  const db=new DatabaseSync(':memory:');migrate(db,migrations.slice(0,2));db.prepare("INSERT INTO settings VALUES('retained','yes')").run();
  expect(()=>migrate(db,[...migrations.slice(0,2),migrations[2]!+'BROKEN SQL'])).toThrow();expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(2);expect(db.prepare("SELECT name FROM sqlite_master WHERE name='memories'").get()).toBeUndefined();
- migrate(db);expect(db.prepare("SELECT value FROM settings WHERE key='retained'").get()!.value).toBe('yes');expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(3);db.close();
+ migrate(db);expect(db.prepare("SELECT value FROM settings WHERE key='retained'").get()!.value).toBe('yes');expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(4);db.close();
 });
 it('deduplicates normalized statements, preserves sources/rejection and requires explicit conflict choice',()=>{
  const db=openDatabase(':memory:'),store=new MemoryStore(db);
