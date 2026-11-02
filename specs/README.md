@@ -1,0 +1,13 @@
+# Spec 管理
+
+规格目录统一为 `spec-XXX-short-name/`。先从 [_template](./_template/) 创建草稿，明确目标、非目标、关键决策及可逐项验收标准；关键不确定性解决后才能实施。
+
+- `spec.md`：定义实现什么及完成标准。
+- `plan.md`：记录模块、顺序、接口、验证范围和风险，不扩张 Spec。
+- `acceptance.md`：实施结束后记录独立验收，仅使用 `PASS` 或 `FAIL`，标注风险级别和实际证据。
+
+生命周期：Draft → Ready → Implementation → Acceptance → Done。FAIL 进入 Rework：新的实施 Agent 返工，新的验收 Agent 重验；按需添加 `rework.md`，不得把旧验收结论复用为新结果。实施报告优先纳入已有 Plan，避免另建重复过程文档。
+
+| Spec | 范围 | 结果入口 |
+| --- | --- | --- |
+| [001 仓库初始化](./spec-001-repository-initialization/spec.md) | 目录、Git、忽略规则和基础文档；不代表完整 P0 | [验收](./spec-001-repository-initialization/acceptance.md) |
