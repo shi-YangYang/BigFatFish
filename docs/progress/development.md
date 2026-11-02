@@ -30,3 +30,18 @@
 - 新的独立验收者accept_p0_rework正在复核上述三项根因和回归证据，不重复未变化的完整矩阵。
 - P1草稿和Decision003已记录真实DSH版本、受控profile、模型凭据、流/取消/恢复边界；业务代码尚未开始。
 - accept_p0_rework已返回PASS（代码返工范围）：三项修复无新增具体缺陷，不需再次返工。P0完整阶段仍因Windows证据不足保持未完成；按照用户允许继续独立工作的指令，下一步进入P1。工作区diff格式检查通过，未创建新commit或push。
+
+## P0 本地提交与 P1 实施
+
+- 用户更新授权：“以后每完成一个阶段，就本地commit一次”。协调者将事先审阅的P0暂存树提交为`52eaaf8 feat: 实现 P0 工程基础与运行验证`，未包含P1工作区；未推送，Windows/远端CI仍无运行证据。后续每阶段实现与代码验收后同样本地提交，范围见Decision002更新。
+- P1已安装官方DSH依赖，真实SDK子进程成功请求本地HTTP测试模型；真实流帧按attempt与单调revision接收，正在完成drain、跨进程恢复、取消及API/CLI/桌面链路。该结果不是云模型实测。
+- 依赖audit报告大量级联问题，已安排独立只读审查实际advisory根与最小修复版本；不执行force或不相关大范围升级。
+- P1执行真实desktop:build发现Tauri CLI因Cargo/npm版本不匹配失败。P0只有直接cargo/本地app成功证据，未覆盖该CLI检查；已在P0验收补记，不改写历史。当前做对应npm API版本局部修复并重跑受影响桌面构建。
+
+## 2026-11-03：P1 代码验收与 Linux 验证
+
+- P1类型/Lint、19通过/2Windows跳过、最终清理改动4项真实SDK/cleanup、正式桌面构建和新版.app原生交互通过。实际OpenAI/DeepSeek协议夹具验证流、跨进程恢复、取消/超时与密钥/人格；未调用真实云Key。
+- 独立accept_p1发现Chat默认模型绕过路由、异步旧响应覆盖新会话/草稿。新实施者仅改Chat，受控真实React DOM八项和组件类型检查通过；新独立accept_p1_rework给PASS。末次Chat单文件Lint通过。
+- 原Docker构建两次依赖下载ECONNRESET，容器registry ping正常。低并发生产安装先成功，再由新实施者给Dockerfile两处npm ci添加maxsockets=4；target build、正式镜像构建及镜像内DSH smoke均通过。正式镜像未挂载宿主dist/node_modules，Linux arm64/Node24.22.2中两次本地模型请求、流、重启resume及四条历史验证成功。
+- Docker两行改动独立审阅PASS；低并发成功支持连接压力相关判断，不证明唯一网络根因或永久解决。诊断容器/镜像/cache及测试Runtime清理，正式镜像保留。
+- P1代码无待返工问题，Windows/真实云模型继续开放。按用户授权本地提交阶段结果，接下来实施已准备的P2记忆与养成规格；P2–P7草稿不代表已实现。

@@ -26,4 +26,4 @@ BigFatFish 是开源、跨平台、插件化的 AI 养成软件，让用户长�
 
 ## 当前阶段
 
-用户已授权持续实现完整 P0–P7。当前从已完成的仓库初始化进入 P0 工程实施；实际进度由根 ROADMAP.md、IMPLEMENTATION_STATUS.md 和对应 Spec 验收证据维护。
+用户已授权持续实现完整 P0–P7，并在每阶段实现与代码验收后本地commit。P0/P1已有实际本机与Linux路径，Windows和真实云凭据证据单列；按路线继续后续能力。实际进度由根 ROADMAP.md、IMPLEMENTATION_STATUS.md 和对应 Spec 验收证据维护。

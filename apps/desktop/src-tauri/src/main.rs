@@ -54,6 +54,21 @@ async fn runtime_status() -> Result<serde_json::Value, String> {
     if status["instanceId"].as_str() != Some(&connection.instance_id) || status["state"] != "running" { return Err("INVALID_CONNECTION".into()); }
     Ok(status)
 }
+#[tauri::command]
+async fn runtime_request(route: String, method: String, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let allowed = route.starts_with("/v1/") && route.len() < 256 && route.chars().all(|c| c.is_ascii_alphanumeric() || "/-_".contains(c));
+    if !allowed || !["GET", "POST", "PUT", "DELETE"].contains(&method.as_str()) { return Err("INVALID_REQUEST".into()); }
+    let connection = connection()?;
+    let client = reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(5)).build().map_err(|_| "UNAVAILABLE")?;
+    let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|_| "INVALID_REQUEST")?;
+    let mut request = client.request(method.clone(), format!("http://127.0.0.1:{}{}", connection.port, route)).bearer_auth(connection.token);
+    if method == reqwest::Method::POST || method == reqwest::Method::PUT { request = request.json(&body.unwrap_or(serde_json::json!({}))); }
+    let response = request.send().await.map_err(|_| "UNAVAILABLE")?;
+    let success = response.status().is_success();
+    let value: serde_json::Value = response.json().await.map_err(|_| "UNAVAILABLE")?;
+    if !success { return Err(value["error"].as_str().unwrap_or("UNAVAILABLE").to_string()); }
+    Ok(value)
+}
 fn main() {
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![runtime_status]).run(tauri::generate_context!()).expect("desktop initialization failed");
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![runtime_status, runtime_request]).run(tauri::generate_context!()).expect("desktop initialization failed");
 }

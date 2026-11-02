@@ -16,12 +16,12 @@ export function readConnection(p: DataPaths): Connection {
   if (value.version !== 1 || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535 || !Number.isInteger(value.pid) || typeof value.token !== 'string' || !/^[a-f0-9]{64}$/.test(value.token) || typeof value.instanceId !== 'string') throw new Error('INVALID_CONNECTION_FILE');
   return value;
 }
-export async function requestRuntime<T>(connection: Connection, route: string, method = 'GET'): Promise<T> {
+export async function requestRuntime<T>(connection: Connection, route: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(`http://127.0.0.1:${connection.port}${route}`, {
-    method, headers: { authorization: `Bearer ${connection.token}`, ...(method === 'POST' ? { 'content-type': 'application/json' } : {}) },
-    ...(method === 'POST' ? { body: '{}' } : {}), signal: AbortSignal.timeout(2500), redirect: 'error',
+    method, headers: { authorization: `Bearer ${connection.token}`, ...(['POST','PUT'].includes(method) ? { 'content-type': 'application/json' } : {}) },
+    ...(['POST','PUT'].includes(method) ? { body: JSON.stringify(body ?? {}) } : {}), signal: AbortSignal.timeout(2500), redirect: 'error',
   });
-  if (!response.ok) throw new Error(`RUNTIME_HTTP_${response.status}`);
+  if (!response.ok) { const value = await response.json().catch(() => ({})) as { error?: string }; throw new Error(value.error && /^[A-Z][A-Z0-9_]+$/.test(value.error) ? value.error : `RUNTIME_HTTP_${response.status}`); }
   return await response.json() as T;
 }
 export async function getStatus(p: DataPaths): Promise<RuntimeStatus> {

@@ -12,3 +12,4 @@
 | --- | --- | --- |
 | [001 仓库初始化](spec-001-repository-initialization/spec.md) | 目录、Git、忽略规则和基础文档；不代表完整 P0 | [验收](spec-001-repository-initialization/acceptance.md) |
 | [002 P0 工程基础](spec-002-p0-foundation/spec.md) | Runtime/CLI/SQLite/API、桌面壳、CI及实际运行 | 实施报告与独立验收持续更新 |
+| [003 P1 AI 鱼核心](spec-003-p1-ai-core/spec.md) | 真实DSH、模型、人格、会话与流式聊天 | 实施中 |

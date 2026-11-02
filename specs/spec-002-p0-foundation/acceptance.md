@@ -38,3 +38,9 @@ Result: PASS（仅代码返工审阅）。accept_p0_rework独立阅读实现、�
 - Windows从空DACL建立并复核允许项，token写入前收紧权限，Node/Rust读取前共用helper校验；拒绝reparse point，仅处理明确产品路径。Windows用例覆盖宽显式权限、受保护产品文件、未知文件与junction，但尚未实跑。
 
 Risk Level: S3。首轮综合测试超时原因未明，后续定向通过且未放宽断言；没有支持扩大验证的具体缺陷证据，保留限制。Required Rework: 无新增代码返工。Windows外部门槛继续开放，按用户要求推进不依赖此条件的P1。
+
+## P1 集成时发现的基础构建问题
+
+P1实际执行`npm run desktop:build`触发Tauri CLI版本检查失败：Cargo tauri 2.12.5与npm @tauri-apps/api 2.10.1不匹配。P0先前成功证据是直接cargo构建及本地app运行，不能替代该CLI命令检查。P1实施者正在按实际registry版本做局部兼容更新，并执行真实桌面命令。此前代码审阅结论保留为当时范围；该新证据在解决前保持开放，不改写为P0所有命令原本都通过。
+
+P1后续对齐npm API2.12.4，正式desktop:build与新.app实际界面均通过；该代码问题已闭环，修复随P1提交，P0历史不改写。Windows原生证据仍缺。

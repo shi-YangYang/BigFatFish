@@ -4,7 +4,7 @@
 
 依据 [产品基线](../BigFatFish_产品设计目标.md)：主 Runtime 为 Node.js + TypeScript，核心服务名 `bigfatfishd`；桌面采用 Tauri 2 + Rust、React + TypeScript；CLI 使用 TypeScript。SQLite 保存结构化数据，Markdown/JSON 保存可读记忆。Python 仅作为独立辅助服务；Playwright 用于浏览器自动化；Linux 部署目标为 Docker 与 systemd。
 
-DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。产品方向已确认；当前开始 P0，具体实现与验证状态以根 IMPLEMENTATION_STATUS.md 为准。
+DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。P0/P1已有实际本机与Linux路径，Node最低24.9；具体实现与外部验证状态以根 IMPLEMENTATION_STATUS.md 为准。
 
 ## 目录与职责
 
@@ -55,4 +55,4 @@ AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime
 
 ## 当前命令与验证
 
-P0 正在实施，运行命令以根 package.json 和 README 为准。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。
+运行命令以根 package.json 和 README 为准，模型/人格/会话用法见docs/ai-core.md。P1经真实DSH、CLI、桌面与Linux镜像验证；阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。

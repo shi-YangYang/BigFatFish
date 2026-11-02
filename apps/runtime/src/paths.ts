@@ -46,7 +46,7 @@ export function preparePaths(p: DataPaths) {
     if (process.platform !== 'win32') chmodSync(file, 0o600);
   }
   // Only product-owned paths: do not recurse into unrelated user data.
-  for (const file of [p.connection, join(p.logs, 'bootstrap.log'), ...[p.database, p.lock].flatMap(file => ['-wal', '-shm', '-journal'].map(suffix => file + suffix))]) {
+  for (const file of [p.connection, join(p.config, 'master.key'), join(p.logs, 'bootstrap.log'), ...[p.database, p.lock].flatMap(file => ['-wal', '-shm', '-journal'].map(suffix => file + suffix))]) {
     assertRegular(file);
     if (existsSync(file)) files.push(file);
   }

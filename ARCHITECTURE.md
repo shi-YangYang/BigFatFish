@@ -24,7 +24,15 @@ Node.js 24、TypeScript、npm，Fastify 管理 API，Node 内置 SQLite；React 
 
 用户数据与安装目录分离，支持显式 data-dir，默认按 Windows/macOS/Linux 选择用户数据位置。SQLite 迁移有版本记录且事务化；Runtime 单实例、崩溃后可恢复、退出释放资源。基础日志必须脱敏。
 
-## 外部集成
+## P1 引擎与配置
+
+Node最低24.9。Runtime的普通ai模块统一模型/用途路由、版本化人格、会话和消息；SQLite schema2保存产品数据，密钥以AES-256-GCM加密，独立master.key使用受限本机文件权限。客户端查询不回传密钥。
+
+AgentEngine由固定版本DSHAdapter实现。每个回合启动拥有的受控子进程，持久会话用resumeSession恢复；真实流和取消由鉴权回环bridge连接官方引擎事件。profile禁用默认shell/文件操作和日志贡献，P1工具目录为空。它不构成OS沙箱，也不能把会话历史当P2长期记忆。
+
+认证HTTP负责配置/会话/取消，WebSocket提供按会话隔离的消息事件。Desktop通过Rust保护本机凭据，CLI使用同一API。队列、幂等、终态与重启中断由Runtime管理；前端以选择身份和草稿版本防止旧响应覆盖新操作。
+
+## 上游边界
 
 DSH 与平台适配使用真实、已核对的公开接口。上游代码不未经许可复制；研究结果进入 docs/upstreams.md。平台事件转换为统一事件，不能维护第二套人格、记忆或调度。社交写操作必须经过统一权限和审批门。
 

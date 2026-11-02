@@ -4,6 +4,8 @@ import { preparePaths, assertRegular, privateFile, type DataPaths } from './path
 import { acquireInstance } from './instance.js';
 import { openDatabase } from './storage/database.js';
 import { createLogger } from './logger.js';
+import { ChatService } from './ai/chat.js';
+import { registerAi } from './ai/routes.js';
 import { createServer } from './server.js';
 import type { Connection } from './connection.js';
 
@@ -15,6 +17,7 @@ export async function startRuntime(p: DataPaths, port = 0) {
   let db: ReturnType<typeof openDatabase> | undefined;
   let app: ReturnType<typeof createServer> | undefined;
   let stopping = false;
+  let chat: ChatService | undefined;
   const connection: Connection = { version: 1, pid: process.pid, port, token: randomBytes(32).toString('hex'), instanceId: randomUUID(), startedAt: new Date().toISOString() };
   let initialized!: () => void;
   const initialization = new Promise<void>(resolve => { initialized = resolve; });
@@ -27,6 +30,7 @@ export async function startRuntime(p: DataPaths, port = 0) {
     // Fastify close must not race with an unresolved listen, even during startup failure.
     await initialization;
     const errors: unknown[] = [];
+    try { await chat?.close(); } catch (error) { errors.push(error); }
     try { await app?.close(); } catch (error) { errors.push(error); }
     if (app?.server.listening) {
       const server = app.server;
@@ -70,6 +74,8 @@ export async function startRuntime(p: DataPaths, port = 0) {
       if (existsSync(p.connection)) unlinkSync(p.connection);
       db = openDatabase(p.database);
       app = createServer(p, connection, onSignal);
+      chat = new ChatService(db, p);
+      await registerAi(app, chat);
       const address = await app.listen({ host: '127.0.0.1', port });
       if (stopping) throw new Error('START_INTERRUPTED');
       connection.port = Number(new URL(address).port);

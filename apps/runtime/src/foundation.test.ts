@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { dataRoot, paths, preparePaths } from './paths.js';
-import { migrate, migrations, openDatabase } from './storage/database.js';
+import { migrate, migrations, openDatabase, SCHEMA_VERSION } from './storage/database.js';
 import { createLogger, readLogs, redact } from './logger.js';
 import { acquireInstance } from './instance.js';
 import { createServer } from './server.js';
@@ -34,7 +34,7 @@ describe('persistence and single instance', () => {
     db.prepare('INSERT INTO settings VALUES (?,?)').run('example', 'persisted'); db.close();
     const reopened = openDatabase(p.database);
     expect(reopened.prepare('SELECT value FROM settings WHERE key=?').get('example')?.value).toBe('persisted');
-    expect(reopened.prepare('SELECT count(*) AS n FROM schema_migrations').get()?.n).toBe(1); reopened.close();
+    expect(reopened.prepare('SELECT count(*) AS n FROM schema_migrations').get()?.n).toBe(SCHEMA_VERSION); reopened.close();
   });
   it('rolls back failed migrations and rejects newer databases without modifying version', () => {
     const db = new DatabaseSync(':memory:');

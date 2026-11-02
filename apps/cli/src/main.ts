@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { aiCommand } from './ai.js';
 import { existsSync } from 'node:fs';
 import { parseOptions, publicError } from '../../runtime/src/arguments.js';
 import { dataRoot, paths } from '../../runtime/src/paths.js';
@@ -10,11 +11,13 @@ try {
   const options = parseOptions(process.argv.slice(2));
   json = options.json;
   if (options.help || !options.command) {
-    console.log('bigfatfish <start|stop|restart|status|logs|doctor> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
+    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
   } else {
-    if (options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
+    const ai = ['models','routes','persona','sessions','chat','cancel'].includes(options.command);
+    if (!ai && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
     const p = paths(dataRoot(options['data-dir']));
-    switch (options.command) {
+    if (ai) await aiCommand(p, options.positionals, json, output);
+    else switch (options.command) {
       case 'start': output(await start(p, options.port)); break;
       case 'stop': output(await stop(p)); break;
       case 'restart': await stop(p); output(await start(p, options.port)); break;
@@ -25,7 +28,7 @@ try {
       }
       case 'logs': output(await requestRuntime(readConnection(p), `/v1/logs?lines=${options.lines}`)); break;
       case 'doctor': {
-        const nodeSupported = Number(process.versions.node.split('.')[0]) === 24;
+        const nodeSupported = Number(process.versions.node.split('.')[0]) === 24 && Number(process.versions.node.split('.')[1]) >= 9;
         let runtime: unknown;
         try { runtime = await getStatus(p); } catch (error) { runtime = { state: 'unavailable', error: publicError(error) }; }
         const result = { node: process.versions.node, nodeSupported, platform: process.platform, dataDir: p.root, runtime };

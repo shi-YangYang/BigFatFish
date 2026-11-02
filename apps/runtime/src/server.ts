@@ -1,11 +1,12 @@
 import Fastify from 'fastify';
+import { InputError } from './ai/types.js';
 import { timingSafeEqual } from 'node:crypto';
 import type { Connection, RuntimeStatus } from './connection.js';
 import { readLogs } from './logger.js';
 import type { DataPaths } from './paths.js';
 import { SCHEMA_VERSION } from './storage/database.js';
 export function createServer(p: DataPaths, connection: Connection, shutdown: () => void) {
-  const app = Fastify({ logger: false, bodyLimit: 4096, requestTimeout: 5000, connectionTimeout: 5000, keepAliveTimeout: 1000, forceCloseConnections: true, ajv: { customOptions: { removeAdditional: false } } });
+  const app = Fastify({ logger: false, bodyLimit: 65536, requestTimeout: 5000, connectionTimeout: 5000, keepAliveTimeout: 1000, forceCloseConnections: true, ajv: { customOptions: { removeAdditional: false } } });
   app.addHook('onRequest', async (req, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     const host = req.headers.host;
@@ -20,7 +21,7 @@ export function createServer(p: DataPaths, connection: Connection, shutdown: () 
   app.setErrorHandler((error, _req, reply) => {
     const code = (error as { statusCode?: number }).statusCode;
     const status = code && code < 500 ? code : 500;
-    reply.code(status).send({ error: status < 500 ? 'INVALID_REQUEST' : 'INTERNAL_ERROR' });
+    reply.code(status).send({ error: error instanceof InputError ? error.message : status < 500 ? 'INVALID_REQUEST' : 'INTERNAL_ERROR' });
   });
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/v1/status', async (): Promise<RuntimeStatus> => ({ state: 'running', pid: process.pid, instanceId: connection.instanceId, startedAt: connection.startedAt, uptimeSeconds: Math.floor((Date.now() - Date.parse(connection.startedAt)) / 1000), schemaVersion: SCHEMA_VERSION }));
