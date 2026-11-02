@@ -55,4 +55,4 @@ AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime
 
 ## 当前命令与验证
 
-运行命令以根 package.json 和 README 为准，模型/人格/会话用法见docs/ai-core.md。P1经真实DSH、CLI、桌面与Linux镜像验证；阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。
+运行命令以根 package.json 和 README 为准，模型/人格/会话及记忆/生活用法见docs/ai-core.md。P1经真实DSH、CLI、桌面与Linux镜像验证；P2新增schema3及memory模块，本机路径通过，三项边界返工已独立复验PASS。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。

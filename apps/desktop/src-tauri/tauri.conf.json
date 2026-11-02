@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "identifier": "org.bigfatfish.desktop",
   "build": { "beforeDevCommand": "npm run frontend:dev", "devUrl": "http://127.0.0.1:1420", "beforeBuildCommand": "npm run build:desktop", "frontendDist": "../dist" },
-  "app": { "windows": [{ "title": "BigFatFish", "width": 900, "height": 680, "minWidth": 380, "minHeight": 500 }], "security": { "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src ipc: http://ipc.localhost" } },
+  "app": { "windows": [{ "title": "BigFatFish", "width": 900, "height": 680, "minWidth": 380, "minHeight": 500 }], "security": { "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src ipc: http://ipc.localhost" } },
   "bundle": { "active": false }
 }

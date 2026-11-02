@@ -45,3 +45,16 @@
 - 原Docker构建两次依赖下载ECONNRESET，容器registry ping正常。低并发生产安装先成功，再由新实施者给Dockerfile两处npm ci添加maxsockets=4；target build、正式镜像构建及镜像内DSH smoke均通过。正式镜像未挂载宿主dist/node_modules，Linux arm64/Node24.22.2中两次本地模型请求、流、重启resume及四条历史验证成功。
 - Docker两行改动独立审阅PASS；低并发成功支持连接压力相关判断，不证明唯一网络根因或永久解决。诊断容器/镜像/cache及测试Runtime清理，正式镜像保留。
 - P1代码无待返工问题，Windows/真实云模型继续开放。按用户授权本地提交阶段结果，接下来实施已准备的P2记忆与养成规格；P2–P7草稿不代表已实现。
+
+- P1已在dev本地提交`b1f73b3 feat: 实现 P1 AI 核心与跨入口聊天`，未push；未来阶段Draft未夹带。开始Spec004/Decision004的P2串行实施，结束后新独立验收及本地commit。
+
+## P2 实施与独立验收
+
+- 已实现schema3与MemoryStore/LifeService、来源精确引用、候选/确认/拒绝、版本化管理/冲突/合并、有界中文检索、导出和实际活动。提取/日记显式使用统一DSH任务，副本文件复用受限权限。
+- 真正SDK+本地模型已通过聊天→候选→未确认不注入→确认→新会话带来源记忆→删除后同会话resume不再含旧检索块；原聊天保留。检索采用临时系统上下文，没有伪造长期记忆为会话恢复。
+- 4个相关测试文件17项通过，包含P1引擎回归/迁移/认证；原生桌面构建通过。新增合并/导出与原生界面操作继续验证，尚未独立验收。
+- 协调发现刷新hook在load失败前提交revision会导致永久跳过重试，已交实施者按直接边界修复，不重复已通过矩阵。
+- 实施报告已返回并记录于Plan004：后续新增边界Memory/P2集成9项、末次Memory定向8项通过；原生界面完成聊天/提取/确认/来源/JSON导出/日记/时间线，CLI完成兴趣/关系/Markdown导出与日记第2版，文件权限0600。同revision故障恢复代理观察500后自动恢复200并清除局部错误。实施者清理临时进程与数据。
+- 已创建新的独立accept_p2审阅实际diff/源码/证据；当前不将本机通过等同Windows/云模型验证，尚未提交P2。更新README/CHANGELOG/ARCHITECTURE/STATUS与既有使用文档，避免继续声称记忆未实现。
+- 首轮accept_p2返回FAIL：内存库复现201来源后拒绝INVALID_MEMORY、前日501活动遮蔽目标日1活动误报NO_DIARY_SOURCES；静态确认保存迟到清新草稿。报告落盘Acceptance，范围记录Rework；已创建新rework_p2串行修复，随后新的独立复验。本轮不重复无关P0/P1矩阵。
+- rework_p2完成三项修复，17项Memory/日期定向用例、修改范围类型/Lint、真实React延迟响应夹具通过。新的accept_p2_rework独立审阅源码/diff/用例和执行证据，给PASS，未重复已通过检查。完整来源保留、检索引用有界；日期扫描有明确完整性/预算；保存锁定且失败留草稿。代码验收已闭环，Windows/云/P2 Linux缺口继续单列；按授权准备P2本地提交。

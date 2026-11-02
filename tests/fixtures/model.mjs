@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 export async function fixtureModel() {
-  const requests = [];
+  const requests = [], controls = { memoryResponse: undefined, slowMemory: false };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw || '{}'); requests.push({ url: req.url, authorization: req.headers.authorization, body });
@@ -19,10 +19,20 @@ export async function fixtureModel() {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'fixture-1', object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     emit({ role: 'assistant' });
-    const parts = prompt.includes('SLOW_NOW') ? Array(100).fill('慢') : ['测试', '模型', '回复'];
+    let parts = prompt.includes('SLOW_NOW') ? Array(100).fill('慢') : ['测试', '模型', '回复'];
+    const last = body.messages?.find(m=>m.role==='user' && (JSON.stringify(m.content).includes('BFF_MEMORY_EXTRACT') || JSON.stringify(m.content).includes('BFF_DAILY_DIARY')))?.content;
+    const input = typeof last === 'string' ? last : JSON.stringify(last);
+    if (input?.includes('BFF_MEMORY_EXTRACT') || input?.includes('BFF_DAILY_DIARY')) {
+      const sourceText = input.split('来源：')[1]?.split('\n参考记忆：')[0];
+      let sources; try { sources = JSON.parse(sourceText); } catch { sources = []; }
+      if (input.includes('BFF_MEMORY_EXTRACT')) parts = [JSON.stringify({ memories: sources.filter(s=>s.quote.includes('茉莉花茶')).map(s=>({kind:'preference',subject:'主人饮品偏好',content:'主人喜欢茉莉花茶',importance:4,sources:[s]})) })];
+      else parts = [JSON.stringify({content:'今天完成了对话，聊到了用户的饮品偏好。',sourceIds:sources.map(s=>s.id)})];
+    }
+    if (input?.includes('BFF_MEMORY_EXTRACT') && controls.memoryResponse !== undefined) parts = [controls.memoryResponse];
+    if (input?.includes('BFF_MEMORY_EXTRACT') && controls.slowMemory) parts = Array(100).fill('慢');
     for (const content of parts) { if (res.destroyed) return; emit({ content }); await new Promise(resolve => setTimeout(resolve, 50)); }
     emit({}, 'stop'); res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return { url: `http://127.0.0.1:${server.address().port}/v1`, requests, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }) };
+  return { url: `http://127.0.0.1:${server.address().port}/v1`, requests, controls, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }) };
 }

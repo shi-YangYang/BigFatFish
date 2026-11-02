@@ -1,3 +1,4 @@
+import { LifeService } from '../memory/life.js';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { DatabaseSync } from 'node:sqlite';
@@ -8,6 +9,7 @@ import type { AgentEngine } from './engine.js';
 import type { DataPaths } from '../paths.js';
 export class ChatService {
   readonly config: Configuration;
+  readonly life: LifeService;
   readonly events = new EventEmitter();
   private engine: AgentEngine;
   private queues = new Map<string, Promise<void>>();
@@ -15,6 +17,7 @@ export class ChatService {
   private closing = false;
   constructor(private db: DatabaseSync, p: DataPaths) {
     this.config = new Configuration(db, p); this.engine = new DSHAdapter(p);
+    this.life = new LifeService(db, p, this.config, this.engine, this.events);
     db.prepare("UPDATE messages SET status='interrupted', error='RUNTIME_RESTARTED' WHERE role='assistant' AND status IN ('queued','running')").run();
   }
   conversations() { return this.db.prepare('SELECT id, title, model_id AS modelId, created_at AS createdAt FROM conversations ORDER BY created_at DESC LIMIT 500').all() as unknown as Conversation[]; }
@@ -59,16 +62,17 @@ export class ChatService {
       this.db.prepare("UPDATE messages SET status='running', persona_version=? WHERE id=?").run(persona.version, id); this.publish(id);
       timeout = setTimeout(() => { timedOut = true; control.abort(); }, model.timeoutMs);
       const session = this.db.prepare('SELECT engine_id, initialized FROM agent_sessions WHERE conversation_id=?').get(conversation.id)!;
-      const content = await this.engine.run({ conversationId: conversation.id, sessionId: session.engine_id as string, resume: !!session.initialized, prompt, persona, model, key, signal: control.signal,
+      const content = await this.engine.run({ conversationId: conversation.id, sessionId: session.engine_id as string, resume: !!session.initialized, prompt, context: this.life.memories.context(prompt), persona, model, key, signal: control.signal,
         onSessionReady: () => { this.db.prepare('UPDATE agent_sessions SET initialized=1 WHERE conversation_id=?').run(conversation.id); },
         onText: text => { if (!control.signal.aborted) { this.db.prepare('UPDATE messages SET content=? WHERE id=?').run(text, id); this.publish(id); } },
       });
       this.db.prepare("UPDATE messages SET content=?, status='completed' WHERE id=?").run(content, id);
+      this.life.memories.record({ id: `chat:${id}`, kind: 'chat.completed', sourceId: id, summary: `完成对话：${conversation.title}`, occurredAt: new Date().toISOString() });
     } catch (error) {
       const code = timedOut ? 'MODEL_TIMEOUT' : control.signal.aborted ? 'CANCELLED' : error instanceof InputError ? error.message : error instanceof Error && ['EMPTY_MODEL_RESPONSE','MODEL_RUN_FAILED'].includes(error.message) ? error.message : 'ENGINE_REQUEST_FAILED';
       this.db.prepare('UPDATE messages SET status=?, error=? WHERE id=?').run(code === 'CANCELLED' ? 'cancelled' : 'failed', code, id);
     } finally { if (timeout) clearTimeout(timeout); this.publish(id); }
   }
   cancel(id: string) { const msg = this.message(id); this.controllers.get(id)?.abort(); return { ...msg, cancelRequested: this.controllers.has(id) }; }
-  async close() { this.closing = true; for (const controller of this.controllers.values()) controller.abort(); await Promise.all(this.queues.values()); await this.engine.close(); }
+  async close() { this.closing = true; for (const controller of this.controllers.values()) controller.abort(); await Promise.all([...this.queues.values(), this.life.close()]); await this.engine.close(); }
 }

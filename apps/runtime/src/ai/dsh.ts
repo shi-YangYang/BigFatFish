@@ -55,7 +55,7 @@ export class DSHAdapter implements AgentEngine {
     const bridgePort = (bridge.address() as { port: number }).port;
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_MODEL_API_KEY: input.key || 'local-no-key', BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。` });
+    Object.assign(env, { BFF_MODEL_API_KEY: input.key || 'local-no-key', BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
     harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, maxTokens: input.model.maxTokens, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {

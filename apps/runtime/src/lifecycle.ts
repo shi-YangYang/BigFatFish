@@ -5,6 +5,7 @@ import { acquireInstance } from './instance.js';
 import { openDatabase } from './storage/database.js';
 import { createLogger } from './logger.js';
 import { ChatService } from './ai/chat.js';
+import { registerLife } from './memory/routes.js';
 import { registerAi } from './ai/routes.js';
 import { createServer } from './server.js';
 import type { Connection } from './connection.js';
@@ -76,6 +77,7 @@ export async function startRuntime(p: DataPaths, port = 0) {
       app = createServer(p, connection, onSignal);
       chat = new ChatService(db, p);
       await registerAi(app, chat);
+      registerLife(app, chat.life);
       const address = await app.listen({ host: '127.0.0.1', port });
       if (stopping) throw new Error('START_INTERRUPTED');
       connection.port = Number(new URL(address).port);
