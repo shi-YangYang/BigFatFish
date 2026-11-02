@@ -69,3 +69,12 @@
 - 实测发现Runtime客户端2秒超时短于OneBot5秒未知结果等待，批准接口改为立即返回executing并通过持久状态查询sent/failed/unknown，避免HTTP等待超时被误作审批失败。受影响检查由实施者完成，不无故重复其他矩阵。
 - implement_p3完整报告已记Plan，新的accept_p3独立验收FAIL：两次隔离复现确认已生成群回复在发送前健康等待时撤销共享仍泄露marker；中文HTTP头token被保存后导致Runtime重启失败。已记录Acceptance/Rework，创建新的rework_p3修复，之后新的独立复验；本轮不提交未通过代码。
 - 新rework_p3完成生成快照到最终发送门、Bearer原子验证和WS初始化错误隔离，旧坏配置可启动/停用/修正；新2项+既有协议健康3项过，最后仅token停用用例复跑通过，Node构建/定向Lint/diff通过。新的accept_p3_rework独立检查源码与断言给PASS，无重复测试；确定性桩、原真实DSH/原生证据及外部/完整媒体缺口分开。准备阶段本地commit。
+- P3在dev本地提交`9923a67 feat: 实现 P3 QQ 接入与权限审批`，45文件；未来Spec006–009未夹带，未push。继续P4。
+
+## P4 B站复用开始
+
+- Spec006/Decision006明确固定whale实际CLI/认证、data-dir隔离、真正字幕/画面证据、同一DSH/记忆/活动；观看视频可经现有QQ审批分享，P5统一调度接入自主浏览，不加载上游独立大脑或计划。
+- 本地alpha.2 SDK实际类型已核实支持图像content blocks，Adapter尚仅传文本；P4须用真实DSH请求验证，不能把类型声明当能力实测。研究/tmp副本不是运行依赖，需完整许可和实际导入闭包。
+- implement_p4已取得固定commit完整源码、抽取20个实际CLI/QrAuth依赖文件，保留LICENSE/NOTICE/原manifest元数据/bff.patch；显式工作/风控目录与网络/命令/输出边界已编码。schema5视频任务、统一DSH图像理解、候选兴趣/活动和QQ审批分享已接入，CLI/Desktop及真正上游+ffmpeg+DSH验证正在进行，未提前判PASS。
+- implement_p4完整报告已读取：累计10文件24项不同定向检查、type/lint/build/最终Node构建与macOS release通过；实际CLI/原生桌面搜索/观看/字幕九帧与来源显示通过。新增SIGKILL从实际在途任务验证临时明文自动清理、重启interrupted。实际whale/ffmpeg/DSH，网络和账号为夹具；真实平台/云/Windows仍未验证。报告已入Spec006 Plan，转新独立验收，不重复已通过检查。
+- 新的accept_p4独立验收PASS：上游/许可、凭据与数据隔离、真实观看/统一DSH/记忆、任务与QQ审批、入口和文档符合Spec。针对少帧误报的具体疑点，隔离1秒/5秒真实媒体配9秒元数据，whale/ffmpeg抽帧失败无SHEET，未复现误报；没有扩大编解码矩阵，已清理实验。完整报告落盘Acceptance，准备按授权本地阶段提交，真实平台/云/Windows仍未验证。

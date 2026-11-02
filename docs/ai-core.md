@@ -37,7 +37,7 @@ npm run cli -- cancel MESSAGE_ID --json
 {"id":"local","label":"本地模型","provider":"openai","baseURL":"http://127.0.0.1:8000/v1","model":"your-model","contextWindow":32768,"maxTokens":4096,"timeoutMs":120000,"vision":false}
 ```
 
-路由输入如 `{"chat":"local","memory":"local"}`，接受 chat/reasoning/vision/memory/asr/tts 配置。目前聊天与记忆整理已使用对应路由，其他用途由后续功能接入，不能把配置字段视为已实现语音或视觉功能。会话输入如 `{"modelId":"local","title":"今天的聊天"}`；聊天输入如 `{"conversationId":"会话ID","content":"你好","requestId":"客户端唯一请求ID"}`。省略 conversationId 时新建会话；省略 requestId 时 CLI 自动生成。相同会话和请求 ID 重试不会重复生成；同 ID 携带不同内容会拒绝。人格写入需携带查询得到的完整字段与 version，旧版本更新会冲突。
+路由输入如 `{"chat":"local","memory":"local"}`，接受 chat/reasoning/vision/memory/asr/tts 配置。目前聊天、记忆整理和 B站视频理解已使用对应路由；视频图像优先使用 vision，具体范围见 [B站说明](bilibili.md)。语音用途仍由后续功能接入。会话输入如 `{"modelId":"local","title":"今天的聊天"}`；聊天输入如 `{"conversationId":"会话ID","content":"你好","requestId":"客户端唯一请求ID"}`。省略 conversationId 时新建会话；省略 requestId 时 CLI 自动生成。相同会话和请求 ID 重试不会重复生成；同 ID 携带不同内容会拒绝。人格写入需携带查询得到的完整字段与 version，旧版本更新会冲突。
 
 使用中的模型配置不能改变地址或模型名；可新增配置并开新会话。密钥可原位更新，下次执行使用新密钥。被会话或路由引用的模型不能删除。此约束避免将既有 DSH 会话默默转移到另一个模型。
 

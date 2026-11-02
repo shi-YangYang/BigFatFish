@@ -15,3 +15,4 @@
 | [003 P1 AI 鱼核心](spec-003-p1-ai-core/spec.md) | 真实DSH、模型、人格、会话与流式聊天 | [代码验收及外部缺口](spec-003-p1-ai-core/acceptance.md) |
 | [004 P2 记忆养成](spec-004-p2-memory-life/spec.md) | 有来源的长期记忆、日记、兴趣、经历、关系、心情与主页 | [返工复验PASS](spec-004-p2-memory-life/acceptance.md)，外部缺口单列 |
 | [005 P3 QQ](spec-005-p3-qq/spec.md) | OneBot私聊/群聊、主人权限、记忆可见范围、审批与插件管理基础 | [返工复验PASS](spec-005-p3-qq/acceptance.md)，外部/完整媒体缺口单列 |
+| [006 P4 B站](spec-006-p4-bilibili/spec.md) | 固定上游复用、观看/理解/记忆与经QQ审批分享 | 实施中，真实账号验证单列 |

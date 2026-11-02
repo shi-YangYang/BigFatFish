@@ -55,4 +55,4 @@ AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime
 
 ## 当前命令与验证
 
-运行命令以根 package.json 和 README 为准，模型/人格/会话及记忆/生活用法见docs/ai-core.md，QQ用法见docs/qq.md。P1经真实DSH、CLI、桌面与Linux镜像验证；P2记忆与P3 schema4/channels/内置QQ插件及审批的本机路径和返工已独立PASS。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。
+运行命令以根 package.json 和 README 为准，模型/人格/会话及记忆/生活用法见docs/ai-core.md，QQ用法见docs/qq.md，B站用法见docs/bilibili.md。P1经真实DSH、CLI、桌面与Linux镜像验证；P2记忆与P3 schema4/channels/内置QQ插件及审批的本机路径和返工已独立PASS。P4新增schema5视频任务、Runtime bilibili模块及固定whale插件依赖闭包；qrcode1.5.4由根管理，ffmpeg为明确外部依赖，统一DSH接受有界图像，本机检查与独立代码验收通过。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。

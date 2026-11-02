@@ -28,6 +28,7 @@ export async function fixtureModel() {
       if (input.includes('BFF_MEMORY_EXTRACT')) parts = [JSON.stringify({ memories: sources.filter(s=>s.quote.includes('茉莉花茶')).map(s=>({kind:'preference',subject:'主人饮品偏好',content:'主人喜欢茉莉花茶',importance:4,sources:[s]})) })];
       else parts = [JSON.stringify({content:'今天完成了对话，聊到了用户的饮品偏好。',sourceIds:sources.map(s=>s.id)})];
     }
+    if(prompt.includes('BFF_VIDEO_UNDERSTAND'))parts=[JSON.stringify({summary:'本次依据官方字幕和采样画面了解蓝色海洋中的鱼。',interests:['海洋生物']})];
     if (input?.includes('BFF_MEMORY_EXTRACT') && controls.memoryResponse !== undefined) parts = [controls.memoryResponse];
     if (input?.includes('BFF_MEMORY_EXTRACT') && controls.slowMemory) parts = Array(100).fill('慢');
     for (const content of parts) { if (res.destroyed) return; emit({ content }); await new Promise(resolve => setTimeout(resolve, 50)); }

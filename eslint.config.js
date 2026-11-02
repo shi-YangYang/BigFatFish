@@ -1,3 +1,3 @@
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
-export default ts.config({ ignores: ['dist/**', '**/dist/**', '**/target/**', '**/gen/**'] }, js.configs.recommended, ...ts.configs.recommended, { languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly', setTimeout: 'readonly' } } });
+export default ts.config({ ignores: ['plugins/bilibili/upstream/**', 'dist/**', '**/dist/**', '**/target/**', '**/gen/**'] }, js.configs.recommended, ...ts.configs.recommended, {files:['plugins/bilibili/*.mjs'],languageOptions:{globals:{AbortSignal:'readonly'}}}, { languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly', setTimeout: 'readonly', setInterval:'readonly', clearInterval:'readonly', globalThis:'readonly', Response:'readonly', TransformStream:'readonly' } } });

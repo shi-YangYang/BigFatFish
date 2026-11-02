@@ -12,6 +12,7 @@ export class DSHAdapter implements AgentEngine {
   constructor(private p: DataPaths) {}
   async close() { await Promise.all([...this.children].map(h => h.close())); }
   async run(input: EngineInput): Promise<string> {
+    if(input.images?.length && (!input.model.vision || input.images.length>2 || input.images.some(i=>i.data.length>5600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(i.data))))throw new Error('INVALID_ENGINE_IMAGES');
     const home = join(this.p.data, 'engine', input.conversationId);
     for (const path of [join(this.p.data, 'engine'), home, join(home, 'workspace')]) {
       assertRegular(path, true); mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -67,7 +68,7 @@ export class DSHAdapter implements AgentEngine {
       await harness.start();
       const session = input.resume ? await harness.resumeSession(input.sessionId) : harness.session(input.sessionId);
       if (input.signal.aborted) throw new Error('CANCELLED');
-      const result = await session.run(input.prompt, { onNotification: notification => { if (notification.method === 'session.event') input.onSessionReady(); } });
+      const result = await session.run(input.images?.length ? [{type:'text',text:input.prompt},...input.images] : input.prompt, { onNotification: notification => { if (notification.method === 'session.event') input.onSessionReady(); } });
       input.onSessionReady();
       if (childPort) { const flushed = await fetch(`http://127.0.0.1:${childPort}/flush`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) }); if (!flushed.ok) throw new Error('BRIDGE_FAILED'); }
       if (input.signal.aborted) throw new Error('CANCELLED');
