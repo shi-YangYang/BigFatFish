@@ -1,0 +1,28 @@
+import { DatabaseSync } from 'node:sqlite';
+export const SCHEMA_VERSION = 1;
+export const migrations = [
+  `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
+   CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);`,
+];
+export function migrate(db: DatabaseSync, steps = migrations) {
+  const current = Number(db.prepare('PRAGMA user_version').get()?.user_version);
+  if (current > steps.length) throw new Error('DATABASE_VERSION_TOO_NEW');
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (let index = current; index < steps.length; index++) {
+      db.exec(steps[index]!);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(index + 1, new Date().toISOString());
+      db.exec(`PRAGMA user_version = ${index + 1}`);
+    }
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); throw error; }
+}
+export function openDatabase(file: string) {
+  const db = new DatabaseSync(file);
+  try {
+    db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;');
+    migrate(db);
+    return db;
+  } catch (error) { db.close(); throw error; }
+}

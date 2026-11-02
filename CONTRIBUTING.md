@@ -1,6 +1,6 @@
 # 贡献指南
 
-开始前阅读 [AGENTS.md](../AGENTS.md)、[项目使命](../constitution/mission.md)、[技术边界](../constitution/tech-stack.md) 和当前 [Spec](../specs/README.md)。涉及界面时同时遵循 [网页内容与信息设计规范](../.ai/rules/web-design.md)。
+开始前阅读 [AGENTS.md](AGENTS.md)、[项目使命](constitution/mission.md)、[技术边界](constitution/tech-stack.md) 和当前 [Spec](specs/README.md)。涉及界面时同时遵循 [网页内容与信息设计规范](.ai/rules/web-design.md)。
 
 ## 工作方式
 
@@ -14,6 +14,10 @@
 
 ## 当前工程状态
 
-此时只有目录和文档，没有依赖安装、启动、测试、构建、Lint 或 Typecheck 命令。后续 P0 Spec 确定工具链并提供真实命令后，再按其执行；不要为占位工程增加假脚本或空测试。
+使用 Node.js 24，在根目录执行 npm ci。源码按普通模块组织，只有一个根依赖清单与锁文件；Tauri 的 Rust 工程位于 apps/desktop/src-tauri。
+
+本次工程检查命令为 npm run typecheck、npm run lint、npm test；构建为 npm run build，桌面原生构建为 npm run desktop:build。CLI、桌面和 Docker 使用方式见 README。各阶段按实际影响执行检查，不将命令存在等同已通过。
+
+全阶段开发的每个阶段必须有实现、类型/Lint、单元及必要集成、基本运行与独立验收；文档小改仍按 S0 只审阅差异。操作系统和平台账号实测结果分别记录在 IMPLEMENTATION_STATUS.md 与 docs/progress/development.md。
 
 不要提交真实 API Key、密码、Cookie、浏览器会话、个人记忆或备份。`.env.example` 和 `.env.*.example` 仅可包含安全的占位值；依赖落地后应跟踪相应 lockfile。

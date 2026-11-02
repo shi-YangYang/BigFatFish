@@ -1,6 +1,6 @@
 # Spec 管理
 
-规格目录统一为 `spec-XXX-short-name/`。先从 [_template](./_template/) 创建草稿，明确目标、非目标、关键决策及可逐项验收标准；关键不确定性解决后才能实施。
+规格目录统一为 `spec-XXX-short-name/`。先从 [_template](_template) 创建草稿，明确目标、非目标、关键决策及可逐项验收标准；关键不确定性解决后才能实施。
 
 - `spec.md`：定义实现什么及完成标准。
 - `plan.md`：记录模块、顺序、接口、验证范围和风险，不扩张 Spec。
@@ -10,4 +10,5 @@
 
 | Spec | 范围 | 结果入口 |
 | --- | --- | --- |
-| [001 仓库初始化](./spec-001-repository-initialization/spec.md) | 目录、Git、忽略规则和基础文档；不代表完整 P0 | [验收](./spec-001-repository-initialization/acceptance.md) |
+| [001 仓库初始化](spec-001-repository-initialization/spec.md) | 目录、Git、忽略规则和基础文档；不代表完整 P0 | [验收](spec-001-repository-initialization/acceptance.md) |
+| [002 P0 工程基础](spec-002-p0-foundation/spec.md) | Runtime/CLI/SQLite/API、桌面壳、CI及实际运行 | 实施报告与独立验收持续更新 |

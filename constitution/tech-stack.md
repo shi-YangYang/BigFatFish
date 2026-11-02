@@ -2,9 +2,9 @@
 
 ## 已确定的产品方向
 
-依据 [产品基线](../docs/product-design.md)：主 Runtime 为 Node.js + TypeScript，核心服务名 `bigfatfishd`；桌面采用 Tauri 2 + Rust、React + TypeScript；CLI 使用 TypeScript。SQLite 保存结构化数据，Markdown/JSON 保存可读记忆。Python 仅作为独立辅助服务；Playwright 用于浏览器自动化；Linux 部署目标为 Docker 与 systemd。
+依据 [产品基线](../BigFatFish_产品设计目标.md)：主 Runtime 为 Node.js + TypeScript，核心服务名 `bigfatfishd`；桌面采用 Tauri 2 + Rust、React + TypeScript；CLI 使用 TypeScript。SQLite 保存结构化数据，Markdown/JSON 保存可读记忆。Python 仅作为独立辅助服务；Playwright 用于浏览器自动化；Linux 部署目标为 Docker 与 systemd。
 
-DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。上述均是架构目标，目前没有可执行代码或已安装依赖。
+DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。产品方向已确认；当前开始 P0，具体实现与验证状态以根 IMPLEMENTATION_STATUS.md 为准。
 
 ## 目录与职责
 
@@ -16,10 +16,10 @@ DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。上述均�
 | `apps/desktop/src-tauri/src/` | Rust 桌面外壳与本机进程连接；窗口关闭与停止 Runtime 分离 |
 | `plugins/` | 随项目维护的平台与能力插件源码，不是用户安装插件的数据目录 |
 | `services/` | 按需接入的 Python 等独立辅助服务 |
-| `infra/docker/`、`infra/systemd/` | 后续部署文件位置，目前仅占位 |
-| `scripts/` | 后续工程与维护脚本，目前仅占位 |
-| `tests/integration/`、`tests/e2e/` | 跨模块和端到端测试；局部单元测试随模块放置，框架待定 |
-| `docs/` | 产品原始基线及面向开发者的详细文档，包括 CONTRIBUTING、CODE_OF_CONDUCT、SECURITY、CHANGELOG；根目录仅保留 README.md 和 Agent 入口 AGENTS.md |
+| `infra/docker/`、`infra/systemd/` | Docker 已有基础运行镜像；systemd 在 P6 实施 |
+| `scripts/` | Runtime 构建资源复制与真实 CLI smoke |
+| `tests/integration/`、`tests/e2e/` | Vitest 跨模块集成与后续端到端测试；局部单元测试随模块放置 |
+| `docs/` | 上游研究、开发者详细文档和 docs/progress 连续记录；最新全阶段任务指定的产品原稿及 ROADMAP/CHANGELOG/ARCHITECTURE/CONTRIBUTING/SECURITY/IMPLEMENTATION_STATUS 位于根目录 |
 | `constitution/`、`specs/`、`.ai/` | 项目约束、规格与 Agent 协作治理，遵守根 AGENTS.md |
 
 这些目录是按产品边界建立的源码位置；后续可在内部扩展，不能未经用户授权迁移。仅使用 `.gitkeep` 保存空目录，不把空目录声称为已工作的应用、插件或服务。Web Console 属于 P7，当前不提前建立应用。
@@ -28,7 +28,7 @@ DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。上述均�
 
 - `apps/` 按 Runtime、CLI、Desktop 划分入口源码。用户明确选择普通源码模块封装，不建立独立公共包或多包 workspace；不为复用增加独立 package.json、版本管理和发布流程。
 - 桌面前端与 `src-tauri/` 的位置遵循 [Tauri 2 官方目录说明](https://v2.tauri.app/start/project-structure/)。
-- 包管理器和版本尚未确定，未建立依赖清单或生成 lockfile；具体构建入口随 P0 工具链落地。
+- P0 采用 Node 24、npm 单根依赖清单与 package-lock，Fastify、node:sqlite，React/Vite/Tauri2，Vitest/ESLint。依赖实际版本在 registry 核实后锁定，详见 Decision 002。
 
 ## 模块封装与复用
 
@@ -42,18 +42,17 @@ AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime
 
 入口不得直接访问 SQLite 或控制平台插件。平台 Adapter 转换统一消息；所有平台共享人格、记忆和调度。插件按权限获得能力，不把同进程加载称为安全沙箱。远程管理默认不开放公网，后续必须认证授权并使用 HTTPS/WSS。
 
-安装目录与用户数据目录分离。正式系统数据路径、配置 Schema、迁移方案须在 P0 Spec 明确；本仓库仅预留被忽略的 `.local/bigfatfish/` 作为未来本地开发数据约定，不生成真实配置、数据库、凭据或浏览器会话。
+安装目录与用户数据目录分离。P0 已实现系统数据路径、可覆盖 data-dir、SQLite 版本迁移，以及 config/data/runtime/logs 分区，见 README。开发时可使用被忽略的 `.local/bigfatfish/`；测试使用独立临时目录并清理，不写入用户实际数据。
 
-## 待 P0 决定
+## P0 实施约定与后续边界
 
-- Node.js、包管理器及版本，Rust 工具链、React 构建工具与版本锁定。
-- API 框架（产品建议 Fastify 或同类）、本地 HTTP/IPC 取舍、客户端契约。
-- SQLite 驱动、迁移工具、跨平台数据目录与密钥存储方案。
-- 测试、Lint、Format 工具和 CI 构建矩阵。
-- DSH Harness 与现有 B站项目的准确仓库；所有集成的来源、版本、接口、许可证、更新方式。
-
-这些问题不阻塞本次目录初始化，但在对应实现开始前必须澄清，不能视作已确认。
+- 默认 loopback 管理 API，随机 bearer token 保存在本机权限受限文件；不开放未受保护的远程接口。
+- 使用 Node 24 内置 node:sqlite（本机已实际创建内存数据库并查询版本），迁移版本与失败处理必须测试。
+- CLI/Runtime 共用普通连接、路径等源码模块；Tauri 以原生宿主连接 Runtime，UI 不直接访问数据库。
+- 类型/Lint/单元/集成/运行验证为用户明确要求；本阶段涉及 schema、认证和构建，按 S3 检查。
+- DSH 通过官方 @deepseek-ai/dsh-sdk-client 与同版 @deepseek-ai/dsh 接入；P1 固定实际发布的 0.2.2-alpha.2，受控 profile 与桥接插件封装在 Adapter 内。细节见 docs/upstreams.md，master 接口不能替代发布包证据。
+- B站主要上游已由用户确认 Alterssss/dsh-bili-whale，另参考 pond/life；所有准确仓库及接口边界见 docs/upstreams.md。QQ、抖音真实账号验证单列，不能假装已经连接。
 
 ## 当前命令与验证
 
-尚无 package.json、Cargo.toml、依赖清单、lockfile 或 CI。Install / Dev / Build / Test / Lint / Typecheck / Format 命令均未定义；README 不提供假启动命令。此轮为 S0 文档及占位结构变更，仅审查新增内容和 Git 状态，不运行测试或构建。
+P0 正在实施，运行命令以根 package.json 和 README 为准。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。

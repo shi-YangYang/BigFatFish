@@ -1,0 +1,47 @@
+{
+  "name": "bigfatfish",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "bin": {
+    "bigfatfish": "dist/cli/src/main.js",
+    "bigfatfishd": "dist/runtime/src/main.js"
+  },
+  "scripts": {
+    "build": "npm run build:node && npm run build:desktop",
+    "build:node": "tsc -p tsconfig.node.json && node scripts/copy-runtime-assets.mjs",
+    "build:desktop": "vite build --config apps/desktop/vite.config.ts",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "npm run build:node && vitest run",
+    "cli": "node dist/cli/src/main.js",
+    "runtime": "node dist/runtime/src/main.js",
+    "desktop:dev": "cd apps/desktop && tauri dev",
+    "desktop:build": "cd apps/desktop && tauri build --no-bundle",
+    "frontend:dev": "vite --config apps/desktop/vite.config.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.10.1",
+    "fastify": "5.12.7",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "10.14.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
+  }
+}

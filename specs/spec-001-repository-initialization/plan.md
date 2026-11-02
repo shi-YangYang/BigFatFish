@@ -44,7 +44,7 @@ S0：仅文档、占位文件和不影响运行逻辑的小配置。检查新增
 
 - Risk Level: S0。
 - Checks Performed: 实施者审阅新增补丁及范围；协调者阅读根文档与配置，核对产品当前状态的表述。
-- Result: 实施完成，未发现范围偏离；新的独立验收 Agent 已返回 [PASS](./acceptance.md)。
+- Result: 实施完成，未发现范围偏离；新的独立验收 Agent 已返回 [PASS](acceptance.md)。
 - 未运行测试、Build、Lint、Typecheck 或验证脚本，未安装依赖。
 
 ### Known Limitations

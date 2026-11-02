@@ -1,0 +1,90 @@
+# 上游来源与适配依据
+
+核查日期：2026-11-02。用户已提供下列准确仓库；只读源码/发布包核查不等于真实账号、模型或平台运行验收。所有接入仍由 BigFatFish Runtime 统一人格、记忆、调度、权限和审计，不能启动另一套自治大脑。
+
+## DSH Harness
+
+- 官方仓库：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)，已核源码 commit `ce7073d51254c26cd63b22a60835b8f948deb447`，MIT，源码根要求 Node >=24.9。
+- 实际 TypeScript SDK 为 `@deepseek-ai/dsh-sdk-client`，并非 dsh-sdk；已直接读取 npm `0.2.1-rc.5` 与 `0.2.2-alpha.2` 发布包。SDK 管理同版 Node CLI 子进程和 stdio JSON-RPC。
+- 当前 master 文档超前已发布包。P1 拟固定 `0.2.2-alpha.2` 并通过集成测试验证，记录预发布依赖风险；不能按 master 示例编造接口。
+- 真实生命周期为 DeepSeekHarness.start/session/resumeSession/run/close。恢复持久会话使用 resumeSession；session(id) 仅产生句柄。
+- 两版 RunResult 都只有 sessionId/finalResponse/events/notifications，无 finishReason；结束原因从根会话 turn/end 的 data.reason.kind 获取。
+- alpha.2 有 approvalRequests/client.onRequest、onUserQuestion；rc.5 没有。审批 outcome 支持 allowed-once/rejected/cancelled；alpha.2 用户问题只支持 answers 数组，不支持 master 的 cancelled:true。
+- 两版均无 session cancel RPC、run AbortSignal 或 session/query。Bridge 必须按发布包实际接口实现。
+
+### 流式与取消
+
+官方 Agent 插件接口有 `agent/assistant-stream`，payload 为 agent+frame，按 agent.session.id 关联；帧包括 start/chunk/end 与 attempt/revision，text-delta 来自真实流。SDK标准通知本身不转发 token delta，不能切片完整响应冒充流。
+
+通过项目自己的 Cordis bridge 转发流帧到受认证回环通道，不污染 SDK stdout。单会话中断使用 agents.get(sessionId).cancel({kind:'user'}) 并等待 whenIdle；未知会话拒绝，无法静止时关闭其引擎子进程。普通 llm/stream 还可能包含压缩辅助调用，不能直接当用户回复。
+
+### 工具与数据边界
+
+sdk-minimal 默认包含持久 shell、文件和工作目录工具，sandbox-policy 为 danger-full-access，并启用 session-log-deepseek。受控 profile 必须显式关闭 persistent-bash、persistent-pwsh、tool-fs、tool-working-directory、session-log-deepseek、plugin-package-inventory-deepseek；sandbox-policy 设 read-only，不能将此描述成 OS 沙箱。
+
+Bridge 只注册 BigFatFish 允许的工具；tools.guard 单调拒绝未知名字，执行入口再次检查权限、审批及会话范围。sdk-minimal 不含 approval 服务，仅设置 approvalRequests 不会自动保护所有工具。禁止静默上传会话日志。
+
+### 模型路由
+
+alpha.2 的 deepseek-official 使用 Messages 协议，默认 `https://api.deepseek.com/anthropic`，不可当作任意 OpenAI Chat Completions 端点。OpenAI兼容路由使用官方 dsh-llm-pi-ai 的 providers 配置，api 为 openai-completions，显式 baseURL/apiKeyEnv/models，SDK选择该 provider/model。SDK构造器没有直接 apiKey/baseURL 参数。密钥只通过受控子进程环境传递，不写明文profile或日志。
+
+SDK发布JS的resolveDshLaunch已复核：显式传env对象会完整替换父环境，再叠加SDK需要的启动环境和DSH_HOME；不传才继承process.env。因此应提供明确环境白名单、dshHome和processCwd，而不是把整个父环境复制过去。DSH_HOME是其专用状态目录，不能改写HOME来隔离其他上游。
+
+pi-ai对未声明模型的默认上下文/输出容量很大（1,000,000/128,000），属于猜测默认值，不能作为所选端点的真实能力；BigFatFish须显式设置可配置预算。SDK manifest还声明同版llm/sdk-protocol/session和Cordis peer依赖，安装时需锁定并核实兼容。
+
+证据：[npm SDK alpha.2](https://registry.npmjs.org/@deepseek-ai/dsh-sdk-client/0.2.2-alpha.2)、[协议发布包](https://registry.npmjs.org/@deepseek-ai/dsh-sdk-protocol/0.2.2-alpha.2)、[官方 profile](https://github.com/deepseek-ai/deepseek-harness/blob/ce7073d51254c26cd63b22a60835b8f948deb447/packages/bundle/sdk-minimal/cordis.patch.yml)。研究临时副本位于 /tmp/bff-dsh-alpha、/tmp/bff-dsh-npm；最终实现必须依赖锁定版本，不能依赖这些临时路径。
+
+## B站
+
+| 来源 | 核对版本/commit | 接口与边界 |
+| --- | --- | --- |
+| [Alterssss/dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale)（用户指定主要项目） | 0.4.6，`8b0009f8ce2ebdc421afcb2e727b19ac18912ec6`，MIT | 实际为 node tools/bili.mjs CLI，未提供现成 MCP/独立 SDK。凭据固定于 ~/.bili-ai/credentials.json，不能假称支持 BFF 数据目录 |
+| [YOYOLnFu/dsh-bili-pond](https://github.com/YOYOLnFu/dsh-bili-pond) | 1.3.14，`57765435e33a8697c7f3b3b9f317c6146cd05faa`，MIT，Node>=22 | Python MCP stdio，搜索/字幕/视频/评论等工具；自带记忆日记不替代 BFF Memory |
+| [minedalang/dsh-dafeiyu-life](https://github.com/minedalang/dsh-dafeiyu-life) | 2.6.0，`1c61f2a34a2d7bfffab863d71db435be35431a08`，MIT，Node>=22 | Python MCP，另有预览/观看记录/转写；自带调度和人格不得成为第二套核心 |
+
+whale 依赖 qrcode 1.5.4，抽帧需 ffmpeg。可直接包装的只读 CLI 包括 search、comments --json、subtitles --out、video、watch-video、debrief --no-frames；只有部分提供结构化输出。无字幕可 exit 0，debrief 可部分失败，适配器必须检查实际产物/完整性而非只看退出码。缓存结果带 _cached/_stale 时保留时效，不记成刚完成的真实观看。
+
+其 QrAuth.start/poll/cancel 和 verifyAccount 可复用，但插件 HTTP 路由依赖 DSH 宿主；不是独立认证服务。读取凭据路径还散布于工具脚本，必须在实际适配时提供显式数据目录兼容改动，不能悄悄读取用户 ~/.bili-ai。不会通过改写 HOME 绕过路径隔离。上游完整插件默认有分享/私信和自主调度，不直接装载；--go 或上游额度规则不能替代 BigFatFish 审批。
+
+pond/life 的 NOTICE 指向共同上游 c1overzz/dsh-bili-scroll。其 MCP 客户端采用 initialize → notifications/initialized → tools/call，不能假设存在 HTTP 服务。Python依赖包括 bilibili-api-python >=17.4.1,<18、aiohttp、mcp 1.x、qrcode。具体工具与用户主项目适配继续在 P4 固定源码核查后实现；登录/验证码需用户操作。
+
+## 抖音
+
+| 来源 | 核对版本/commit | 实际复用面 |
+| --- | --- | --- |
+| [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent) | `7989640e340f0fd79e2de9874880d5197546e755`；dsh-douyin-browser-local 1.4.6，MIT | DSH工具及 node app.mjs 本机HTTP服务；BrowserController.execute，Windows有窗口Edge；manifest os=win32，不可当跨平台服务 |
+| [kdcadmin/dsh_douyin_tools](https://github.com/kdcadmin/dsh_douyin_tools) | `aaf9f9a862afafd45a15acf32789da97688de695`；manifest 0.2.9，MIT | vendor/douyin-mcp/mcp_server.py 的 FastMCP stdio。npm dsh-douyin-life@0.2.9 返回404，须固定源码安装/调用 |
+
+kdcadmin 的 manifest repository 仍指向旧名称，来源记录必须使用实际核查 URL+commit。Python依赖 mcp>=1.9,<2、Playwright>=1.45、numpy、faster-whisper、httpx、Pillow；浏览器路径有 Windows 假设，需要单独适配并验证 Linux/macOS。
+
+读取工具包括 douyin_check_credential/feed/search/video/comments/watch/inbox。DOUYIN_MCP_TOOLS 必须显式白名单，空值会暴露上游 memory_*，不符合统一记忆边界。写工具需要 DOUYIN_ALLOW_WRITES=1，但该变量不是用户审批：BigFatFish 仍须在每次写操作验证批准、参数、额度和任务身份。
+
+DOUYIN_PROXY_URL/TOKEN 提供可鉴权的宿主回环代理；LockyBee 的 bootstrap 返回会话token，其他API校验 x-session-token/Host/Origin。两路必须由统一浏览器队列协调，不能争抢用户会话。登录和验证码由用户完成，不绕过风控。上游 --selftest 会真实打开浏览器搜索，不当成离线测试执行。
+
+## QQ 与 NapCat
+
+- [NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ)：发布 v4.18.42 指向 commit `9335843246e3b7a17944861f3ac8731a259732c2`；本轮接口源码检查 `98d781d19815d1625b24d717ce280ecf0a4f6d0c`。
+- NapCat LICENSE 为自定义 Limited Redistribution License，含非商业及修改发布限制。BigFatFish 通过 OneBot11对接用户独立安装的服务，不默认复制或捆绑其代码/二进制。
+- [NapNeko/NapCatQQ-Desktop](https://github.com/NapNeko/NapCatQQ-Desktop)：3.5.17，`08cb0fb5e669624a9fd6265a869803da7ea6b746`，GPL-3.0；Windows/Linux x64。Tauri2/React18；可独立使用管理QQ，默认关闭的Streamable HTTP MCP有限媒体支持，不能代替完整消息通道。
+- [FablerTan/dsh-qq-relay](https://github.com/FablerTan/dsh-qq-relay)：0.25.6，`26c00fa5aa4c1faa53aead87e15e0d67a6d90d37`，package标MIT但研究树缺LICENSE/GitHub license=null；代码复制前需要许可证来源。createOneBotClient/API可以研究协议，实际业务只处理群消息等，不能当作已完成私聊实现。
+- [leliln52/dsh-qqbot](https://github.com/leliln52/dsh-qqbot)：0.2.0，`2a4b8c19762ad3b9cdc13e2074a9b86445bd60fb`，MIT，Node>=22.19。心跳调用 get_version，与所查NapCat get_version_info 不同；图片语音有占位转换，不能未经适配宣称完整多模态。
+
+OneBot11请求使用 action/params/echo，响应必须检查 status/retcode，HTTP200或async结果不能等同实际发送成功。私聊send_private_msg传user_id，群聊send_group_msg传group_id，统一字符串ID与消息段数组。主人身份由配置平台ID确认，不依赖昵称。
+
+正向WebSocket由BFF连接NapCat，Bearer token认证；反向WebSocket由NapCat连接BFF，必须验证token与X-Self-ID。HTTP事件校验原始body的X-Signature HMAC-SHA1。登录状态需get_login_info核账号和get_status.online；当前good字段固定true，连接/心跳不等于登录。断线重连、事件去重及发送结果不明状态必须由BFF处理，超时不盲目重发。
+
+证据：[OneBot11标准](https://github.com/botuniverse/onebot-11/tree/d4456ee706f9ada9c2dfde56a2bcfc69752600e4)、[NapCat配置源码](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/packages/napcat-onebot/config/config.ts)、[NapCat许可证](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/LICENSE)。账号专用小号扫码、设备验证和实际消息收发尚未进行。
+
+## 桌面伴侣参考
+
+用户指定 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)、[youxin484/dsh-dafeiyu-enhanced](https://github.com/youxin484/dsh-dafeiyu-enhanced)、[DawnVerge/dsh-whale](https://github.com/DawnVerge/dsh-whale)。BigFatFish 仍采用产品指定 Tauri 2，不因参考项目使用其他外壳而更换技术栈。
+
+DawnVerge 固定 `140a7b9379fe6ca4c6e7d98998853aa930d656f3`，0.3.0，代码MIT、Node>=22、Electron独立桌面；DSH插件注入webServer，使用本机宿主API。THIRD_PARTY_NOTICES区分sprites上游和新增立绘来源，部分立绘没有独立授权说明；不把整套图片直接当作MIT素材复制。也不复用读取其他应用模型凭据的路径。
+
+QCYTSN 固定 `084323845ab82b68d5388d5c638bec09d8544a8a`，0.1.23；enhanced 固定 `e4006c754b40570ddaa8bb5d2d1ed16cdd2e8af2`，0.1.18。两者 Node>=22.19、Python PySide6>=6.7,<7，并有Swift原生macOS实现；实际导出 protocol/reducer，DSH插件驱动桌宠状态。源码MIT，但 manifest明确指向ASSET_LICENSE：当前pet帧沿用dsh-pet的MIT素材，legacy大肥鱼帧受限制，光标来自Chromium BSD3。enhanced修改了输入框和界面交互，其manifest仍指向原项目，因此须按本次准确commit记录来源。
+
+证据：[QCYTSN素材声明](https://github.com/QCYTSN/dsh-dafeiyu/blob/084323845ab82b68d5388d5c638bec09d8544a8a/ASSET_LICENSE.md)、[enhanced包清单](https://github.com/youxin484/dsh-dafeiyu-enhanced/blob/e4006c754b40570ddaa8bb5d2d1ed16cdd2e8af2/package.json)、[DawnVerge第三方通知](https://github.com/DawnVerge/dsh-whale/blob/140a7b9379fe6ca4c6e7d98998853aa930d656f3/THIRD_PARTY_NOTICES.md)。目前未从上述项目复制素材、代码或二进制到BigFatFish。
+
+## 集成记录要求
+
+后续每个实际复用组件记录：固定来源和commit、原许可证/NOTICE、采用文件或调用入口、必要修改和补丁、依赖安装方式、数据/凭据位置、更新方式和实际验证。编写Adapter与复制源码分别审查；所有未运行项目明确标未运行。
