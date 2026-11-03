@@ -1,3 +1,4 @@
+import { Card, Disclosure, Alert } from "./Surfaces";
 import {
   Field,
   Input,
@@ -102,9 +103,8 @@ export function Channels({ fail }: { fail: (e: unknown) => void }) {
       <h2>QQ</h2>
       <p>
         {labels[status?.health.state ?? "stopped"]}
-        {status?.health.error &&
-          ` · ${healthErrors[status.health.error] ?? status.health.error}`}
       </p>
+      {status?.health.error && <Alert>{healthErrors[status.health.error] ?? status.health.error}</Alert>}
       <p>
         先独立运行 NapCat，使用专用 QQ 小号扫码登录，开启正向
         WebSocket。非官方接入可能受平台限制。
@@ -172,28 +172,28 @@ export function Channels({ fail }: { fail: (e: unknown) => void }) {
           </Field>
           <Field className="check">
             <Checkbox
-              type="checkbox"
+
               checked={form.enabled}
-              onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+              onCheckedChange={(value) => setForm({ ...form, enabled: value })}
             />
             启用连接
           </Field>
           <Field className="check">
             <Checkbox
-              type="checkbox"
+
               checked={form.replyEnabled}
-              onChange={(e) =>
-                setForm({ ...form, replyEnabled: e.target.checked })
+              onCheckedChange={(value) =>
+                setForm({ ...form, replyEnabled: value })
               }
             />
             允许自动回复主人私聊及已授权群
           </Field>
           <Field className="check">
             <Checkbox
-              type="checkbox"
+
               checked={form.proactiveEnabled}
-              onChange={(e) =>
-                setForm({ ...form, proactiveEnabled: e.target.checked })
+              onCheckedChange={(value) =>
+                setForm({ ...form, proactiveEnabled: value })
               }
             />
             允许创建主动消息审批
@@ -215,10 +215,10 @@ export function Channels({ fail }: { fail: (e: unknown) => void }) {
       </p>
       <h3>最近消息</h3>
       {deliveries.map((d) => (
-        <p key={d.id}>
-          {d.id} · {labels[d.status] ?? d.status}
-          {d.error ? ` · ${d.error}` : ""}
-        </p>
+        <div key={d.id}>
+          <p>{d.id} · {labels[d.status] ?? d.status}</p>
+          {d.error && <Alert>{d.error}</Alert>}
+        </div>
       ))}
     </section>
   );
@@ -310,7 +310,7 @@ export function Permissions({
           <fieldset disabled={busy}>
             <Field>
               对象
-              <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+              <Select value={kind} onValueChange={(value) => setKind(value)}>
                 <option value="private">主人私聊</option>
                 <option value="group">已授权群</option>
               </Select>
@@ -352,7 +352,7 @@ export function Permissions({
       )}
       {!items.length && <p className="muted">暂无审批记录</p>}
       {items.map((item) => (
-        <article key={item.id}>
+        <Card key={item.id}>
           <h3>
             {item.payload.target.kind === "group" ? "群" : "私聊"}{" "}
             {item.payload.target.id}
@@ -418,16 +418,16 @@ export function Permissions({
               </Button>
             </ActionRow>
           )}
-        </article>
+        </Card>
       ))}
-      <details>
-        <summary>操作记录</summary>
+      <Disclosure  title={<>操作记录</>}>
+
         {audit.map((a, i) => (
           <p key={i}>
             {a.at} · {a.event}
           </p>
         ))}
-      </details>
+      </Disclosure>
     </section>
   );
 }

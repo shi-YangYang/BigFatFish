@@ -1,13 +1,81 @@
-beUI Button
+beUI shared interface components
 Source: https://github.com/starc007/ui-components
 Revision: 6f153a06d2225ba07a0137f317ce19faf8da69ef
-Upstream files: components/motion/button/base.tsx, lib/ease.ts, lib/utils.ts
 License: MIT, Copyright (c) 2026 Saurabh Chauhan (see LICENSE).
 
+Upstream source files (flattened into this directory; tooltip helpers retain their folder):
+- components/motion/button/base.tsx
+- lib/ease.ts
+- lib/utils.ts
+- components/agents/message-bubble.tsx
+- components/agents/message-context.tsx
+- components/agents/message.tsx
+- components/agents/prompt-input.tsx
+- components/motion/alert.tsx
+- components/motion/animated-badge.tsx
+- components/motion/bounce-sidebar.tsx
+- components/motion/card.tsx
+- components/motion/checkbox.tsx
+- components/motion/collapsible.tsx
+- components/motion/drawer.tsx
+- components/motion/input.tsx
+- components/motion/loader.tsx
+- components/motion/popover-morph.tsx
+- components/motion/popover-position.ts
+- components/motion/popover.tsx
+- components/motion/select.tsx
+- components/motion/tabs.tsx
+- components/motion/tooltip-surface.tsx
+- components/motion/tooltip.tsx
+- lib/focusable.ts
+- lib/hooks/use-dismiss.ts
+- lib/hooks/use-focus-trap.ts
+- lib/hooks/use-hover-gesture.ts
+- lib/hooks/use-listbox.ts
+- lib/hooks/use-on-open.ts
+- lib/hooks/use-row-cursor.ts
+- lib/hooks/use-tap-gesture.ts
+- lib/presence-gate.tsx
+- lib/touch.ts
+- components/motion/tooltip/grace.ts
+- components/motion/tooltip/positioner.tsx
+- components/motion/tooltip/use-position.ts
+
 Local adaptations:
-- Relative imports and a data-beui marker for integration checks.
-- Explicit pixel size/radius tokens: app root font size is 14px, not 16px.
-- Default press scale 0.98 and no hover geometry scaling, preserving alignment.
-- Explicit border/appearance defaults because Tailwind Preflight is intentionally omitted.
-- Controls.tsx maps existing variants/sizes; source remains the actual rendered Motion Button.
+- Relative imports and local dependency closure. Button retains its data-beui marker,
+  explicit 40px/32px/icon sizes, 8px radius, 0.98 press scale, and no hover scaling.
+- Input onChange additionally passes the actual React ChangeEvent; native input
+  types, refs, required/min/max and browser validation remain available.
+- Select accepts a stable external id and native Motion button trigger attributes,
+  uses combobox semantics and 8px corners, consumes Escape before its parent Drawer,
+  and portals options outside clipping containers into the current dialog scope
+  (or body). Anchor measurement follows scrolling/resizing; hidden lists stay inert.
+- Checkbox label accepts ReactNode and always names the control from the label
+  text rather than including its decorative SVG title; the product Field adapter avoids nested labels.
+- Chinese tab/panel ids use encodeURIComponent so different labels cannot collide.
+  TabsList scrolling accessible labels are localized for the Chinese interface.
+- Drawer close label is localized. Focus-trap candidates exclude hidden/inert
+  descendants. Popover dismissal consumes Escape and portals into its dialog scope.
+- PromptInput adds a product-owned footer and independent submitDisabled control;
+  Enter defaults to newline, IME input is left intact, submitted text is not trimmed,
+  and controlled draft clearing remains the Chat owner's responsibility. Busy or
+  disconnected submission does not disable editing; locked/no-model input does.
+- Message entry point omits unused MessageScroller re-exports. App composition uses
+  Message/MessageAvatar/MessageContent/MessageBubble, with soft user and ghost
+  assistant bubbles; it owns all conversation and request state.
+- BounceSidebar permits no active item while a separate settings item is selected.
+- Upstream empty TypeScript interfaces use equivalent type aliases for local lint;
+  TooltipSurface exposes its side as a data attribute instead of an unused binding.
+- Controls, UI and Surfaces adapters supply the application's sizing, labels and
+  composition. Tailwind utilities and semantic tokens share the existing 14px root
+  and DS blue palette, without importing full Preflight.
+
+Native boundaries: generic JSON/persona/long-text textareas (beUI has no matching
+standalone Textarea); hidden native file inputs behind beUI Buttons; native audio;
+brand images and semantic content/list/layout containers. Select's hidden validation
+input retains the browser form validity contract. No Runtime/API/permission state
+is delegated to the component library.
+
+Dependencies added for this source closure: lucide-react 1.67.0 and
+@floating-ui/dom 1.8.0. Existing Motion/Tailwind/clsx/tailwind-merge versions retained.
 The full MIT license is emitted as beui-LICENSE.txt by both Vite builds.

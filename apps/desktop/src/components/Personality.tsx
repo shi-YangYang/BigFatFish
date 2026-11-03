@@ -1,3 +1,4 @@
+import { Disclosure , Loading} from "./Surfaces";
 import { Field, Textarea, Button, FormGrid, ActionRow } from "./Controls";
 import { useEffect, useState } from "react";
 import type { Persona } from "../../../runtime/src/ai/types";
@@ -9,7 +10,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
   useEffect(() => {
     void api<Persona>("/v1/persona").then(setPersona).catch(fail);
   }, [fail]);
-  if (!persona) return <p>正在加载人格…</p>;
+  if (!persona) return <Loading>正在加载人格…</Loading>;
   const labels = {
     name: "名字",
     avatar: "头像地址",
@@ -73,15 +74,15 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
         查看版本记录
       </Button>
       {history.map((item) => (
-        <details key={item.version}>
-          <summary>
+        <Disclosure key={item.version} title={<>
             版本 {item.version} · {item.name}
-          </summary>
+          </>}>
+
           <p>
             {item.role} · {item.traits} · {item.style}
           </p>
           <p>边界：{item.boundaries}</p>
-        </details>
+        </Disclosure>
       ))}
     </section>
   );

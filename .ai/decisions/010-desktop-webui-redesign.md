@@ -153,3 +153,10 @@ Spec011 已落地并独立复验 PASS：共享原生控件覆盖 Desktop/Web，�
 用户认可当前布局，但指出新对话和待审批按钮尺寸仍不一致，明确要求换成beUI。这项指令取代Spec011手封Button方案；本轮实际引入官方源码Button与Tailwind4/Motion依赖，统一全部按钮入口与顶栏尺寸，保留当前布局。beUI为源码分发，保留固定上游和MIT；不安装同名未知库、不声称仅CSS修补就是接入。原生输入/选择等事件协议本轮保持，避免与按钮问题无关的业务表单迁移。
 
 Spec013已实现并独立PASS。采用基础Motion Button及薄兼容入口，移除旧基础按钮CSS，按实际14px根字号设置px尺寸；顶部40px/8px圆角、桌面文字100px最小宽度，保留reduced-motion。Tailwind不启用Preflight，语义token映射到DS蓝；许可证随双前端打包。版本和接入边界见tech-stack与Spec013，依赖仅增前端dev项。
+
+## 所有适用组件迁移（Spec014）
+用户追加“能用beui的全部替换”，明确将范围扩大到按钮之外。迁移现有表单、页签/抽屉/菜单/折叠、状态/卡片/加载及聊天展示/输入到合适的官方组件，保留布局和业务契约。无独立通用Textarea、隐藏file picker/audio/品牌图/纯布局等保留必要原生元素并统一主题；不机械接入无关业务块。具体覆盖/边界见Spec014，新的范围取代Spec013仅按钮限制。
+
+沿用同一固定上游revision，按实际源码闭包新增lucide-react1.67.0与@floating-ui/dom1.8.0，仅用于前端构建。通过普通源码组件组合实现复用，不新增package或workspace。必要适配放在组件责任层：Input传递真实事件，Select/Checkbox使用值回调，中文Tab保留唯一关联，PromptInput保持Enter换行与原草稿所有权，浮层遵守焦点/关闭顺序。删除已被替代的基础样式，保留DS蓝和现有布局；不改变Runtime/API/数据。
+
+Spec014已完成并获新独立验收PASS；相关前端类型/lint/双构建/原聊天回归和新增控件契约通过，380×500输入/发送可见。最新五张项目截图及Mac本地包已同步，实际证据与剩余验证边界见Spec014 Plan/Acceptance。

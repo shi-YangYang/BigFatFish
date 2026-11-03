@@ -1,3 +1,4 @@
+import { Card, Disclosure } from "./Surfaces";
 import { Field, Input, Button, Textarea, ActionRow } from "./Controls";
 import { useEffect, useState } from "react";
 import { api } from "../api";
@@ -59,7 +60,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
         />
       </Field>
       {manifest && (
-        <article>
+        <Card>
           <h3>
             {manifest.name} {manifest.version}
           </h3>
@@ -85,10 +86,10 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
           >
             安装或更新
           </Button>
-        </article>
+        </Card>
       )}
       {items.map((item) => (
-        <article key={item.id}>
+        <Card key={item.id}>
           <h3>
             {item.manifest.name} {item.manifest.version}
           </h3>
@@ -105,8 +106,8 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
             {item.manifest.source} · {item.manifest.license}
           </p>
           <p>权限：{item.manifest.permissions.join("、")}</p>
-          <details>
-            <summary>高级配置</summary>
+          <Disclosure  title={<>高级配置</>}>
+
             <Field>
               配置（不接受密钥等敏感信息）
               <Textarea
@@ -116,7 +117,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
                 }
               />
             </Field>
-          </details>
+          </Disclosure>
           <ActionRow>
             <Button
               type="button"
@@ -149,8 +150,8 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
             </Button>
           </ActionRow>
           {item.enabled && item.manifest.tools.length > 0 && (
-            <details>
-              <summary>工具调试</summary>
+            <Disclosure  title={<>工具调试</>}>
+
               <Field>
                 工具参数
                 <Input value={args} onChange={(e) => setArgs(e.target.value)} />
@@ -176,9 +177,9 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
                   </Button>
                 ))}
               </ActionRow>
-            </details>
+            </Disclosure>
           )}
-        </article>
+        </Card>
       ))}
       {result && <output>{result}</output>}
     </section>

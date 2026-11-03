@@ -1,5 +1,13 @@
 # Task Handoff
 
+## 当前任务：Spec014全界面beUI迁移
+
+用户明确“能用beui的全部替换”。dev基线2b3c8de、开始clean。Spec014已Done：/root/implement_beui_interface完整报告已读取并记录到Plan，新的/root/accept_beui_interface独立验收PASS，完整报告已读取处理，无需返工；其实际目视10图并补查380×500通过。覆盖表单/页签/浮层/状态/卡片/加载/聊天展示与PromptInput/适用导航；保留已认可布局及业务状态。无通用Textarea等明确原生边界见Spec，真实事件/值回调、中文Tab、空值Select/checkbox、PromptInput Enter与忙碌编辑、Drawer焦点均有定向证据。
+
+最终TS/前端lint/两production builds/desktop-regression12.33s/controls契约检查通过，证据build/beui-interface；frontend-tests.log是首轮失败历史，以desktop-regression.log与controls-test.log为准。60视图采集结果零异常/横溢出，但采集进程在browser.close挂起后停止，不称进程成功；另有普通动画浮层与380px、checkbox20px/勾图12px证据。root完成Tauri打包退出0，最终Desktop index-BmIT4fXS.js、Web index-N-KjGP6x.js、CSS index-BpPE81fh.css。package-evidence记录Web5文件/manifestlock/MIT一致、DMG哈希b9dd96ec85760aca5e49f143f8d5bfa9ff357eb08b4fa123c3be16cb7ffecd7f。docs/design五张chat/settings/history/general/data图已更新；未原生启动或真实服务验证，ad-hoc未公证。
+
+当前owned隔离预览http://127.0.0.1:53421/blue.html、session19639。root负责文档/最终提交；持续每阶段本地commit授权，无push/PR/合并，远端未刷新，旧P0–P7不恢复。root按持续授权完成本地提交（确切hash见git log），工作区状态由提交后实际检查确认；本轮满足停止条件，不追加检查。下方均为历史。
+
 ## 当前阶段：Spec013 beUI接入已完成
 
 用户明确要求换成beUI，并指出顶栏新对话与待审批大小不同。dev基线3f15c3a、开始干净。specs/spec-013-beui-controls已Done：所有Controls.Button调用实际使用官方beUI Motion Button，原Input/Select/Textarea/Checkbox保持，不声称迁移。顶部统一40px高/8px圆角，桌面文字共用100px最小宽度（实际新对话100.84375、待审批100），窄屏图标40px。保留Spec012布局/聊天状态/数据与DS蓝。

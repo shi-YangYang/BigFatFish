@@ -295,7 +295,7 @@ it.skipIf(!existsSync(executable))(
           ),
         ).toBe(true);
         await page.screenshot({
-          path: `build/desktop-webui/chat-${width}.png`,
+          path: `build/beui-interface/regression-chat-${width}.png`,
         });
       }
       expect(await page.locator(".topbar:visible").count()).toBe(1);
@@ -315,19 +315,25 @@ it.skipIf(!existsSync(executable))(
       expect(await page.getByRole("dialog").count()).toBe(0);
       await page.setViewportSize({ width: 1100, height: 760 });
       const input = page.getByRole("textbox", { name: "消息", exact: true });
+      await input.fill("第一行");
+      await input.press("Enter");
+      expect(await input.inputValue()).toBe("第一行\n");
+      expect(requests.filter((r) => r.route.endsWith("/messages"))).toHaveLength(0);
+      await input.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true });
+      expect(requests.filter((r) => r.route.endsWith("/messages"))).toHaveLength(0);
       await input.fill("保留的草稿");
       await page.getByRole("button", { name: "设置", exact: true }).click();
       await page.getByLabel("服务地址", { exact: true }).waitFor();
       expect(
         await page
           .getByLabel("服务地址", { exact: true })
-          .evaluate((el) => el.getBoundingClientRect().height),
+          .evaluate((el) => (el.closest(".ui-input") ?? el).getBoundingClientRect().height),
       ).toBe(40);
-      await page.screenshot({ path: "build/desktop-webui/settings-1100.png" });
+      await page.screenshot({ path: "build/beui-interface/regression-settings-1100.png" });
       // General settings must not mix fields, toggles and a stretched action in a two-column grid.
-      await page.getByRole("button", { name: "通用", exact: true }).click();
+      await page.getByRole("tab", { name: "通用", exact: true }).click();
       const settingsBoxes = await Promise.all([
-        page.getByLabel("数据目录", { exact: true }).boundingBox(),
+        page.getByLabel("数据目录", { exact: true }).locator("..", {}).locator("..").boundingBox(),
         page
           .getByLabel("关闭窗口后继续在后台运行", { exact: true })
           .boundingBox(),
@@ -342,7 +348,7 @@ it.skipIf(!existsSync(executable))(
       expect(settingsBoxes[0]!.height).toBe(40);
       expect(settingsBoxes[3]!.height).toBe(40);
       expect(settingsBoxes[3]!.width).toBeLessThan(settingsBoxes[0]!.width / 2);
-      await page.getByRole("button", { name: "数据", exact: true }).click();
+      await page.getByRole("tab", { name: "数据", exact: true }).click();
       const backupActions = await Promise.all(
         ["导出备份", "检查备份", "恢复备份"].map((name) =>
           page.getByRole("button", { name, exact: true }).boundingBox(),
@@ -354,18 +360,18 @@ it.skipIf(!existsSync(executable))(
         ),
       ).toBe(true);
       await page.getByRole("button", { name: "我的鱼", exact: true }).click();
-      await page.getByRole("button", { name: "记忆", exact: true }).click();
+      await page.getByRole("tab", { name: "记忆", exact: true }).click();
       await page
         .getByText("没有符合条件的记忆。可整理对话，或直接添加。", {
           exact: true,
         })
         .waitFor();
       const filters = await page
-        .locator(".filters input, .filters select")
+        .locator(".filters input, .filters button[role=combobox]")
         .evaluateAll((elements) =>
           elements.map((el) => ({
-            bottom: el.getBoundingClientRect().bottom,
-            height: el.getBoundingClientRect().height,
+            bottom: (el.closest(".ui-input") ?? el).getBoundingClientRect().bottom,
+            height: (el.closest(".ui-input") ?? el).getBoundingClientRect().height,
           })),
         );
       expect(filters).toHaveLength(3);
@@ -478,7 +484,7 @@ it.skipIf(!existsSync(executable))(
       ];
       await page.getByRole("button", { name: /待审批/ }).click();
       await page.getByText("一起看这段视频吧", { exact: true }).waitFor();
-      await page.screenshot({ path: "build/desktop-webui/approval-1100.png" });
+      await page.screenshot({ path: "build/beui-interface/regression-approval-1100.png" });
       const dialog = page.getByRole("dialog", { name: "审批与记录" });
       approvalError = "CHANNEL_OFFLINE";
       await dialog
@@ -513,22 +519,22 @@ it.skipIf(!existsSync(executable))(
       expect(alertBox!.x + alertBox!.width).toBeLessThanOrEqual(640);
       expect(alertBox!.y + alertBox!.height).toBeLessThanOrEqual(760);
       await page.screenshot({
-        path: "build/desktop-webui/approval-error-640.png",
+        path: "build/beui-interface/regression-approval-error-640.png",
       });
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1100, height: 760 });
       await page.getByRole("button", { name: "连接", exact: true }).click();
       await page.screenshot({
-        path: "build/desktop-webui/connections-1100.png",
+        path: "build/beui-interface/regression-connections-1100.png",
       });
       expect(await page.getByRole("button", { name: "管理连接" }).count()).toBe(
         3,
       );
       await page.getByRole("button", { name: "我的鱼", exact: true }).click();
-      await page.getByRole("button", { name: "设定", exact: true }).click();
+      await page.getByRole("tab", { name: "设定", exact: true }).click();
 
       await page.getByLabel("名字", { exact: true }).waitFor();
-      await page.getByRole("button", { name: "活动计划", exact: true }).click();
+      await page.getByRole("tab", { name: "活动计划", exact: true }).click();
       await page
         .getByRole("button", { name: "暂停全部活动", exact: true })
         .waitFor();

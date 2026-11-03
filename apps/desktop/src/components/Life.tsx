@@ -1,3 +1,4 @@
+import { Card, Disclosure , Alert, Loading} from "./Surfaces";
 import { Button, Field, Input, FormGrid } from "./Controls";
 import { FishAvatar } from "./UI";
 import { usePoll, activityState, type ActivityOverview } from "./Douyin";
@@ -81,7 +82,7 @@ function CurrentActivities() {
   usePoll(load);
   return (
     <>
-      {error && <p role="alert">{error}</p>}
+      {error && <Alert role="alert">{error}</Alert>}
       {data?.paused && <p>活动已暂停</p>}
       {data?.tasks
         .filter((t) =>
@@ -108,18 +109,13 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
     if (isCurrent()) setData(value);
   }, []);
   const refreshError = useLifeRefresh(load);
-  if (!data)
-    return (
-      <p role={refreshError ? "alert" : undefined}>
-        {refreshError || "正在加载…"}
-      </p>
-    );
+  if (!data) return refreshError ? <Alert>{refreshError}</Alert> : <Loading />;
   return (
     <section>
       {refreshError && (
-        <p role="alert" className="error">
+        <Alert role="alert" className="error">
           {refreshError}
-        </p>
+        </Alert>
       )}
       <div className="fish-home">
         {data.persona.avatar ? (
@@ -143,7 +139,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
         </div>
       </div>
       <div className="life-grid">
-        <article>
+        <Card>
           <h3>当前活动</h3>
           <CurrentActivities />
           {navigate && (
@@ -166,24 +162,24 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
                 : "暂无聊天或整理任务"}
           </p>
           <p>已确认 {data.confirmedCount} 条记忆</p>
-        </article>
-        <article>
+        </Card>
+        <Card>
           <h3>兴趣</h3>
           {data.interests.length ? (
             data.interests.map((m) => <p key={m.id}>{m.content}</p>)
           ) : (
             <p>还没有确认的兴趣。在记忆页添加或确认。</p>
           )}
-        </article>
-        <article>
+        </Card>
+        <Card>
           <h3>关系</h3>
           {data.relationships.length ? (
             data.relationships.map((m) => <p key={m.id}>{m.content}</p>)
           ) : (
             <p>还没有确认的关系。</p>
           )}
-        </article>
-        <article>
+        </Card>
+        <Card>
           <h3>最近经历</h3>
           {data.recent.length ? (
             data.recent.map((a) => (
@@ -195,15 +191,15 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
           ) : (
             <p>开始聊天，留下第一段经历。</p>
           )}
-        </article>
+        </Card>
       </div>
       <h3>最近日记</h3>
       {data.diaries.length ? (
         data.diaries.map((d) => (
-          <article key={d.id}>
+          <Card key={d.id}>
             <b>{d.day}</b>
             <p>{d.content.slice(0, 240)}</p>
-          </article>
+          </Card>
         ))
       ) : (
         <p>暂无日记，可在生活页整理当天经历。</p>
@@ -223,10 +219,10 @@ export function TaskList({
   return (
     <div>
       {tasks.slice(0, 8).map((t) => (
-        <p key={t.id}>
+        <div className="task-row" key={t.id}>
           {t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]} ·{" "}
           {t.modelId}{" "}
-          {t.error && <span className="error">{errorText(t.error)}</span>}{" "}
+          {t.error && <Alert>{errorText(t.error)}</Alert>}{" "}
           {["queued", "running"].includes(t.status) && (
             <Button
               type="button"
@@ -239,7 +235,7 @@ export function TaskList({
               取消
             </Button>
           )}
-        </p>
+        </div>
       ))}
     </div>
   );
@@ -286,9 +282,9 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       <h2>经历与日记</h2>
       <CurrentActivities />
       {refreshError && (
-        <p role="alert" className="error">
+        <Alert role="alert" className="error">
           {refreshError}
-        </p>
+        </Alert>
       )}
       <form
         onSubmit={(e) => {
@@ -328,7 +324,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       <h3>日记</h3>
       {!diaries.length && <p>暂无日记。完成聊天后，选择日期生成。</p>}
       {diaries.map((d) => (
-        <article key={d.id}>
+        <Card key={d.id}>
           <h3>
             {d.day}{" "}
             <small>
@@ -352,15 +348,15 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           >
             重建副本
           </Button>
-        </article>
+        </Card>
       ))}
       <h3>经历时间线</h3>
       {!timeline.length && <p>暂无经历，开始聊天后会记录实际活动。</p>}
       {timeline.map((a) => (
-        <article key={a.id}>
+        <Card key={a.id}>
           <time>{new Date(a.occurredAt).toLocaleString()}</time>
           <p>{a.summary}</p>
-        </article>
+        </Card>
       ))}
     </section>
   );
@@ -379,8 +375,8 @@ export function Sources({
     occurredAt: string;
   }>();
   return (
-    <details>
-      <summary>查看来源（{sources.length}）</summary>
+    <Disclosure  title={<>查看来源（{sources.length}）</>}>
+
       {sources.map((s) => (
         <p key={s.type + s.id}>
           {s.quote}
@@ -413,15 +409,15 @@ export function Sources({
         </p>
       ))}
       {original && (
-        <article>
+        <Card>
           <time>{new Date(original.occurredAt).toLocaleString()}</time>
           {original.conversationId && <p>会话：{original.conversationId}</p>}
           <p className="prewrap">{original.content}</p>
           <Button type="button" onClick={() => setOriginal(undefined)}>
             收起原文
           </Button>
-        </article>
+        </Card>
       )}
-    </details>
+    </Disclosure>
   );
 }

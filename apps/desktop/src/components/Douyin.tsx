@@ -1,3 +1,4 @@
+import { Disclosure, Card , Loading, Alert} from "./Surfaces";
 import {
   Field,
   Checkbox,
@@ -126,7 +127,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
         requestId: crypto.randomUUID(),
       }),
     );
-  if (!state || !form) return <p>正在加载…</p>;
+  if (!state || !form) return <Loading>正在加载…</Loading>;
   return (
     <section>
       <h2>抖音</h2>
@@ -142,8 +143,8 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
           }[state.accountState]
         }
       </p>
-      <details>
-        <summary>浏览器与账号设置</summary>
+      <Disclosure  title={<>浏览器与账号设置</>}>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -154,9 +155,9 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
         >
           <Field>
             <Checkbox
-              type="checkbox"
+
               checked={form.enabled}
-              onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+              onCheckedChange={(value) => setForm({ ...form, enabled: value })}
             />
             启用
           </Field>
@@ -185,9 +186,9 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
           </Field>
           <Field>
             <Checkbox
-              type="checkbox"
+
               checked={form.headless}
-              onChange={(e) => setForm({ ...form, headless: e.target.checked })}
+              onCheckedChange={(value) => setForm({ ...form, headless: value })}
             />
             无窗口运行
           </Field>
@@ -195,7 +196,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
             保存
           </Button>
         </form>
-      </details>
+      </Disclosure>
       <ActionRow className="actions">
         <Button
           type="button"
@@ -276,9 +277,9 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
         </Field>
         <Field>
           <Checkbox
-            type="checkbox"
+
             checked={audio}
-            onChange={(e) => setAudio(e.target.checked)}
+            onCheckedChange={(value) => setAudio(value)}
           />
           理解采样音轨
         </Field>
@@ -300,8 +301,8 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
           </Button>
         </ActionRow>
       </form>
-      <details>
-        <summary>准备互动</summary>
+      <Disclosure  title={<>准备互动</>}>
+
         <p>私信、分享和投稿的发送协议尚未验证，当前会阻止提交。</p>
         <form
           onSubmit={(e) => {
@@ -327,7 +328,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
         >
           <Field>
             操作
-            <Select value={tool} onChange={(e) => setTool(e.target.value)}>
+            <Select value={tool} onValueChange={(value) => setTool(value)}>
               {Object.entries({
                 douyin_like: "点赞",
                 douyin_comment: "评论",
@@ -403,17 +404,17 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
               </Field>
               <Field>
                 <Checkbox
-                  type="checkbox"
+
                   checked={draft}
-                  onChange={(e) => setDraft(e.target.checked)}
+                  onCheckedChange={(value) => setDraft(value)}
                 />
                 仅保存草稿
               </Field>
               <Field>
                 <Checkbox
-                  type="checkbox"
+
                   checked={aiDeclare}
-                  onChange={(e) => setAiDeclare(e.target.checked)}
+                  onCheckedChange={(value) => setAiDeclare(value)}
                 />
                 声明 AI 生成
               </Field>
@@ -423,7 +424,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
             生成审批预览
           </Button>
         </form>
-      </details>
+      </Disclosure>
       <DouyinApprovals fail={fail} />
       <h3>最近任务</h3>
       <ActivityRows
@@ -449,7 +450,7 @@ export function ActivityRows({
   return (
     <>
       {tasks.map((t) => (
-        <article key={t.id}>
+        <Card key={t.id}>
           <p>
             {t.platform === "douyin"
               ? "抖音"
@@ -482,8 +483,8 @@ export function ActivityRows({
               {String((t.result.evidence as Record<string, unknown>).url ?? "")}
             </p>
           ) : null}
-          {t.error && <p role="alert">{errorText(t.error)}</p>}
-          {!!t.result?.error && <p>{errorText(t.result.error)}</p>}
+          {t.error && <Alert role="alert">{errorText(t.error)}</Alert>}
+          {!!t.result?.error && <Alert>{errorText(t.result.error)}</Alert>}
           {!!t.result?.summary && <p>{String(t.result.summary)}</p>}
           {!!t.result?.title && <p>{String(t.result.title)}</p>}
           {!!t.result?.uid && <p>账号 ID：{String(t.result.uid)}</p>}
@@ -526,7 +527,7 @@ export function ActivityRows({
               取消
             </Button>
           )}
-        </article>
+        </Card>
       ))}
     </>
   );
@@ -546,7 +547,7 @@ export function DouyinApprovals({ fail }: { fail: (e: unknown) => void }) {
       <h3>抖音审批</h3>
       {!items.length && <p>暂无待审批动作</p>}
       {items.slice(0, 10).map((a) => (
-        <article key={a.id}>
+        <Card key={a.id}>
           <p>
             {
               (
@@ -628,7 +629,7 @@ export function DouyinApprovals({ fail }: { fail: (e: unknown) => void }) {
               </Button>
             )}
           </ActionRow>
-        </article>
+        </Card>
       ))}
     </>
   );
@@ -682,7 +683,7 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
           平台
           <Select
             value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
+            onValueChange={(value) => setPlatform(value)}
           >
             <option value="douyin">抖音</option>
             <option value="bilibili">B站</option>
@@ -708,9 +709,9 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
         </Field>
         <Field>
           <Checkbox
-            type="checkbox"
+
             checked={autonomous}
-            onChange={(e) => setAutonomous(e.target.checked)}
+            onCheckedChange={(value) => setAutonomous(value)}
           />
           允许鱼依据兴趣选择观看或休息
         </Field>
@@ -719,7 +720,7 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
         </Button>
       </form>
       {data?.schedules.map((s) => (
-        <article key={s.id}>
+        <Card key={s.id}>
           <p>
             {s.mode === "Autonomous" ? "自主选择" : "定时观看"} ·{" "}
             {s.enabled ? "启用" : "停用"} · 每 {s.intervalMinutes} 分钟
@@ -756,7 +757,7 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
               删除
             </Button>
           </ActionRow>
-        </article>
+        </Card>
       ))}
       <ActivityRows tasks={data?.tasks ?? []} fail={fail} refresh={load} />
     </section>

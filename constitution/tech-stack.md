@@ -76,8 +76,10 @@ P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm6
 
 Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或依赖修改；本机Docker amd64模拟环境已实际运行x64 Node/SQLite/Runtime/DSH/SDK/TLS，独立包脱离源码目录仅用随包Node通过，新独立验收PASS。产物build/p6-linux-x64及build/artifacts同名linux-x64归档，命令/哈希/环境与清理见Spec008 Plan和build/p6-linux-x64-evidence/evidence.json。Mac/arm64既有产物未覆盖，原生x64 VPS、Windows和真实云账号仍未验证；用户已要求真实服务先保留待验项。
 
-## beUI 前端组件（Spec013）
+## beUI 前端组件（Spec013–014）
 
-用户明确指定beUI；按其官方源码分发方式将基础Button放在apps/desktop/src/components/beui/，Controls.tsx保留变体/尺寸兼容入口，Desktop/Web共用。固定上游starc007/ui-components revision6f153a06d2225ba07a0137f317ce19faf8da69ef，MIT和本地尺寸/交互适配说明随源保留，两个Vite构建都输出beui-LICENSE.txt。
+用户明确指定beUI并要求所有适用组件迁移；按其官方源码分发方式将Button、表单、页签、抽屉、菜单、折叠、提示、状态、卡片、加载、导航与聊天原语放在apps/desktop/src/components/beui/，Controls.tsx、UI.tsx与Surfaces.tsx提供面向本产品的薄组合入口，Desktop/Web共用。固定上游starc007/ui-components revision6f153a06d2225ba07a0137f317ce19faf8da69ef，MIT和本地尺寸/交互适配说明随源保留，两个Vite构建都输出beui-LICENSE.txt。
 
-根devDependencies固定tailwindcss与@tailwindcss/vite 4.3.4、motion14.9.0、clsx2.1.1、tailwind-merge3.7.0；构建时进入前端bundle，不是Runtime新增运行依赖。Tailwind仅引入主题/utility，不启用Preflight，通过明确source路径扫描beUI与Controls；保留旧表单和页面CSS。按钮采用px尺寸避免根字号14px造成rem缩小，DS蓝语义token通过beui-theme.css映射。原Input/Select/Textarea/Checkbox仍为现有原生控件，不把它们称作beUI组件。无需数据迁移。
+根devDependencies固定tailwindcss与@tailwindcss/vite 4.3.4、motion14.9.0、clsx2.1.1、tailwind-merge3.7.0；Spec014按官方源码依赖闭包新增lucide-react1.67.0与@floating-ui/dom1.8.0，不升级其他依赖。它们构建时进入前端bundle，不是Runtime新增运行依赖。Tailwind仅引入主题/utility，不启用Preflight，通过明确source路径扫描实际组件；清理被替代的旧控件CSS。尺寸采用px避免根字号14px造成rem缩小，DS蓝语义token通过beui-theme.css映射。
+
+Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；业务状态留在原页面。PromptInput保留Enter换行、发送期间继续编辑与Chat草稿/请求归属。中文Tabs唯一标识、浮层焦点和无障碍行为在组件职责层适配。无独立通用Textarea的长文本编辑、隐藏file input、audio、品牌图与普通语义布局保留原生元素，不把它们称作beUI组件。无需数据迁移。最终覆盖与验收以Spec014为准。

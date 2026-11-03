@@ -1,4 +1,7 @@
-import { Button, Textarea, Input, Field, Select } from "./Controls";
+import { PromptInput } from "./beui/prompt-input";
+import { Message, MessageAvatar, MessageContent, MessageBubble, MessageBubbleContent } from "./beui/message";
+import { Disclosure, Menu, Alert } from "./Surfaces";
+import { Button, Input, Field, Select } from "./Controls";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ChatMessage,
@@ -23,6 +26,8 @@ export function Chat({
   active?: boolean;
   renderHeader: (content: ReactNode) => ReactNode;
 }) {
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  useEffect(() => { if (!active) setVoiceOpen(false); }, [active]);
   const [sessions, setSessions] = useState<Conversation[]>([]),
     [selection, setSelection] = useState({ id: "" }),
     [model, setModel] = useState(""),
@@ -120,8 +125,7 @@ export function Chat({
       clearInterval(timer);
     };
   }, [selection, selected, connected, active, fail]);
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
+  async function send() {
     if (
       !text.trim() ||
       sending.current ||
@@ -245,7 +249,7 @@ export function Chat({
   const title = sessions.find((s) => s.id === selected)?.title ?? "新对话";
   return (
     <section className="chat">
-      {renderHeader(
+      {active && renderHeader(
         <>
           <Button
             type="button"
@@ -317,21 +321,19 @@ export function Chat({
               </div>
             )}
             {messages.map((m) => (
-              <article className={`message ${m.role}`} key={m.id}>
-                <div className="message-avatar">
+              <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? "你的消息" : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
+                <MessageAvatar className="message-avatar">
                   {m.role === "assistant" ? <FishAvatar /> : <span>你</span>}
-                </div>
-                <div className="message-content">
+                </MessageAvatar>
+                <MessageContent className="message-content items-start">
                   <strong>{m.role === "user" ? "你" : "大肥鱼"}</strong>
-                  <p>
+                  <MessageBubble align="start" variant={m.role === "assistant" ? "ghost" : "soft"} className="chat-bubble"><MessageBubbleContent className="max-w-full text-[15px] leading-[1.85]">
                     {m.content ||
                       (["queued", "running"].includes(m.status)
                         ? "正在想…"
                         : "")}
-                  </p>
-                  <small>
-                    {m.error ? errorText(m.error) : statusText[m.status]}
-                  </small>
+                  </MessageBubbleContent></MessageBubble>
+                  {m.error ? <Alert>{errorText(m.error)}</Alert> : <small>{statusText[m.status]}</small>}
                   {m.role === "assistant" &&
                   ["queued", "running"].includes(m.status) ? (
                     <Button
@@ -359,12 +361,12 @@ export function Chat({
                       </Button>
                     )
                   )}
-                </div>
-              </article>
+                </MessageContent>
+              </Message>
             ))}
             {tools.length > 0 && (
-              <details className="tool-activity">
-                <summary>工具活动 · {tools.length}</summary>
+              <Disclosure className="tool-activity" title={<>工具活动 · {tools.length}</>}>
+
                 {tools.map((t, i) => (
                   <p key={i}>
                     {t.name} ·{" "}
@@ -375,7 +377,7 @@ export function Chat({
                         : "失败"}
                   </p>
                 ))}
-              </details>
+              </Disclosure>
             )}
           </div>
           {audio && (
@@ -389,19 +391,15 @@ export function Chat({
           )}
           <div className="composer-area">
             {notice && (
-              <p className="inline-notice" role="alert">
+              <Alert className="inline-notice">
                 {notice}
-              </p>
+              </Alert>
             )}
             {locked && <p className="muted">此会话仅供查看，请从 QQ 继续。</p>}
-            <form className="composer" onSubmit={send}>
-              <Textarea
-                aria-label="消息"
-                value={text}
-                onChange={(e) => updateText(e.target.value)}
-                placeholder="和大肥鱼聊聊…"
-                disabled={locked || !models.length}
-              />
+            <PromptInput className="composer" onSubmit={() => send()}
+              aria-label="消息" value={text} onValueChange={updateText}
+              placeholder="和大肥鱼聊聊…" disabled={locked || !models.length}
+              submitDisabled={busy || !connected} footer={
               <div className="composer-tools">
                 <Input
                   ref={fileInput}
@@ -419,8 +417,8 @@ export function Chat({
                 >
                   {mediaBusy ? "处理中…" : "上传音频"}
                 </Button>
-                <details className="voice-options">
-                  <summary>声音</summary>
+                <Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
+
                   <Field>
                     声音名称
                     <Input
@@ -432,12 +430,12 @@ export function Chat({
                       }}
                     />
                   </Field>
-                </details>
+                </Menu>
                 {!selected && (
                   <Select
                     aria-label="新会话模型"
                     value={model}
-                    onChange={(e) => setModel(e.target.value)}
+                    onValueChange={(value) => setModel(value)}
                   >
                     <option value="">默认聊天模型</option>
                     {models.map((m) => (
@@ -462,7 +460,7 @@ export function Chat({
                   {busy ? "发送中…" : "发送"}
                 </Button>
               </div>
-            </form>
+            } />
           </div>
         </div>
       </div>

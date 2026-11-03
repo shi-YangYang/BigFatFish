@@ -3,7 +3,9 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 @source "./components/beui";
-@source "./components/Controls.tsx";
+@source "./components";
+@source "./App.tsx";
+@source "../../web/src";
 
 @theme inline {
   --color-primary: var(--accent);
@@ -12,12 +14,29 @@
   --color-muted-foreground: var(--muted);
   --color-muted: #eef2ff;
   --color-card: #fff;
+  --color-background: #fff;
+  --color-popover: #fff;
+  --color-popover-foreground: #202b33;
+  --color-accent: #eef2ff;
+  --color-accent-foreground: var(--accent);
+  --color-destructive: #a13b32;
+  --color-success: #24825f;
+  --color-ring: #a8b8ff;
+  --color-border-strong: #a8b8db;
+  --spacing: 4px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
   --color-border: var(--border);
 }
 
 @layer base {
+  *, ::before, ::after { border-width: 0; border-style: solid; }
   button {
     font-family: inherit;
     appearance: none;
+    padding: 0;
+    cursor: pointer;
+    background-color: transparent;
   }
 }

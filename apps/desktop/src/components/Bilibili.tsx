@@ -1,3 +1,4 @@
+import { Disclosure, Card, Alert } from "./Surfaces";
 import { Button, Field, Input, Select, ActionRow, FormGrid } from "./Controls";
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api";
@@ -135,7 +136,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
           >
             {status.enabled ? "停用" : "启用"}
           </Button>
-          {status.health.error && <p>{errorText(status.health.error)}</p>}
+          {status.health.error && <Alert>{errorText(status.health.error)}</Alert>}
           {!status.health.ffmpeg && (
             <p>未找到 ffmpeg，暂不能获取视频画面；可阅读可用字幕。</p>
           )}
@@ -194,8 +195,8 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
             )}
           </div>
         )}
-        <details>
-          <summary>导入本人凭据</summary>
+        <Disclosure  title={<>导入本人凭据</>}>
+
           <FormGrid className="credential-grid">
             <Field>
               SESSDATA
@@ -231,7 +232,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
               验证并保存
             </Button>
           </FormGrid>
-        </details>
+        </Disclosure>
       </fieldset>
       <fieldset disabled={busy || !status?.enabled}>
         <legend>寻找视频</legend>
@@ -263,14 +264,14 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
               <p>没有找到视频。</p>
             ) : (
               results.map((item) => (
-                <article key={item.bvid}>
+                <Card key={item.bvid}>
                   <p>
                     {item.title} · {item.author}
                   </p>
                   <Button type="button" onClick={() => setBvid(item.bvid)}>
                     选择此视频
                   </Button>
-                </article>
+                </Card>
               ))
             )}
           </div>
@@ -297,12 +298,12 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
       </fieldset>
       <h3>观看记录</h3>
       {tasks.map((t) => (
-        <article key={t.id}>
+        <Card key={t.id}>
           <h4>{t.result?.evidence.title ?? t.bvid}</h4>
           <p>
             {states[t.status] ?? t.status}
-            {t.error ? ` · ${errorText(t.error)}` : ""}
           </p>
+          {t.error && <Alert>{errorText(t.error)}</Alert>}
           {["queued", "running", "understanding"].includes(t.status) && (
             <Button
               type="button"
@@ -349,12 +350,12 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
               申请 QQ 分享
             </Button>
           )}
-        </article>
+        </Card>
       ))}
       <FormGrid>
         <Field>
           QQ 分享对象
-          <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+          <Select value={kind} onValueChange={(value) => setKind(value)}>
             <option value="private">主人私聊</option>
             <option value="group">已授权群</option>
           </Select>
@@ -364,7 +365,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
           <Input value={target} onChange={(e) => setTarget(e.target.value)} />
         </Field>
       </FormGrid>
-      {notice && <p role="status">{notice}</p>}
+      {notice && <Alert variant="info" role="status">{notice}</Alert>}
     </section>
   );
 }

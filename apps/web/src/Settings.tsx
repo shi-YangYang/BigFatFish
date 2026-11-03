@@ -60,9 +60,9 @@ export function WebSettings({ fail }: { fail: (e: unknown) => void }) {
         </Field>
         <Field>
           <Checkbox
-            type="checkbox"
+
             checked={credentials}
-            onChange={(e) => setCredentials(e.target.checked)}
+            onCheckedChange={(value) => setCredentials(value)}
           />
           包含账号凭据
         </Field>

@@ -37,13 +37,13 @@ run.onclick=async()=>{
   const draft=host.querySelector('textarea')!,form=draft.closest('form')!;
   await input(draft,'A 保存的草稿');await click(buttons('保存')[0]!);
   assert(writes.length===1,'one pending save');
-  for(const control of host.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea'))assert(control.disabled,'all editable controls disabled while saving');
+  for(const control of host.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,button[role="combobox"],textarea'))assert(control.disabled,'all editable controls disabled while saving');
   for(const text of ['编辑','取消编辑','保存','上一页','下一页'])for(const button of buttons(text))assert(button.disabled,`${text} disabled while saving`);
   await click(buttons('编辑')[1]!);await click(buttons('取消编辑')[0]!);await click(buttons('下一页')[0]!);
   await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
   assert(writes.length===1,'duplicate submit ignored');assert(draft.value==='A 保存的草稿','disabled B/cancel/page actions preserve submitted draft');
   await act(async()=>{release();});
-  assert(draft.value===''&&!draft.disabled,'successful save clears its draft and unlocks');assert(host.querySelector('article > p')!.textContent==='A 保存的草稿','updated list returned after save');
+  assert(draft.value===''&&!draft.disabled,'successful save clears its draft and unlocks');assert(host.querySelector('[role=article] > p')!.textContent==='A 保存的草稿','updated list returned after save');
   await click(buttons('编辑')[1]!);assert(draft.value==='内容1','B can be edited after A completes');
   await input(draft,'B 失败后保留');await click(buttons('保存')[0]!);await act(async()=>{release(true);});
   assert(draft.value==='B 失败后保留'&&!draft.disabled,'failed save keeps draft and unlocks');assert(errors.length===1&&errors[0]==='MEMORY_VERSION_CONFLICT','failure remains visible through error callback');

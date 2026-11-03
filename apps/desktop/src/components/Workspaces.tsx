@@ -1,3 +1,4 @@
+import { Disclosure, Card, Badge } from "./Surfaces";
 import { Button } from "./Controls";
 import { useCallback, useEffect, useState } from "react";
 import { api, isWeb } from "../api";
@@ -25,7 +26,7 @@ export function MyFish({ fail }: Fail) {
         value={tab}
         onChange={setTab}
         label="我的鱼"
-      />
+      >
       {tab === "概览" ? (
         <Home
           navigate={(p) =>
@@ -41,6 +42,7 @@ export function MyFish({ fail }: Fail) {
       ) : (
         <Activities fail={fail} />
       )}
+      </Tabs>
     </>
   );
 }
@@ -119,10 +121,10 @@ export function Connections({ fail }: Fail) {
         {tab === "QQ" ? (
           <>
             <Channels fail={fail} />
-            <details>
-              <summary>主动消息与操作记录</summary>
+            <Disclosure  title={<>主动消息与操作记录</>}>
+
               <Permissions fail={fail} />
-            </details>
+            </Disclosure>
           </>
         ) : tab === "B站" ? (
           <Bilibili fail={fail} />
@@ -136,21 +138,21 @@ export function Connections({ fail }: Fail) {
       <h2>连接你的世界</h2>
       <div className="connection-list">
         {(["QQ", "B站", "抖音"] as const).map((name, i) => (
-          <article key={name}>
+          <Card key={name}>
             <div className={`platform-icon platform-${i}`}>
               {name === "B站" ? "B" : name === "抖音" ? "♪" : "Q"}
             </div>
             <div className="connection-info">
               <h3>{name}</h3>
               <p>{["消息与陪伴", "视频与兴趣", "发现与观看"][i]}</p>
-              <span className="connection-state">
+              <Badge className="connection-state">
                 {states[name] ?? "正在读取…"}
-              </span>
+              </Badge>
             </div>
             <Button type="button" onClick={() => setTab(name)}>
               管理连接
             </Button>
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -177,7 +179,7 @@ export function Settings({
         value={tab}
         onChange={setTab}
         label="设置分类"
-      />
+      >
       {tab === "模型" ? (
         <Models models={models} reload={reload} fail={fail} />
       ) : tab === "扩展" ? (
@@ -200,20 +202,21 @@ export function Settings({
         <section>
           <h2>BigFatFish</h2>
           <p>自己的大肥鱼，慢慢一起成长。</p>
-          <details>
-            <summary>图像来源与许可</summary>
+          <Disclosure  title={<>图像来源与许可</>}>
+
             <pre className="asset-notice">{assetNotice}</pre>
-          </details>
+          </Disclosure>
           {!isWeb && (
-            <details>
-              <summary>软件更新</summary>
+            <Disclosure  title={<>软件更新</>}>
+
               <Updates fail={fail} />
-            </details>
+            </Disclosure>
           )}
         </section>
       ) : (
         <Logs fail={fail} />
       )}
+      </Tabs>
     </>
   );
 }

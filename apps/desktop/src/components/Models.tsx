@@ -1,3 +1,4 @@
+import { Disclosure } from "./Surfaces";
 import {
   Button,
   Field,
@@ -114,12 +115,12 @@ export function Models({
           提供商
           <Select
             value={form.provider}
-            onChange={(e) =>
+            onValueChange={(value) =>
               setForm({
                 ...form,
-                provider: e.target.value as ModelConfig["provider"],
+                provider: value as ModelConfig["provider"],
                 baseURL:
-                  e.target.value === "deepseek"
+                  value === "deepseek"
                     ? "https://api.deepseek.com/anthropic"
                     : form.baseURL,
               })
@@ -162,8 +163,8 @@ export function Models({
             }
           />
         </Field>
-        <details className="advanced-fields">
-          <summary>高级配置</summary>
+        <Disclosure className="advanced-fields" title={<>高级配置</>}>
+
           <FormGrid className="field-grid">
             <Field>
               显示名称
@@ -194,14 +195,14 @@ export function Models({
             )}
             <Field className="check">
               <Checkbox
-                type="checkbox"
+
                 checked={form.vision}
-                onChange={(e) => setForm({ ...form, vision: e.target.checked })}
+                onCheckedChange={(value) => setForm({ ...form, vision: value })}
               />
               支持图片输入
             </Field>
           </FormGrid>
-        </details>
+        </Disclosure>
         <ActionRow className="form-actions">
           <Button variant="primary" type="submit" disabled={busy}>
             保存模型
@@ -210,13 +211,13 @@ export function Models({
         </ActionRow>
       </form>
       {models.length > 0 && (
-        <details>
-          <summary>默认模型与用途</summary>
+        <Disclosure  title={<>默认模型与用途</>}>
+
           <Field>
             用途
             <Select
               value={purpose}
-              onChange={(e) => setPurpose(e.target.value as ModelPurpose)}
+              onValueChange={(value) => setPurpose(value as ModelPurpose)}
             >
               {Object.entries({
                 chat: "聊天",
@@ -253,7 +254,7 @@ export function Models({
               </Button>
             ))}
           </ActionRow>
-        </details>
+        </Disclosure>
       )}
     </section>
   );

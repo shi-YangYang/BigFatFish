@@ -1,3 +1,4 @@
+import { Alert, Card } from "../../desktop/src/components/Surfaces";
 import { Field, Input, Button } from "../../desktop/src/components/Controls";
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
@@ -33,7 +34,7 @@ function Login() {
     <App />
   ) : (
     <main className="login-page">
-      <div className="login-card">
+      <Card className="login-card">
         <FishAvatar />
         <h1>登录 BigFatFish</h1>
         <form
@@ -62,9 +63,9 @@ function Login() {
           </Button>
         </form>
         {(error || session.error) && (
-          <p role="alert">{error || errorText(session.error)}</p>
+          <Alert role="alert">{error || errorText(session.error)}</Alert>
         )}
-      </div>
+      </Card>
     </main>
   );
 }

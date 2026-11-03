@@ -1,3 +1,4 @@
+import { Alert } from "./Surfaces";
 import { Field, Input, Checkbox, Button, ActionRow } from "./Controls";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -60,17 +61,17 @@ export function Setup({
           )}
           <Field>
             <Checkbox
-              type="checkbox"
+
               checked={s.background}
-              onChange={(e) => setS({ ...s, background: e.target.checked })}
+              onCheckedChange={(value) => setS({ ...s, background: value })}
             />
             关闭窗口后继续在后台运行
           </Field>
           <Field>
             <Checkbox
-              type="checkbox"
+
               checked={s.autostart}
-              onChange={(e) => setS({ ...s, autostart: e.target.checked })}
+              onCheckedChange={(value) => setS({ ...s, autostart: value })}
             />
             登录电脑时启动
           </Field>
@@ -106,7 +107,7 @@ function ConfirmAction({
 }) {
   return (
     <div role="alertdialog" aria-label="确认操作">
-      <p>{message}</p>
+      <Alert variant="warning">{message}</Alert>
       <ActionRow>
         <Button type="button" onClick={confirm}>
           确认继续
@@ -171,11 +172,11 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
           {Object.entries(scopeNames).map(([id, label]) => (
             <Field key={id}>
               <Checkbox
-                type="checkbox"
+
                 checked={scopes.includes(id)}
-                onChange={(e) =>
+                onCheckedChange={(value) =>
                   setScopes(
-                    e.target.checked
+                    value
                       ? [...scopes, id]
                       : scopes.filter((s) => s !== id),
                   )
@@ -195,9 +196,9 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
         </Field>
         <Field>
           <Checkbox
-            type="checkbox"
+
             checked={credentials}
-            onChange={(e) => setCredentials(e.target.checked)}
+            onCheckedChange={(value) => setCredentials(value)}
           />
           包含模型密钥及平台凭据（必须加密）
         </Field>

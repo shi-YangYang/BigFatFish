@@ -1,3 +1,5 @@
+import { Alert, Loading, Menu, Badge } from "./components/Surfaces";
+import { BounceSidebar } from "./components/beui/bounce-sidebar";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -138,24 +140,12 @@ export default function App() {
           <span>你的大肥鱼</span>
         </div>
       </div>
-      <nav className="primary-nav" aria-label="主导航">
-        {(["聊天", "我的鱼", "连接"] as const).map((item, i) => (
-          <Button
-            type="button"
-            className={page === item ? "active" : ""}
-            aria-current={page === item ? "page" : undefined}
-            key={item}
-            onClick={() => navigate(item)}
-          >
-            {i === 1 ? (
-              <FishAvatar className="nav-portrait" alt="" />
-            ) : (
-              <Icon name={i === 0 ? "chat" : "link"} />
-            )}
-            <span>{item}</span>
-          </Button>
-        ))}
-      </nav>
+      <BounceSidebar className="primary-nav" ariaLabel="主导航"
+        value={page} onValueChange={navigate} listClassName="m-0 p-0 gap-[8px]"
+        itemClassName="rail-item" indicatorClassName="hidden"
+        items={[{ id: "聊天", label: "聊天", icon: <Icon name="chat" /> },
+          { id: "我的鱼", label: "我的鱼", icon: <FishAvatar className="nav-portrait" alt="" /> },
+          { id: "连接", label: "连接", icon: <Icon name="link" /> }]} />
       <div className="sidebar-bottom">
         <Button
           type="button"
@@ -187,18 +177,18 @@ export default function App() {
             className="approval-button"
             onClick={() => setDrawer(true)}
           >
-            待审批 <b>{approvalCount}</b>
+            待审批 <Badge status="warning">{approvalCount}</Badge>
           </Button>
         )}
-        <details className="runtime-menu">
-          <summary>
+        <Menu trigger={<Button className="runtime-menu" aria-label="运行状态">
             <span className={`status-dot ${connected ? "online" : ""}`} />
             {connected
               ? activity?.paused
                 ? "活动已暂停"
                 : "已连接"
               : "未连接"}
-          </summary>
+          </Button>}>
+
           <div className="runtime-popover">
             <Button type="button" onClick={() => void connect()}>
               重新连接
@@ -236,7 +226,7 @@ export default function App() {
               </Button>
             )}
           </div>
-        </details>
+        </Menu>
       </div>
     </header>
   );
@@ -247,26 +237,26 @@ export default function App() {
       <div className="app-workspace">
         {!chatVisible && renderHeader(<h1 className="page-title">{page}</h1>)}
         {error && (
-          <div className="app-error" role="alert">
+          <Alert className="app-error">
             <span>{error}</span>
             <Button type="button" size="compact" onClick={() => setError("")}>
               关闭
             </Button>
-          </div>
+          </Alert>
         )}
         {initialized && !connected && (
-          <div className="connection-banner" role="status">
+          <Alert variant="warning" className="connection-banner" role="status">
             连接已断开，当前内容与草稿已保留。
             <Button type="button" size="compact" onClick={() => void connect()}>
               重新连接
             </Button>
-          </div>
+          </Alert>
         )}
         <main
           className={`workspace-main ${page === "聊天" ? "chat-page" : ""}`}
         >
           {loading ? (
-            <div className="empty-state">正在连接…</div>
+            <Loading>正在连接…</Loading>
           ) : firstRun ? (
             <div className="content-page settings-page">
               <Setup
@@ -354,12 +344,12 @@ function ApprovalContents() {
   return (
     <>
       {error && (
-        <div className="error approval-error" role="alert">
+        <Alert className="approval-error">
           <span>{error}</span>
           <Button type="button" size="compact" onClick={() => setError("")}>
             关闭提示
           </Button>
-        </div>
+        </Alert>
       )}
       <Permissions fail={fail} approvalsOnly />
       <DouyinApprovals fail={fail} />

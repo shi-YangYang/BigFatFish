@@ -1,5 +1,8 @@
 import { Button } from "./Controls";
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Tabs as BeTabs, TabsList, TabsTrigger, TabsContent } from "./beui/tabs";
+import { Drawer as BeDrawer } from "./beui/drawer";
 import fishGirl from "../assets/fish-girl.png";
 export { fishGirl };
 export function FishAvatar({
@@ -50,77 +53,27 @@ export function Tabs<T extends string>({
   value,
   onChange,
   label,
+  children,
 }: {
   items: readonly T[];
   value: T;
   onChange: (v: T) => void;
   label: string;
-}) {
-  return (
-    <nav className="section-tabs" aria-label={label}>
-      {items.map((item) => (
-        <Button
-          type="button"
-          size="compact"
-          key={item}
-          aria-current={item === value ? "page" : undefined}
-          className={item === value ? "active" : ""}
-          onClick={() => onChange(item)}
-        >
-          {item}
-        </Button>
-      ))}
-    </nav>
-  );
-}
-export function Drawer({
-  title,
-  close,
-  children,
-}: {
-  title: string;
-  close: () => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    const dialog = ref.current;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      opener?.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      className="drawer"
-      ref={ref}
-      aria-label={title}
-      onCancel={(e) => {
-        e.preventDefault();
-        close();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          const box = e.currentTarget.getBoundingClientRect();
-          if (
-            e.clientX < box.left ||
-            e.clientX > box.right ||
-            e.clientY < box.top ||
-            e.clientY > box.bottom
-          )
-            close();
-        }
-      }}
-    >
-      <div className="drawer-heading">
-        <h2>{title}</h2>
-        <Button type="button" size="icon" aria-label="关闭" onClick={close}>
-          <Icon name="close" />
-        </Button>
-      </div>
-      <div className="drawer-body">{children}</div>
-    </dialog>
-  );
+  return <BeTabs value={value} onValueChange={(next) => onChange(next as T)} variant="pill">
+    <TabsList aria-label={label} className="section-tabs rounded-[8px] p-0" wrapperClassName="mb-[28px]">
+      {items.map((item) => <TabsTrigger value={item} key={item} className="h-[40px] min-w-[76px] px-[16px] text-[14px]">{item}</TabsTrigger>)}
+    </TabsList>
+    {items.map((item) => <TabsContent key={item} value={item} className="mt-0">{value === item ? children : null}</TabsContent>)}
+  </BeTabs>;
+}
+export function Drawer({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
+  return createPortal(<BeDrawer open onOpenChange={(open) => { if (!open) close(); }} ariaLabel={title} className="drawer border-solid">
+    <div className="drawer-heading">
+      <h2>{title}</h2>
+      <Button type="button" size="icon" aria-label="关闭" title="关闭" onClick={close}><Icon name="close" /></Button>
+    </div>
+    <div className="drawer-body">{children}</div>
+  </BeDrawer>, document.body);
 }

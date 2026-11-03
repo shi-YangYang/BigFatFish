@@ -1,3 +1,4 @@
+import { Card , Alert} from "./Surfaces";
 import {
   Field,
   Select,
@@ -112,9 +113,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     <section>
       <h2>记忆</h2>
       {refreshError && (
-        <p role="alert" className="error">
+        <Alert role="alert" className="error">
           {refreshError}
-        </p>
+        </Alert>
       )}
       <form
         onSubmit={(e) => {
@@ -133,7 +134,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             <Select
               disabled={busy}
               value={session}
-              onChange={(e) => setSession(e.target.value)}
+              onValueChange={(value) => setSession(value)}
               required
             >
               <option value="">选择对话</option>
@@ -175,9 +176,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           <Select
             disabled={busy}
             value={status}
-            onChange={(e) => {
+            onValueChange={(value) => {
               setOffset(0);
-              setStatus(e.target.value);
+              setStatus(value);
             }}
           >
             <option value="">全部</option>
@@ -193,9 +194,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           <Select
             disabled={busy}
             value={kind}
-            onChange={(e) => {
+            onValueChange={(value) => {
               setOffset(0);
-              setKind(e.target.value);
+              setKind(value);
             }}
           >
             <option value="">全部</option>
@@ -251,15 +252,15 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
       {exportPath && <p className="prewrap">导出已保存：{exportPath}</p>}
       {!memories.length && <p>没有符合条件的记忆。可整理对话，或直接添加。</p>}
       {memories.map((m) => (
-        <article key={m.id}>
+        <Card key={m.id}>
           <Field className="check">
             <Checkbox
               disabled={busy}
-              type="checkbox"
+
               checked={selected.includes(m.id)}
-              onChange={(e) =>
+              onCheckedChange={(value) =>
                 setSelected(
-                  e.target.checked
+                  value
                     ? [...selected, m.id]
                     : selected.filter((id) => id !== m.id),
                 )
@@ -273,9 +274,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           </p>
           <p className="prewrap">{m.content}</p>
           {!!m.conflicts.length && (
-            <p className="error">
+            <Alert variant="warning">
               与 {m.conflicts.length} 条已确认记忆可能冲突，请检查同主题记录。
-            </p>
+            </Alert>
           )}
           <Sources sources={m.sources} fail={fail} />
           <ActionRow className="actions">
@@ -367,7 +368,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
               删除
             </Button>
           </ActionRow>
-        </article>
+        </Card>
       ))}
       <ActionRow>
         <Button
@@ -397,8 +398,8 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           <Select
             disabled={busy}
             value={form.kind}
-            onChange={(e) =>
-              setForm({ ...form, kind: e.target.value as MemoryKind })
+            onValueChange={(value) =>
+              setForm({ ...form, kind: value as MemoryKind })
             }
           >
             {Object.entries(labels).map(([k, v]) => (
@@ -444,9 +445,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         <Field className="check">
           <Checkbox
             disabled={busy}
-            type="checkbox"
+
             checked={allowConflict}
-            onChange={(e) => setAllowConflict(e.target.checked)}
+            onCheckedChange={(value) => setAllowConflict(value)}
           />
           允许与同主题已确认记忆并存
         </Field>

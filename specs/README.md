@@ -27,3 +27,5 @@
 - [Spec 012：收敛导航与聊天布局](spec-012-compact-chat-layout/spec.md)：[独立验收PASS](spec-012-compact-chat-layout/acceptance.md)；72px窄导航、60px单顶部栏与按需历史对话，最终包见Plan。
 
 - [Spec 013：接入beUI并统一按钮](spec-013-beui-controls/spec.md)：[独立验收PASS](spec-013-beui-controls/acceptance.md)；官方Button源码/依赖与主题接入，修正顶部尺寸混用，原布局保持。
+
+- [Spec 014：全面迁移适用beUI组件](spec-014-beui-interface/spec.md)：[独立验收PASS](spec-014-beui-interface/acceptance.md)；表单/导航交互/浮层/状态和聊天展示实际采用beUI，必要原生边界及最终包见Plan。
