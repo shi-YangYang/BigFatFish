@@ -1,3 +1,4 @@
+import { Field, Input, Checkbox, Button, ActionRow } from "./Controls";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../api";
@@ -26,7 +27,11 @@ export function Setup({
     try {
       await invoke("desktop_configure", { ...s, complete: true });
       const p = await api<Record<string, unknown>>("/v1/persona");
-      if (!s.complete) await api("/v1/persona", "PUT", { ...p, name: name.trim() || "大肥鱼" });
+      if (!s.complete)
+        await api("/v1/persona", "PUT", {
+          ...p,
+          name: name.trim() || "大肥鱼",
+        });
       done();
     } catch (e) {
       fail(e);
@@ -39,39 +44,44 @@ export function Setup({
       <h2>{s?.complete ? "运行设置" : "欢迎养一条自己的鱼"}</h2>
       {s && (
         <div className="settings">
-          <label>
+          <Field>
             数据目录
-            <input
+            <Input
               disabled={s.complete}
               value={s.dataDir}
               onChange={(e) => setS({ ...s, dataDir: e.target.value })}
             />
-          </label>
+          </Field>
           {!s.complete && (
-            <label>
+            <Field>
               鱼的名字
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
           )}
-          <label>
-            <input
+          <Field>
+            <Checkbox
               type="checkbox"
               checked={s.background}
               onChange={(e) => setS({ ...s, background: e.target.checked })}
             />
             关闭窗口后继续在后台运行
-          </label>
-          <label>
-            <input
+          </Field>
+          <Field>
+            <Checkbox
               type="checkbox"
               checked={s.autostart}
               onChange={(e) => setS({ ...s, autostart: e.target.checked })}
             />
             登录电脑时启动
-          </label>
-          <button disabled={busy} onClick={() => void save()}>
+          </Field>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
             {s.complete ? "保存设置" : "开始设置模型"}
-          </button>
+          </Button>
         </div>
       )}
     </section>
@@ -97,8 +107,14 @@ function ConfirmAction({
   return (
     <div role="alertdialog" aria-label="确认操作">
       <p>{message}</p>
-      <button onClick={confirm}>确认继续</button>
-      <button onClick={cancel}>取消</button>
+      <ActionRow>
+        <Button type="button" onClick={confirm}>
+          确认继续
+        </Button>
+        <Button type="button" onClick={cancel}>
+          取消
+        </Button>
+      </ActionRow>
     </div>
   );
 }
@@ -146,15 +162,15 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
         导出和恢复会停止服务。恢复后自动活动暂停，平台需要重新启用。旧数据保留在回滚目录。
       </p>
       <div className="settings">
-        <label>
+        <Field>
           备份文件的完整路径
-          <input value={file} onChange={(e) => setFile(e.target.value)} />
-        </label>
-        <fieldset>
+          <Input value={file} onChange={(e) => setFile(e.target.value)} />
+        </Field>
+        <fieldset className="checkbox-grid">
           <legend>导出内容</legend>
           {Object.entries(scopeNames).map(([id, label]) => (
-            <label key={id}>
-              <input
+            <Field key={id}>
+              <Checkbox
                 type="checkbox"
                 checked={scopes.includes(id)}
                 onChange={(e) =>
@@ -166,34 +182,48 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
                 }
               />
               {label}
-            </label>
+            </Field>
           ))}
         </fieldset>
-        <label>
+        <Field>
           加密口令（至少12个字符）
-          <input
+          <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        <label>
-          <input
+        </Field>
+        <Field>
+          <Checkbox
             type="checkbox"
             checked={credentials}
             onChange={(e) => setCredentials(e.target.checked)}
           />
           包含模型密钥及平台凭据（必须加密）
-        </label>
-        <button disabled={busy} onClick={() => void run("export")}>
-          导出备份
-        </button>
-        <button disabled={busy} onClick={() => void run("inspect")}>
-          检查备份
-        </button>
-        <button disabled={busy} onClick={() => setConfirm(true)}>
-          恢复备份
-        </button>
+        </Field>
+        <ActionRow>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => void run("export")}
+          >
+            导出备份
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => void run("inspect")}
+          >
+            检查备份
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirm(true)}
+          >
+            恢复备份
+          </Button>
+        </ActionRow>
         {confirm && (
           <ConfirmAction
             message="恢复将停止服务并替换当前鱼的数据，自动活动暂停。当前数据保留用于回退。"
@@ -263,50 +293,67 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
       <p>当前版本 {version}</p>
       <p>使用发行者提供的 HTTPS 地址与更新公钥。当前未配置官方发行源。</p>
       <div className="settings">
-        <label>
+        <Field>
           更新地址
-          <input
+          <Input
             value={endpoint}
             onChange={(e) => setEndpoint(e.target.value)}
           />
-        </label>
-        <label>
+        </Field>
+        <Field>
           更新公钥
-          <input value={key} onChange={(e) => setKey(e.target.value)} />
-        </label>
-        <button
-          onClick={() =>
-            void invoke("desktop_update_trust", { endpoint, publicKey: key })
-              .then(() => setState("已保存更新信任"))
-              .catch(fail)
-          }
-        >
-          保存更新源
-        </button>
-        <button disabled={busy} onClick={() => void run()}>
-          检查更新
-        </button>
-        <button disabled={busy} onClick={() => setConfirm("online")}>
-          安装更新
-        </button>
+          <Input value={key} onChange={(e) => setKey(e.target.value)} />
+        </Field>
+        <ActionRow>
+          <Button
+            type="button"
+            onClick={() =>
+              void invoke("desktop_update_trust", { endpoint, publicKey: key })
+                .then(() => setState("已保存更新信任"))
+                .catch(fail)
+            }
+          >
+            保存更新源
+          </Button>
+          <Button type="button" disabled={busy} onClick={() => void run()}>
+            检查更新
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirm("online")}
+          >
+            安装更新
+          </Button>
+        </ActionRow>
         <p role="status">{state}</p>
-        <label>
+        <Field>
           离线更新清单路径
-          <input
+          <Input
             value={manifest}
             onChange={(e) => setManifest(e.target.value)}
           />
-        </label>
-        <label>
+        </Field>
+        <Field>
           离线更新包路径
-          <input value={archive} onChange={(e) => setArchive(e.target.value)} />
-        </label>
-        <button disabled={busy} onClick={() => void offline(false)}>
-          验证离线更新
-        </button>
-        <button disabled={busy} onClick={() => setConfirm("offline")}>
-          安装离线更新
-        </button>
+          <Input value={archive} onChange={(e) => setArchive(e.target.value)} />
+        </Field>
+        <ActionRow>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => void offline(false)}
+          >
+            验证离线更新
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirm("offline")}
+          >
+            安装离线更新
+          </Button>
+        </ActionRow>
         {confirm && (
           <ConfirmAction
             message="安装将先验证签名、停止服务并保留当前程序和数据。完成后需要重启应用。"
@@ -319,9 +366,13 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
             }}
           />
         )}
-        <button disabled={busy} onClick={() => void invoke("desktop_restart")}>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => void invoke("desktop_restart")}
+        >
           重启应用
-        </button>
+        </Button>
       </div>
     </section>
   );

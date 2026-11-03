@@ -48,7 +48,7 @@ it.skipIf(!existsSync(executable))(
       approvalError = "",
       release = () => {};
     let onHold: (() => void) | undefined;
-    const requests: { route: string; body: Record<string,unknown> }[] = [];
+    const requests: { route: string; body: Record<string, unknown> }[] = [];
     const model = {
       id: "demo",
       label: "日常聊天",
@@ -131,6 +131,7 @@ it.skipIf(!existsSync(executable))(
       "/v1/diaries": [],
       "/v1/memory-tasks": [],
       "/v1/memories": [],
+      "/v1/memories/search": [],
       "/v1/plugins": [],
       "/v1/logs": { lines: [] },
       "/v1/channels/qq": {
@@ -166,7 +167,15 @@ it.skipIf(!existsSync(executable))(
     });
     await context.exposeBinding(
       "bffTestInvoke",
-      async (_source, cmd: string, args: {route:string;method?:string;body?:Record<string,unknown>} = {route:""}) => {
+      async (
+        _source,
+        cmd: string,
+        args: {
+          route: string;
+          method?: string;
+          body?: Record<string, unknown>;
+        } = { route: "" },
+      ) => {
         if (cmd === "desktop_settings")
           return {
             complete: true,
@@ -180,7 +189,8 @@ it.skipIf(!existsSync(executable))(
         const route = args.route,
           method = args.method ?? "GET";
         if (method !== "GET") {
-          requests.push({ route, body: args.body??{} });
+          requests.push({ route, body: args.body ?? {} });
+          if (route === "/v1/memories/search") return data[route];
           if (route === "/v1/conversations") {
             const item = {
               id: "new-" + sessions.length,
@@ -238,7 +248,10 @@ it.skipIf(!existsSync(executable))(
       },
     );
     await context.addInitScript(() => {
-      const w = window as unknown as {bffTestInvoke:(cmd:string,args:unknown)=>Promise<unknown>;__TAURI_INTERNALS__:unknown};
+      const w = window as unknown as {
+        bffTestInvoke: (cmd: string, args: unknown) => Promise<unknown>;
+        __TAURI_INTERNALS__: unknown;
+      };
       w.__TAURI_INTERNALS__ = {
         invoke: (cmd: string, args: unknown) => w.bffTestInvoke(cmd, args),
       };
@@ -292,6 +305,56 @@ it.skipIf(!existsSync(executable))(
           .evaluate((el) => el.getBoundingClientRect().height),
       ).toBe(40);
       await page.screenshot({ path: "build/desktop-webui/settings-1100.png" });
+      // General settings must not mix fields, toggles and a stretched action in a two-column grid.
+      await page.getByRole("button", { name: "通用", exact: true }).click();
+      const settingsBoxes = await Promise.all([
+        page.getByLabel("数据目录", { exact: true }).boundingBox(),
+        page
+          .getByLabel("关闭窗口后继续在后台运行", { exact: true })
+          .boundingBox(),
+        page.getByLabel("登录电脑时启动", { exact: true }).boundingBox(),
+        page
+          .getByRole("button", { name: "保存设置", exact: true })
+          .boundingBox(),
+      ]);
+      expect(settingsBoxes.every((b) => b?.x === settingsBoxes[0]!.x)).toBe(
+        true,
+      );
+      expect(settingsBoxes[0]!.height).toBe(40);
+      expect(settingsBoxes[3]!.height).toBe(40);
+      expect(settingsBoxes[3]!.width).toBeLessThan(settingsBoxes[0]!.width / 2);
+      await page.getByRole("button", { name: "数据", exact: true }).click();
+      const backupActions = await Promise.all(
+        ["导出备份", "检查备份", "恢复备份"].map((name) =>
+          page.getByRole("button", { name, exact: true }).boundingBox(),
+        ),
+      );
+      expect(
+        backupActions.every(
+          (b) => b?.height === 40 && b.y === backupActions[0]!.y,
+        ),
+      ).toBe(true);
+      await page.getByRole("button", { name: "我的鱼", exact: true }).click();
+      await page.getByRole("button", { name: "记忆", exact: true }).click();
+      await page
+        .getByText("没有符合条件的记忆。可整理对话，或直接添加。", {
+          exact: true,
+        })
+        .waitFor();
+      const filters = await page
+        .locator(".filters input, .filters select")
+        .evaluateAll((elements) =>
+          elements.map((el) => ({
+            bottom: el.getBoundingClientRect().bottom,
+            height: el.getBoundingClientRect().height,
+          })),
+        );
+      expect(filters).toHaveLength(3);
+      expect(
+        filters.every(
+          (r) => r.height === 40 && r.bottom === filters[0]!.bottom,
+        ),
+      ).toBe(true);
       await page.getByRole("button", { name: "聊天", exact: true }).click();
       expect(await input.inputValue()).toBe("保留的草稿");
       online = false;
@@ -363,42 +426,69 @@ it.skipIf(!existsSync(executable))(
       release();
       hold = false;
       onHold = undefined;
-      await page.waitForFunction(() => document.querySelector<HTMLButtonElement>('.composer button[type="submit"]')?.disabled === false);
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLButtonElement>(
+            '.composer button[type="submit"]',
+          )?.disabled === false,
+      );
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
       await page.getByRole("button", { name: "新对话", exact: true }).click();
       expect(await input.inputValue()).toBe("");
       await page.locator(".session-list button").first().click();
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
-      data["/v1/douyin/approvals"] = [{
-        id: "douyin-approval",
-        payload: { tool: "douyin_comment", accountId: "fixture-account", args: { aweme_id: "12345", text: "一条待审批评论" } },
-        status: "pending",
-        digest: "douyin-digest",
-        expiresAt: Date.now() + 300000,
-      }];
+      data["/v1/douyin/approvals"] = [
+        {
+          id: "douyin-approval",
+          payload: {
+            tool: "douyin_comment",
+            accountId: "fixture-account",
+            args: { aweme_id: "12345", text: "一条待审批评论" },
+          },
+          status: "pending",
+          digest: "douyin-digest",
+          expiresAt: Date.now() + 300000,
+        },
+      ];
       await page.getByRole("button", { name: /待审批/ }).click();
       await page.getByText("一起看这段视频吧", { exact: true }).waitFor();
       await page.screenshot({ path: "build/desktop-webui/approval-1100.png" });
       const dialog = page.getByRole("dialog", { name: "审批与记录" });
       approvalError = "CHANNEL_OFFLINE";
-      await dialog.getByRole("button", { name: "批准发送", exact: true }).click();
-      await dialog.getByRole("alert").getByText("QQ 尚未在线，请检查连接和登录状态。", { exact: true }).waitFor();
+      await dialog
+        .getByRole("button", { name: "批准发送", exact: true })
+        .click();
+      await dialog
+        .getByRole("alert")
+        .getByText("QQ 尚未在线，请检查连接和登录状态。", { exact: true })
+        .waitFor();
       expect(await dialog.isVisible()).toBe(true);
-      await dialog.getByRole("button", { name: "关闭提示", exact: true }).click();
+      await dialog
+        .getByRole("button", { name: "关闭提示", exact: true })
+        .click();
       approvalError = "";
       await page.getByRole("button", { name: "批准发送", exact: true }).click();
       expect(requests.at(-1)!.body).toEqual({
         digest: "fixture-digest",
         decision: "approve",
       });
-      await dialog.getByRole("button", { name: "批准这次操作", exact: true }).click();
-      await dialog.getByRole("alert").getByText("操作结果未知，请先在平台核对，勿直接重试。", { exact: true }).waitFor();
+      await dialog
+        .getByRole("button", { name: "批准这次操作", exact: true })
+        .click();
+      await dialog
+        .getByRole("alert")
+        .getByText("操作结果未知，请先在平台核对，勿直接重试。", {
+          exact: true,
+        })
+        .waitFor();
       await page.setViewportSize({ width: 640, height: 760 });
       const alertBox = await dialog.getByRole("alert").boundingBox();
       expect(alertBox!.x).toBeGreaterThanOrEqual(0);
       expect(alertBox!.x + alertBox!.width).toBeLessThanOrEqual(640);
       expect(alertBox!.y + alertBox!.height).toBeLessThanOrEqual(760);
-      await page.screenshot({ path: "build/desktop-webui/approval-error-640.png" });
+      await page.screenshot({
+        path: "build/desktop-webui/approval-error-640.png",
+      });
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1100, height: 760 });
       await page.getByRole("button", { name: "连接", exact: true }).click();

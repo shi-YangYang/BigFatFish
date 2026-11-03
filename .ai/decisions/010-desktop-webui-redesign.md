@@ -132,3 +132,14 @@ Tauri继续承接Runtime生命周期、受控本机访问、数据目录、托�
 > Transform the supplied community whale girl reference into one square BigFatFish app icon. Chibi round face, deep blue hair becoming light blue at the tips, blue eyes, curved single ahoge, whale-fin ears, white frilled maid headband with tiny blue bow, navy-and-white modest maid collar. Friendly centered head-and-shoulders portrait, both eyes open, subtle rosy cheeks, small whale tail behind one shoulder. Pale powder-blue square background, clean dark-blue outlines, simple cel shading, readable at small sizes. Remove all lettering, Ciallo text, symbols, stars and speech bubbles; no watermark or wordmark.
 
 早期 HTML 预览与截图保留为设计历史；实施后的真实组件截图单独记录，不把预览替换图像当作生产验证。
+
+
+## 后续修正：蓝色主题与组件基础（Spec 011）
+
+用户在 db9cd5e 交付后明确要求使用 DS 蓝色，并指出仍有对齐/尺寸不一致，允许采用UI库或手工封装（库推荐beUI）。此前提案的绿色品牌色由此被用户最新要求替代，不再作为实施约束；原图标/导航与业务保护保留。
+
+2026-11-03 已核实 [DeepSeek 官网](https://www.deepseek.com/) 实际CSS中 `--ds-color-brand:#4d6bfe`。品牌基础采用此蓝，常规正文与白字按钮可用稍深同色系保证可读性（计算白色对 #4D6BFE 为4.33，对 #3959E4 为5.64）。
+
+已查阅 [beUI theme](https://beui.dev/docs/theme)、[Button](https://beui.dev/components/motion/button) 与其官方源码仓库；它依赖 Tailwind4/Motion，支持复制组件源码。本项目目前没有这些依赖，按用户明确允许的方式手动建立基础语义组件并迁移现有使用点。本轮不引入其他UI库，不把此取舍表述为beUI不兼容或已经接入。具体范围、实际布局证据与验收见 Spec011。
+
+Spec011 已落地并独立复验 PASS：共享原生控件覆盖 Desktop/Web，常规控件40px、显式紧凑动作32px，使用操作行/字段网格消除混排和间距不一致；确认区遗漏经新实施/新验收关闭。蓝色生产截图位于 docs/design/desktop-webui-{chat,settings,general,data}.png；最终产物与验证边界记录在 Spec011 Plan/Acceptance。旧绿色预览仅为历史。

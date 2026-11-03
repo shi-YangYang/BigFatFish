@@ -1,3 +1,4 @@
+import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { api, errorText, isWeb, webRequest } from "./api";
@@ -139,7 +140,8 @@ export default function App() {
       </div>
       <nav className="primary-nav" aria-label="主导航">
         {(["聊天", "我的鱼", "连接"] as const).map((item, i) => (
-          <button
+          <Button
+            type="button"
             className={page === item ? "active" : ""}
             aria-current={page === item ? "page" : undefined}
             key={item}
@@ -151,17 +153,18 @@ export default function App() {
               <Icon name={i === 0 ? "chat" : "link"} />
             )}
             {item}
-          </button>
+          </Button>
         ))}
       </nav>
       <div className="sidebar-bottom">
-        <button
+        <Button
+          type="button"
           className={page === "设置" ? "active" : ""}
           onClick={() => navigate("设置")}
         >
           <Icon name="settings" />
           设置
-        </button>
+        </Button>
         <span className="sidebar-note">慢慢聊，一起成长。</span>
       </div>
     </>
@@ -171,22 +174,26 @@ export default function App() {
       <aside className="app-sidebar">{menuContents}</aside>
       <div className="app-workspace">
         <header className="topbar">
-          <button
-            className="icon-button mobile-menu"
+          <Button
+            type="button"
+            className="mobile-menu"
+            size="icon"
             aria-label="打开导航"
             onClick={() => setMenu(true)}
           >
             <Icon name="menu" />
-          </button>
+          </Button>
           <h1>{page}</h1>
           <div className="topbar-actions">
             {approvalCount > 0 && (
-              <button
-                className="approval-button compact"
+              <Button
+                type="button"
+                className="approval-button"
+                size="compact"
                 onClick={() => setDrawer(true)}
               >
                 待审批 <b>{approvalCount}</b>
-              </button>
+              </Button>
             )}
             <details className="runtime-menu">
               <summary>
@@ -198,9 +205,12 @@ export default function App() {
                   : "未连接"}
               </summary>
               <div className="runtime-popover">
-                <button onClick={() => void connect()}>重新连接</button>
+                <Button type="button" onClick={() => void connect()}>
+                  重新连接
+                </Button>
                 {activity && (
-                  <button
+                  <Button
+                    type="button"
                     onClick={() =>
                       void api("/v1/activities/pause", "POST", {
                         paused: !activity.paused,
@@ -215,17 +225,20 @@ export default function App() {
                     }
                   >
                     {activity.paused ? "恢复活动" : "暂停活动"}
-                  </button>
+                  </Button>
                 )}
-                <button onClick={() => setDrawer(true)}>审批与记录</button>
+                <Button type="button" onClick={() => setDrawer(true)}>
+                  审批与记录
+                </Button>
                 {isWeb && (
-                  <button
+                  <Button
+                    type="button"
                     onClick={() =>
                       void webRequest("/auth/logout", "POST").catch(fail)
                     }
                   >
                     退出登录
-                  </button>
+                  </Button>
                 )}
               </div>
             </details>
@@ -234,17 +247,17 @@ export default function App() {
         {error && (
           <div className="app-error" role="alert">
             <span>{error}</span>
-            <button className="compact" onClick={() => setError("")}>
+            <Button type="button" size="compact" onClick={() => setError("")}>
               关闭
-            </button>
+            </Button>
           </div>
         )}
         {initialized && !connected && (
           <div className="connection-banner" role="status">
             连接已断开，当前内容与草稿已保留。
-            <button className="compact" onClick={() => void connect()}>
+            <Button type="button" size="compact" onClick={() => void connect()}>
               重新连接
-            </button>
+            </Button>
           </div>
         )}
         <main
@@ -300,15 +313,18 @@ export default function App() {
                 <div className="empty-state">
                   <FishAvatar />
                   <h2>暂时无法连接你的鱼</h2>
-                  <button onClick={() => void connect()}>重新连接</button>
-                  <button
+                  <Button type="button" onClick={() => void connect()}>
+                    重新连接
+                  </Button>
+                  <Button
+                    type="button"
                     onClick={() => {
                       setSettingsTab("通用");
                       navigate("设置");
                     }}
                   >
                     打开运行设置
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
@@ -337,9 +353,9 @@ function ApprovalContents() {
       {error && (
         <div className="error approval-error" role="alert">
           <span>{error}</span>
-          <button className="compact" onClick={() => setError("")}>
+          <Button type="button" size="compact" onClick={() => setError("")}>
             关闭提示
-          </button>
+          </Button>
         </div>
       )}
       <Permissions fail={fail} approvalsOnly />

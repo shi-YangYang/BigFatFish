@@ -1,3 +1,4 @@
+import { Button } from "./Controls";
 import { useEffect, useRef, type ReactNode } from "react";
 import fishGirl from "../assets/fish-girl.png";
 export { fishGirl };
@@ -57,15 +58,16 @@ export function Tabs<T extends string>({
   return (
     <nav className="section-tabs" aria-label={label}>
       {items.map((item) => (
-        <button
+        <Button
           type="button"
+          size="compact"
           key={item}
           aria-current={item === value ? "page" : undefined}
           className={item === value ? "active" : ""}
           onClick={() => onChange(item)}
         >
           {item}
-        </button>
+        </Button>
       ))}
     </nav>
   );
@@ -113,9 +115,9 @@ export function Drawer({
     >
       <div className="drawer-heading">
         <h2>{title}</h2>
-        <button className="icon-button" aria-label="关闭" onClick={close}>
+        <Button type="button" size="icon" aria-label="关闭" onClick={close}>
           <Icon name="close" />
-        </button>
+        </Button>
       </div>
       <div className="drawer-body">{children}</div>
     </dialog>

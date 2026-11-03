@@ -1,3 +1,4 @@
+import { Button } from "./Controls";
 import { useCallback, useEffect, useState } from "react";
 import { api, isWeb } from "../api";
 import { Home, Life } from "./Life";
@@ -105,7 +106,8 @@ export function Connections({ fail }: Fail) {
   if (tab)
     return (
       <>
-        <button
+        <Button
+          type="button"
           className="back-button"
           onClick={() => {
             setTab("");
@@ -113,7 +115,7 @@ export function Connections({ fail }: Fail) {
           }}
         >
           ← 所有连接
-        </button>
+        </Button>
         {tab === "QQ" ? (
           <>
             <Channels fail={fail} />
@@ -145,7 +147,9 @@ export function Connections({ fail }: Fail) {
                 {states[name] ?? "正在读取…"}
               </span>
             </div>
-            <button onClick={() => setTab(name)}>管理连接</button>
+            <Button type="button" onClick={() => setTab(name)}>
+              管理连接
+            </Button>
           </article>
         ))}
       </div>
@@ -228,7 +232,9 @@ function Logs({ fail }: Fail) {
   return (
     <section>
       <h2>运行诊断</h2>
-      <button onClick={() => void reload()}>刷新日志</button>
+      <Button type="button" onClick={() => void reload()}>
+        刷新日志
+      </Button>
       <pre className="log-output">{lines.join("\n") || "暂无日志"}</pre>
     </section>
   );

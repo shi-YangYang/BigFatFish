@@ -1,3 +1,12 @@
+import {
+  Button,
+  Field,
+  Select,
+  Input,
+  Checkbox,
+  FormGrid,
+  ActionRow,
+} from "./Controls";
 import { useState } from "react";
 import type { ModelConfig, ModelPurpose } from "../../../runtime/src/ai/types";
 import { api } from "../api";
@@ -58,8 +67,8 @@ export function Models({
     <section>
       <div className="section-heading">
         <h2>模型</h2>
-        <button
-          className="compact"
+        <Button
+          type="button"
           onClick={() => {
             setForm(blank);
             setKey("");
@@ -67,13 +76,14 @@ export function Models({
           }}
         >
           新建配置
-        </button>
+        </Button>
       </div>
       {models.length > 0 && (
         <div className="model-list">
           {models.map((m) => (
             <div key={m.id}>
-              <button
+              <Button
+                type="button"
                 className="model-name"
                 onClick={() => {
                   setForm(m);
@@ -83,10 +93,10 @@ export function Models({
               >
                 {m.label}
                 <small>{m.model}</small>
-              </button>
+              </Button>
               <span>{m.hasKey ? "密钥已设置" : "未设置密钥"}</span>
-              <button
-                className="compact"
+              <Button
+                type="button"
                 onClick={() =>
                   void api("/v1/models/" + m.id, "DELETE")
                     .then(reload)
@@ -94,15 +104,15 @@ export function Models({
                 }
               >
                 删除
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       )}
       <form onSubmit={save} className="model-form">
-        <label>
+        <Field>
           提供商
-          <select
+          <Select
             value={form.provider}
             onChange={(e) =>
               setForm({
@@ -117,30 +127,30 @@ export function Models({
           >
             <option value="openai">OpenAI 兼容 / 本地模型</option>
             <option value="deepseek">DeepSeek</option>
-          </select>
-        </label>
-        <label>
+          </Select>
+        </Field>
+        <Field>
           服务地址
-          <input
+          <Input
             required
             type="url"
             value={form.baseURL}
             placeholder="https://api.example.com/v1"
             onChange={(e) => setForm({ ...form, baseURL: e.target.value })}
           />
-        </label>
-        <label>
+        </Field>
+        <Field>
           模型名称
-          <input
+          <Input
             required
             value={form.model}
             placeholder="服务提供的模型名称"
             onChange={(e) => setForm({ ...form, model: e.target.value })}
           />
-        </label>
-        <label>
+        </Field>
+        <Field>
           API Key
-          <input
+          <Input
             type="password"
             autoComplete="off"
             value={key}
@@ -151,27 +161,27 @@ export function Models({
                 : "本地模型可留空"
             }
           />
-        </label>
+        </Field>
         <details className="advanced-fields">
           <summary>高级配置</summary>
-          <div className="field-grid">
-            <label>
+          <FormGrid className="field-grid">
+            <Field>
               显示名称
-              <input
+              <Input
                 value={form.label}
                 placeholder="默认使用模型名称"
                 onChange={(e) => setForm({ ...form, label: e.target.value })}
               />
-            </label>
-            <label>
+            </Field>
+            <Field>
               配置标识
-              <input readOnly value={form.id} placeholder="保存时自动生成" />
-            </label>
+              <Input readOnly value={form.id} placeholder="保存时自动生成" />
+            </Field>
             {(["contextWindow", "maxTokens", "timeoutMs"] as const).map(
               (field, i) => (
-                <label key={field}>
+                <Field key={field}>
                   {["上下文容量", "单次输出上限", "超时（毫秒）"][i]}
-                  <input
+                  <Input
                     required
                     type="number"
                     value={form[field]}
@@ -179,32 +189,32 @@ export function Models({
                       setForm({ ...form, [field]: Number(e.target.value) })
                     }
                   />
-                </label>
+                </Field>
               ),
             )}
-            <label className="check">
-              <input
+            <Field className="check">
+              <Checkbox
                 type="checkbox"
                 checked={form.vision}
                 onChange={(e) => setForm({ ...form, vision: e.target.checked })}
               />
               支持图片输入
-            </label>
-          </div>
+            </Field>
+          </FormGrid>
         </details>
-        <div className="form-actions">
-          <button className="primary" type="submit" disabled={busy}>
+        <ActionRow className="form-actions">
+          <Button variant="primary" type="submit" disabled={busy}>
             保存模型
-          </button>
+          </Button>
           <span role="status">{saved}</span>
-        </div>
+        </ActionRow>
       </form>
       {models.length > 0 && (
         <details>
           <summary>默认模型与用途</summary>
-          <label>
+          <Field>
             用途
-            <select
+            <Select
               value={purpose}
               onChange={(e) => setPurpose(e.target.value as ModelPurpose)}
             >
@@ -220,11 +230,12 @@ export function Models({
                   {label}
                 </option>
               ))}
-            </select>
-          </label>
-          <div className="actions">
+            </Select>
+          </Field>
+          <ActionRow className="actions">
             {models.map((m) => (
-              <button
+              <Button
+                type="button"
                 key={m.id}
                 onClick={() =>
                   void api<Record<string, string>>("/v1/model-routes")
@@ -239,9 +250,9 @@ export function Models({
                 }
               >
                 使用 {m.label}
-              </button>
+              </Button>
             ))}
-          </div>
+          </ActionRow>
         </details>
       )}
     </section>

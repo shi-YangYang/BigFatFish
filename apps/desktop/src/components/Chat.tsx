@@ -1,3 +1,4 @@
+import { Button, Textarea, Input, Field, Select } from "./Controls";
 import { useEffect, useRef, useState } from "react";
 import type {
   ChatMessage,
@@ -240,16 +241,19 @@ export function Chat({
   return (
     <section className="chat">
       <div className="chat-toolbar">
-        <button
-          className="compact history-toggle"
+        <Button
+          type="button"
+          className="history-toggle"
+          size="compact"
           onClick={() => setHistory(!history)}
           aria-expanded={history}
         >
           历史对话
-        </button>
+        </Button>
         <span className="chat-title">{title}</span>
-        <button
-          className="compact"
+        <Button
+          type="button"
+          size="compact"
           disabled={busy}
           onClick={() => {
             selectSession("");
@@ -258,7 +262,7 @@ export function Chat({
         >
           <Icon name="plus" />
           新对话
-        </button>
+        </Button>
       </div>
       <div className="chat-layout">
         <aside
@@ -268,14 +272,15 @@ export function Chat({
           <div className="session-heading">最近对话</div>
           {sessions.length ? (
             sessions.map((s) => (
-              <button
+              <Button
+                type="button"
                 className={s.id === selected ? "active" : ""}
                 key={s.id}
                 onClick={() => selectSession(s.id)}
               >
                 <span>{s.title}</span>
                 <small>{new Date(s.createdAt).toLocaleDateString()}</small>
-              </button>
+              </Button>
             ))
           ) : (
             <p className="muted">还没有对话</p>
@@ -292,7 +297,9 @@ export function Chat({
                     : "先为大肥鱼添加一个模型"}
                 </h2>
                 {!models.length ? (
-                  <button onClick={configureModel}>添加聊天模型</button>
+                  <Button type="button" onClick={configureModel}>
+                    添加聊天模型
+                  </Button>
                 ) : (
                   <p>从一句话开始，慢慢了解彼此。</p>
                 )}
@@ -316,8 +323,9 @@ export function Chat({
                   </small>
                   {m.role === "assistant" &&
                   ["queued", "running"].includes(m.status) ? (
-                    <button
-                      className="compact"
+                    <Button
+                      type="button"
+                      size="compact"
                       onClick={() =>
                         void api(`/v1/messages/${m.id}/cancel`, "POST").catch(
                           fail,
@@ -325,17 +333,19 @@ export function Chat({
                       }
                     >
                       停止回复
-                    </button>
+                    </Button>
                   ) : (
                     m.role === "assistant" &&
                     m.content && (
-                      <button
-                        className="text-button"
+                      <Button
+                        type="button"
+                        size="compact"
+                        variant="ghost"
                         disabled={mediaBusy || !connected}
                         onClick={() => void speak(m.content)}
                       >
                         朗读
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>
@@ -374,7 +384,7 @@ export function Chat({
             )}
             {locked && <p className="muted">此会话仅供查看，请从 QQ 继续。</p>}
             <form className="composer" onSubmit={send}>
-              <textarea
+              <Textarea
                 aria-label="消息"
                 value={text}
                 onChange={(e) => updateText(e.target.value)}
@@ -382,26 +392,27 @@ export function Chat({
                 disabled={locked || !models.length}
               />
               <div className="composer-tools">
-                <input
+                <Input
                   ref={fileInput}
                   hidden
                   type="file"
                   accept="audio/wav,audio/mpeg,audio/mp4,audio/webm,audio/ogg"
                   onChange={(e) => void transcribe(e.target.files?.[0])}
                 />
-                <button
+                <Button
                   type="button"
-                  className="text-button"
+                  size="compact"
+                  variant="ghost"
                   disabled={mediaBusy || locked || !connected}
                   onClick={() => fileInput.current?.click()}
                 >
                   {mediaBusy ? "处理中…" : "上传音频"}
-                </button>
+                </Button>
                 <details className="voice-options">
                   <summary>声音</summary>
-                  <label>
+                  <Field>
                     声音名称
-                    <input
+                    <Input
                       value={voice}
                       placeholder="例如 alloy"
                       onChange={(e) => {
@@ -409,10 +420,10 @@ export function Chat({
                         localStorage.setItem("bff-voice", e.target.value);
                       }}
                     />
-                  </label>
+                  </Field>
                 </details>
                 {!selected && (
-                  <select
+                  <Select
                     aria-label="新会话模型"
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
@@ -423,10 +434,11 @@ export function Chat({
                         {m.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 )}
-                <button
-                  className="primary send-button"
+                <Button
+                  variant="primary"
+                  className="send-button"
                   type="submit"
                   disabled={
                     busy ||
@@ -437,7 +449,7 @@ export function Chat({
                   }
                 >
                   {busy ? "发送中…" : "发送"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
