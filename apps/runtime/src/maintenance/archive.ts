@@ -1,3 +1,4 @@
+import {validateBundle,hash as pluginHash} from '../plugins/package.js';
 import { backup, DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
   createHash,
@@ -227,6 +228,7 @@ export async function exportArchive(
             if (table === "plugin_config") {
               const config = JSON.parse(String(row.config));
               config.enabled = false;
+              if(String(row.id).startsWith('sdk:')){config.granted=[];config.directory='';config.installed=false;}
               if (row.id === "douyin") {
                 config.executablePath = "";
                 config.pythonPath = "python3";
@@ -321,6 +323,7 @@ export function restoreArchive(p: DataPaths, file: string, password?: string) {
           if (table === "plugin_config") {
             const config = JSON.parse(String(row.config));
             config.enabled = false;
+              if(String(row.id).startsWith('sdk:')){config.granted=[];config.directory='';config.installed=false;}
             row.config = JSON.stringify(config);
             row.revision = randomUUID();
           }
@@ -356,6 +359,9 @@ export function restoreArchive(p: DataPaths, file: string, password?: string) {
             JSON.stringify(config),
             plugin.id!,
           );
+        } else if(String(plugin.id).startsWith('sdk:')) {
+          validateBundle({format:'bigfatfish-plugin',manifest:config.manifest,files:[{path:config.manifest?.entry,data:'',sha256:pluginHash('')}]});
+          if(!config.manifest || config.manifest.id!==String(plugin.id).slice(4) || config.manifest.protocol!==1 || typeof config.storage!=='object' || JSON.stringify(config.storage).length>131072)throw new Error('INVALID_ARCHIVE_PLUGIN');
         } else if (plugin.id !== "bilibili")
           throw new Error("INVALID_ARCHIVE_PLUGIN");
       }

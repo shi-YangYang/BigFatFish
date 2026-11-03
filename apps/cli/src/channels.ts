@@ -1,6 +1,6 @@
+import {readInput as input} from './input.js';
 import { readConnection, requestRuntime } from '../../runtime/src/connection.js';
 import type { DataPaths } from '../../runtime/src/paths.js';
-async function input(){let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>65536)throw new Error('INPUT_TOO_LARGE');}return JSON.parse(text);}
 export async function channelCommand(p:DataPaths,args:string[],output:(value:unknown)=>void){
  const [command,action='status',id]=args,c=readConnection(p),call=(url:string,method='GET',body?:unknown)=>requestRuntime(c,url,method,body);
  if(command==='channels'){
@@ -12,7 +12,7 @@ export async function channelCommand(p:DataPaths,args:string[],output:(value:unk
  }else{
   if(action==='status'||action==='list')output(await call('/v1/permissions/approvals'));
   else if(action==='audit')output(await call('/v1/permissions/audit'));
-  else if(action==='propose')output(await call('/v1/permissions/approvals','POST',await input()));
+  else if(action==='propose')output(await call('/v1/permissions/approvals','POST',await input(3_000_000)));
   else if(action==='decide'&&id)output(await call('/v1/permissions/approvals/'+encodeURIComponent(id),'POST',await input()));
   else throw new Error('INVALID_ARGUMENTS');
  }

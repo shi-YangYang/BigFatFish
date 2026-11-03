@@ -1,3 +1,4 @@
+import {pathToFileURL} from 'node:url';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatService } from '../ai/chat.js';
@@ -17,12 +18,15 @@ export class Bilibili {
     this.upstream=new Upstream(p,options);db.prepare("UPDATE video_tasks SET status='interrupted',error='RUNTIME_RESTARTED' WHERE status IN ('queued','running','understanding')").run();
     const row=db.prepare("SELECT config,revision FROM plugin_config WHERE id='bilibili'").get();if(row){const c=JSON.parse(row.config as string);this.enabled=c.enabled===true;this.account=c.account;this.revision=row.revision as string;this.accountState=this.account?'unverified':'signed-out';}
   }
-  async initialize(){try{this.module=await loadBilibili();this.qr=new this.module.QrAuth({save:(c:Credentials,options:{signal:AbortSignal;check:()=>void})=>this.import(c,options)});}catch{this.initializationError='BILI_DEPENDENCY_MISSING';}}
+  assertPlugin:()=>void=()=>{};
+  async suspend(){await this.abort();}
+  async reload(directory:string){await this.abort();this.qr?.dispose();this.upstream.url=pathToFileURL(directory+'/');this.initializationError=undefined;await this.initialize();if(this.initializationError)throw new InputError(this.initializationError,409);}
+  async initialize(){try{this.module=await loadBilibili(this.upstream.url);this.qr=new this.module.QrAuth({save:(c:Credentials,options:{signal:AbortSignal;check:()=>void})=>this.import(c,options)});}catch{this.initializationError='BILI_DEPENDENCY_MISSING';}}
   status(){return {enabled:this.enabled,revision:this.revision,account:this.account,accountState:this.accountState,hasCredentials:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get()?.secret,health:{state:this.initializationError?'unavailable':this.enabled?'ready':'disabled',error:this.initializationError,ffmpeg:this.upstream.ffmpeg()},manifest:this.module?.manifest??{id:'bilibili',version:'0.1.0'}};}
-  private assertEnabled(){if(this.initializationError)throw new InputError(this.initializationError,409);if(this.closing)throw new InputError('RUNTIME_STOPPING',503);if(!this.enabled)throw new InputError('BILI_DISABLED',409);}
+  private assertEnabled(){this.assertPlugin();if(this.initializationError)throw new InputError(this.initializationError,409);if(this.closing)throw new InputError('RUNTIME_STOPPING',503);if(!this.enabled)throw new InputError('BILI_DISABLED',409);}
   private secret():Credentials|null{const row=this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get();return row?.secret?JSON.parse(this.chat.config.decryptSecret(row.secret as string)):null;}
   private save(secret: string|null|undefined=undefined){const old=this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get();this.revision=randomUUID();this.db.prepare("INSERT INTO plugin_config(id,config,secret,revision) VALUES('bilibili',?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,secret=excluded.secret,revision=excluded.revision").run(JSON.stringify({enabled:this.enabled,account:this.account}),secret===undefined?old?.secret??null:secret,this.revision);}
-  async configure(input:unknown){if(this.closing)throw new InputError('RUNTIME_STOPPING',503);const b=object(input);if(b.revision!==this.revision||typeof b.enabled!=='boolean')throw new InputError('CHANNEL_VERSION_CONFLICT',409);await this.abort();if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);this.enabled=b.enabled;this.save();return this.status();}
+  async configure(input:unknown){if(this.closing)throw new InputError('RUNTIME_STOPPING',503);const b=object(input);if(b.enabled)this.assertPlugin();if(b.revision!==this.revision||typeof b.enabled!=='boolean')throw new InputError('CHANNEL_VERSION_CONFLICT',409);await this.abort();if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);this.enabled=b.enabled;this.save();return this.status();}
   private async abort(){this.qr?.cancel();for(const r of this.operations.values())r.control.abort();await Promise.allSettled([...this.operations.values()].map(r=>r.promise));}
   private operation<T>(fn:(signal:AbortSignal)=>Promise<T>){this.assertEnabled();if(this.operations.size)throw new InputError('BILI_BUSY',409);const id=randomUUID(),control=new AbortController();const promise=Promise.resolve().then(()=>fn(control.signal)).finally(()=>this.operations.delete(id));this.operations.set(id,{control,promise});return promise;}
   async import(input:unknown,options?:{signal:AbortSignal;check:()=>void}){

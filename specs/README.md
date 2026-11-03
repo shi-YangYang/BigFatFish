@@ -14,8 +14,9 @@
 | [002 P0 工程基础](spec-002-p0-foundation/spec.md) | Runtime/CLI/SQLite/API、桌面壳、CI及实际运行 | 实施报告与独立验收持续更新 |
 | [003 P1 AI 鱼核心](spec-003-p1-ai-core/spec.md) | 真实DSH、模型、人格、会话与流式聊天 | [代码验收及外部缺口](spec-003-p1-ai-core/acceptance.md) |
 | [004 P2 记忆养成](spec-004-p2-memory-life/spec.md) | 有来源的长期记忆、日记、兴趣、经历、关系、心情与主页 | [返工复验PASS](spec-004-p2-memory-life/acceptance.md)，外部缺口单列 |
-| [005 P3 QQ](spec-005-p3-qq/spec.md) | OneBot私聊/群聊、主人权限、记忆可见范围、审批与插件管理基础 | [返工复验PASS](spec-005-p3-qq/acceptance.md)，外部/完整媒体缺口单列 |
+| [005 P3 QQ](spec-005-p3-qq/spec.md) | OneBot私聊/群聊、主人权限、记忆可见范围、审批与插件管理基础 | [返工复验PASS](spec-005-p3-qq/acceptance.md)，QQ媒体已在P7补齐本机路径，真实账号缺口单列 |
 | [006 P4 B站](spec-006-p4-bilibili/spec.md) | 固定上游复用、观看/理解/记忆与经QQ审批分享 | [代码验收PASS](spec-006-p4-bilibili/acceptance.md)，真实账号验证单列 |
 
 - [Spec 007：P5 抖音与统一调度](spec-007-p5-douyin/spec.md)：[本地代码返工PASS](spec-007-p5-douyin/acceptance.md)；原生Mac已验证，未完成协议与外部缺口单列。
 - [Spec 008：P6 安装、运行与数据迁移](spec-008-p6-release/spec.md)：[本地代码返工PASS](spec-008-p6-release/acceptance.md)；Mac/Linux产物与迁移路径有证据，Windows和正式签名/发行未完成。
+- [Spec 009：P7 Web Console与插件生态](spec-009-p7-web-plugins/spec.md)：[返工复验PASS](spec-009-p7-web-plugins/acceptance.md)；远程认证、可安装插件、真实工具回合、媒体与开发者文档，本地代码与安装证据通过，外部验证单列。

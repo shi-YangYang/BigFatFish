@@ -10,6 +10,8 @@ BigFatFish 通过同一个独立 Runtime 提供桌面、命令行和无界面服
 
 P6 本地代码及三项返工已通过独立验收：已生成内置 Node 的 macOS 安装包和独立 CLI，完成本机安装、向导、后台运行、备份恢复及 Linux Docker/systemd 实跑。原生更新已实际从 0.1.0 安装并重启至 0.1.1，再人工回退旧应用与原数据。安装后的用户不需要开发工具；具体步骤见 [安装、运行与迁移](docs/install-and-migrate.md)。本地 macOS 产物使用 ad-hoc 签名，尚无正式签名、公证或发行；Windows 安装未实测。
 
+P7 的 HTTPS 控制台、可安装插件与 SDK、DSH 工具调用、语音和 QQ 媒体已实现，本地代码及三项返工已通过独立验收，已有安装产物和原生运行证据。控制台默认关闭；插件权限与实际系统权限、远程配置和开发步骤见 [开发者指南](docs/developer.md)。
+
 源码开发需要 Node.js 24.9 或更新的 Node 24；发行准备使用固定 Node 24.20.0，原生编译需要 Rust 1.90+ 与对应系统的 Tauri 构建环境。各平台的证据见 [实现状态](IMPLEMENTATION_STATUS.md)，CI 配置不等于已执行验证。
 
 ## 快速开始
@@ -93,6 +95,7 @@ docker run --rm bigfatfish:local node scripts/smoke.mjs
 - `apps/runtime/src/`：Runtime API、生命周期、数据和存储模块。
 - `apps/cli/src/`：命令行与后台进程连接。
 - `apps/desktop/`：React 界面与 `src-tauri/` 原生宿主。
+- `apps/web/`：浏览器入口，复用现有界面组件，通过认证网关访问 Runtime。
 - `tests/`、`scripts/`：集成验证与实际运行检查。
 - `infra/`：Docker/Compose 与 systemd 部署。
 - `plugins/`、`services/`：平台插件源码与 Python 等辅助服务。
@@ -105,6 +108,7 @@ JavaScript 工程使用单根依赖清单和锁文件，源码按职责组织为
 - [产品设计目标](BigFatFish_产品设计目标.md) · [项目使命](constitution/mission.md) · [路线](ROADMAP.md) · [架构](ARCHITECTURE.md)
 - [实现状态](IMPLEMENTATION_STATUS.md) · [协作规范](AGENTS.md) · [Spec 管理](specs/README.md)
 - [贡献指南](CONTRIBUTING.md) · [行为准则](docs/CODE_OF_CONDUCT.md) · [安全说明](SECURITY.md) · [变更记录](CHANGELOG.md)
+- [开发者指南与 SDK](docs/developer.md) · [安装与迁移](docs/install-and-migrate.md)
 
 项目采用 [MIT 许可证](LICENSE)。集成第三方代码前需单独核对其许可证与使用条件。
 

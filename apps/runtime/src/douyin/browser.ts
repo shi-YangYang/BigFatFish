@@ -10,6 +10,7 @@ import type { DataPaths } from '../paths.js';
 export function asset(path:string){const base=import.meta.url.includes('/dist/runtime/')?'../../../':'../../../../';return fileURLToPath(new URL(`${base}${path}`,import.meta.url));}
 export interface BrowserConfig{enabled:boolean;executablePath:string;pythonPath:string;headless:boolean;accountId:string}
 export class BrowserManager{
+ resource:(path:string)=>string=asset;
  private child?:ChildProcess;private browser?:Browser;context?:BrowserContext;endpoint='';private startPromise?:Promise<void>;private tail:Promise<unknown>=Promise.resolve();private closing?:Promise<void>;
  gate?:WriteGate;mode:'read'|'login'|'write'='read';submitted=false;denied=false;
  constructor(private p:DataPaths,readonly fixture?: (context:BrowserContext)=>Promise<void>){}
@@ -21,7 +22,7 @@ export class BrowserManager{
   if(!config.headless&&process.platform==='linux'&&!process.env.DISPLAY&&!process.env.WAYLAND_DISPLAY)throw new InputError('BROWSER_DISPLAY_REQUIRED',409);
   const profile=join(this.p.data,'douyin-browser');mkdirSync(profile,{recursive:true,mode:0o700});rmSync(join(profile,'DevToolsActivePort'),{force:true});
   const env:NodeJS.ProcessEnv={PATH:process.env.PATH,TMPDIR:process.env.TMPDIR,DISPLAY:process.env.DISPLAY,WAYLAND_DISPLAY:process.env.WAYLAND_DISPLAY,SystemRoot:process.env.SystemRoot};
-  const child=fork(asset('plugins/douyin/browser-host.mjs'),[],{env,stdio:['ignore','ignore','ignore','ipc']});this.child=child;
+  const child=fork(this.resource('plugins/douyin/browser-host.mjs'),[],{env,stdio:['ignore','ignore','ignore','ipc']});this.child=child;
   child.on('message',(v:unknown)=>{if(this.child===child&&(v as {webSocketDenied?:boolean}).webSocketDenied)this.denied=true;});
   try{const port=await new Promise<number>((done,reject)=>{const timeout=setTimeout(()=>reject(new Error('BROWSER_START_TIMEOUT')),30000);const ready=(v:unknown)=>{const x=v as {port?:number;error?:string};if(!x.port&&!x.error)return;clearTimeout(timeout);child.off('message',ready);if(x.port)done(x.port);else reject(new Error('BROWSER_LAUNCH_FAILED'));};child.on('message',ready);child.once('exit',()=>{clearTimeout(timeout);reject(new Error('BROWSER_CLOSED'));});child.once('error',reject);child.send({profile,executablePath:resolve(executablePath),headless:config.headless});});
    this.endpoint=`http://127.0.0.1:${port}`;this.browser=await chromium.connectOverCDP(this.endpoint);this.context=this.browser.contexts()[0];if(!this.context)throw new Error('BROWSER_CONTEXT_MISSING');

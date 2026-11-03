@@ -1,4 +1,5 @@
 /* global fetch, AbortSignal */
+import { defineTool } from '@deepseek-ai/dsh-tools';
 import { createServer } from 'node:http';
 export const inject = ['agents', 'tools'];
 export async function apply(ctx) {
@@ -12,7 +13,14 @@ export async function apply(ctx) {
     // A broken observer must stop the owned turn instead of silently losing events.
     pending.catch(() => { for (const agent of ctx.agents.list()) agent.cancel({ kind: 'user' }); });
   }
-  ctx.tools.guard(() => 'denied'); // P1 exposes no product tools.
+  const tools=JSON.parse(process.env.BFF_TOOLS||'[]');
+  ctx.tools.guard(exec => tools.some(t=>t.name===exec.name) ? undefined : 'denied');
+  function fields(schema){return Object.fromEntries(Object.entries(schema.properties??{}).map(([name,value])=>[name,{...node(value),...(schema.required?.includes(name)?{required:true}:{})}]));}function node(schema){const value={...schema};if(schema.type==='object'){delete value.required;value.properties=fields(schema);value.additionalProperties=false;}if(schema.type==='array')value.items=node(schema.items);return value;}
+  for(const tool of tools){const parameters=fields(tool.parameters);
+   ctx.tools.register(defineTool({name:tool.name,description:tool.description,parameters,output:{schema:{type:'string'},render:(_args,value)=>[{type:'text',text:value}]},async execute(args,exec){
+    const response=await fetch(target,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({tool:tool.name,args,sessionId:process.env.BFF_SESSION}),signal:exec.signal,redirect:'error'});if(!response.ok)throw new Error('TOOL_DENIED');return JSON.stringify((await response.json()).result);
+   }}));
+  }
   ctx.on('agent/assistant-stream', ({ agent, frame }) => send({ sessionId: agent.session.id, frame }));
   const server = createServer(async (req, res) => {
     if (req.headers.authorization !== `Bearer ${token}` || req.headers.origin || req.method !== 'POST') { res.writeHead(403).end(); return; }

@@ -8,12 +8,12 @@ import { InputError } from '../ai/types.js';
 import type { EngineImage } from '../ai/engine.js';
 const built=new URL('../../../plugins/bilibili/',import.meta.url),source=new URL('../../../../plugins/bilibili/',import.meta.url);
 export const pluginURL=existsSync(built)?built:source;
-export async function loadBilibili(){return import(new URL('index.mjs',pluginURL).href);}
+export async function loadBilibili(url=pluginURL){return import(new URL('index.mjs',url).href);}
 export type Credentials={sessdata:string;bili_jct:string;buvid3:string};
 export interface Evidence {title:string;url:string;bvid:string;subtitles:string;frames:number;sample:string;warnings:string[];metadataCached:boolean;observedAt:string}
 function directory(path:string){assertRegular(path,true);mkdirSync(path,{recursive:true,mode:0o700});if(process.platform==='win32')windowsAcl('restrict',[{path,directory:true}]);else chmodSync(path,0o700);}
 export class Upstream {
-  private root:string;private state:string;
+  url=pluginURL;private root:string;private state:string;
   constructor(p:DataPaths,private test?:{preload:string;env:NodeJS.ProcessEnv;timeoutMs?:number}) {
     this.root=join(p.runtime,'bilibili');this.state=join(p.data,'bilibili');directory(this.root);directory(this.state);
     // Process groups have bounded lifetimes; orphan owner exits when its Runtime parent dies.
@@ -28,10 +28,10 @@ export class Upstream {
   private execute(args:string[],dir:string,signal:AbortSignal){
     if(!['search','comments','subtitles','video','watch-video','debrief'].includes(args[0]??''))throw new InputError('BILI_READ_ONLY',403);
     const env:NodeJS.ProcessEnv={};for(const k of ['PATH','SystemRoot','WINDIR','LANG'])if(process.env[k])env[k]=process.env[k];
-    Object.assign(env,{BFF_BILI_DATA_DIR:dir,BFF_BILI_STATE_DIR:this.state,TMPDIR:dir,TMP:dir,TEMP:dir,NODE_OPTIONS:`--import=${new URL('network.mjs',pluginURL).href}`});
+    Object.assign(env,{BFF_BILI_DATA_DIR:dir,BFF_BILI_STATE_DIR:this.state,TMPDIR:dir,TMP:dir,TEMP:dir,NODE_OPTIONS:`--import=${new URL('network.mjs',this.url).href}`});
     if(this.test){Object.assign(env,this.test.env);env.NODE_OPTIONS=`--import=${this.test.preload} ${env.NODE_OPTIONS}`;}
     return new Promise<{output:string;code:number|null}>((resolvePromise,reject)=>{
-      const child=spawn(process.execPath,[fileURLToPath(new URL('runner.mjs',pluginURL)),...args],{cwd:dir,env,detached:process.platform!=='win32',windowsHide:true,stdio:['ignore','pipe','pipe']});
+      const child=spawn(process.execPath,[fileURLToPath(new URL('runner.mjs',this.url)),...args],{cwd:dir,env,detached:process.platform!=='win32',windowsHide:true,stdio:['ignore','pipe','pipe']});
       let output='',failure:string|undefined;
       const kill=()=>{if(!child.pid)return;if(process.platform==='win32'){spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true});}else{try{process.kill(-child.pid,'SIGKILL');}catch{/* already exited */}}};
       const cancel=()=>{failure='CANCELLED';kill();};signal.addEventListener('abort',cancel,{once:true});

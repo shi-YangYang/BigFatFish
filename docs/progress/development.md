@@ -115,3 +115,18 @@
 - 新accept_p6完整FAIL已处理并记录：HTTPS清单内HTTP包地址仍会被底层库下载（签名未绕过）；交互config无条件等待stdin EOF；Windows更新测试与明确拒绝portable安装的生产规则矛盾。创建新实施者按rework.md定向修复并更新受影响产物，再由新的验收者复核；不将外部Windows环境缺失当作这三项代码缺陷的解释，不提交未验收P6。
 - rework_p6完整报告已读取入Plan：三项修复完成，Node4过/Windows专用1跳过、Rust2过/HTTP请求0；最终DMG与Mac/Linux portable重建，三处内置CLI stdin保持打开均exit0。实际产物hash和源码/二进制对应证据在build/p6-rework，旧0.1.1候选明确为返工前证据。自有资源已清理，业务重新冻结，交新accept_p6_rework只读独立验收。
 - 新accept_p6_rework完整PASS已处理入Acceptance：源码/证据hash对应，三个缺陷均正确层修复且未放宽保护；未重复已过检查。root更新阶段状态并准备按授权本地提交P6，未来Decision009/Spec009排除，随后进入P7；完整跨平台/正式发行仍未完成。
+
+## P6本地提交与P7实施
+
+- P6在dev本地提交a0e8f61，49文件/4297新增/131删除；暂存范围和空白检查通过，Decision009/Spec009未夹带。提交后index空，仅未来P7规划未跟踪；未push，远端/PR未重新核实。
+- 完整P6首轮与返工实施/验收报告均已处理；Windows实机、正式签名发行、真实账号与云Key等缺项保留。P7规格/决策具备实施条件，按完整Goal继续单实施者串行开发，之后新独立验收。
+- P7实施者完成接口梳理：薄TLS网关独立保持维护状态，服务端代理同一Runtime；平台统一产物/授权并动态加载，停用实际排空，第三方工具子进程RPC。初步复用plugin_config与受限目录、保持schema6，仍需真实P6备份兼容验证。选择已写入Decision009/Plan，首个里程碑为认证网关与共享React实际运行；尚无实现验收结论。
+- P7首轮骨架接通网关/会话/CSRF、共享React、维护交接、插件产物/RPC与平台动态加载；初次typecheck通过但代码仍继续修改。root只读核对固定NapCat媒体接口（上传本身外发、GetFile的base64条件、GetRecord转换）并记录Plan；协调审阅发现RPC取消/反向并发、安装暂存链接、schema消费者和代理pathname几项直接收口事项，已交实施者，尚未独立验收。
+- P7实施里程碑报告：外部临时目录公开SDK/示例打包、安装/拒权/授权/调用/更新/失败回退/增权暂停/备份恢复失权/卸载集成通过，真实固定DSH回合调用greet并消费返回值且工具活动completed；真实本地TLS+隔离Chrome登录/聊天/插件页与维护停服-恢复-重启、Host/CSRF/未授权WS/退出撤销通过。初版更新旧引用/数据快照、活目录覆盖及RPC取消/反向并发已修；过期/取消/媒体/三平台路径还在验证。本条为实施证据进展，非独立验收PASS。
+- P7后续定向证据：B站实际安装/更新资源→whale/DSH/CLI通过；抖音包包含Python并实际解析安装路径，旧fixture的“DOM未更新但HTTP成功”断言按真实收据语义修订，真正无回执保护保留要求。QQ实际安装/启用/更新后接收约230KB有效PNG和5秒约80KB WAV进入DSH/ASR，240KB中文TXT仅一次upload；超过2MB拒绝，停用断开并阻止直接重启。CLI仅媒体/提案放宽至3MB，OneBot帧3MB/审批列表8MB有界；stdin/RPC流式UTF-8与刻意拆分中文测试通过。每ID互斥/关闭排空和配置schema子集也已收口。最终产物/原生入口仍在验证，未进入独立验收。
+- P7安装/原生里程碑：外部临时安装目录、随包Node、PATH仅/usr/bin:/bin完成公开SDK打包/安装/调用、真实DSH工具续答、80044字节WAV合成/转写及Web资源加载。CUA实际点击插件调用/停用、播放完整5秒音频和查看聊天工具活动；root已读取build/p7-evidence/installed.json、原生AX文本与聊天截图。模型/音频返回来自隔离协议fixture，不等于真实云模型或语音质量验证。实施者报告自有app/鱼/网关/模型进程与临时桌面配置已清理，最后文案和产物同步后提交完整报告，再新独立验收。
+- implement_p7完整报告已处理入Plan009，业务冻结并创建新的accept_p7只读独立验收。最终app/DMG及build/portable包含当前Web/SDK/三平台资源，115个dist文件逐项一致；DMG SHA256为69b1e8468e40f6eed46fe79d31ae67e682392744b4f5d454999fd45845b0e028。已过未变检查不重复，验收沿具体认证/生命周期/权限/恢复边界审阅，有实际疑点才最小复现。尚未提交P7。
+- accept_p7完整FAIL已处理：事件RPC宿主请求停用152ms仍未abort、等1.5秒dispose才终止；真实TLS/Chrome会话过期后无登录框且退出401未catch；源码另确认非法插件JSON同步异常使busy不释放。前两项最小复现，未重复大矩阵，临时资源已清理。新rework_p7按三项直接根因串行修复并同步受影响产物，随后新独立验收；未将外部门槛用作本地缺陷解释，未提交P7。
+- rework_p7完整报告已处理入Plan：统一同步revoke覆盖所有RPC后再dispose，Web共用认证状态/会话代次和错误提取，插件表单统一同步/异步清理。修前两失败、修后三RPC与真实TLS/Chrome恢复/网络403/迟到401/非法JSON重试通过，type与定向lint、受影响构建通过。错误cwd资源复制被拒后的旧包已重打，最终115资源一致，DMG ef637212287c318a6f0c6dacd29d6fbe427825040c2e73c5283a9931ae57d3de；首轮证据保留历史。新accept_p7_rework独立复验中，未重复P6/Linux/全媒体/三平台/原生矩阵，未提交。
+
+- 新accept_p7_rework完整PASS已处理：九返工文件与最终hash一致，关键资源与dist/portable/app匹配，三根因位于正确职责层且没有放宽服务端边界；不重复已过矩阵。root更新全局状态/Spec勾选/Acceptance并准备按授权本地提交P7。Windows/真实账号/云/签名发布及抖音未实现wire继续保留。

@@ -103,3 +103,7 @@ macOS新程序启动失败时，按以下顺序人工回退（没有后台自动
 正式更新发行需要离线保管签名私钥。`scripts/release-archive.mjs` 仅在显式设置 `BFF_RELEASE_PRIVATE_KEY` 和 `BFF_RELEASE_URL` 时生成portable签名清单，不上传、不发布。macOS构建后运行 `node scripts/desktop-update-archive.mjs`，生成只有一层 `.app` 根目录的更新归档与校验文件，明确禁用AppleDouble元数据。然后使用 `npx tauri signer sign -f /安全位置/私钥 --app-version 版本号 更新归档` 签名；清单版本须与实际应用及签名版本一致。Tauri安装器/更新包使用其官方signer；未提供正式钥时只交付本地未签名产物。不要提交临时私钥、测试信任配置或真实账号凭据。
 
 卸载程序不会自动删除用户数据。重新安装或更换安装目录后仍使用原数据目录；跨机器迁移用逻辑备份。保留的回滚目录和更新快照可能含原始秘密，只在确认恢复/升级稳定后由用户清理。
+
+## P7 Web 与插件资源
+
+发行目录现在包含Web前端、三个平台的独立安装产物、普通SDK源码及独立示例。远程管理默认关闭，认证HTTPS部署、网关单独启停、恢复后插件重新授权及外部目录开发步骤见 [开发与Web管理](developer.md)。schema继续为6，保留P6归档格式；认证会话与Web配置不进入逻辑备份。

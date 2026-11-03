@@ -16,23 +16,25 @@ export function segments(input:unknown,outbound=false):Segment[] {
     if(b.type==='at'&&!outbound)return {type:'at',data:{qq:stableId(d.qq)}};
     if(b.type==='reply')return {type:'reply',data:{id:messageId(d.id)}};
     if(['image','record','file'].includes(String(b.type))){
-      if(outbound && b.type==='file')throw new InputError('FILE_SEND_UNSUPPORTED');
+
       // Only opaque OneBot IDs may leave Runtime. Never accept URLs, base64 or paths.
       const file=typeof d.file==='string'?d.file:typeof d.file_id==='string'?d.file_id:'';
       if(outbound){
-        if(!/^base64:\/\/[A-Za-z0-9+/]+={0,2}$/.test(file)||file.length>44000)throw new InputError('UNSAFE_MEDIA_REFERENCE');
+        if(!/^base64:\/\/[A-Za-z0-9+/]+={0,2}$/.test(file)||file.length>2_800_000)throw new InputError('UNSAFE_MEDIA_REFERENCE');
         const bytes=Buffer.from(file.slice(9),'base64');
-        if(bytes.length>32768||bytes.toString('base64')!==file.slice(9))throw new InputError('UNSAFE_MEDIA_REFERENCE');
+        if(bytes.length>2_000_000||bytes.toString('base64')!==file.slice(9))throw new InputError('UNSAFE_MEDIA_REFERENCE');
         const image=b.type==='image'&&(bytes.length>=45&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))&&bytes.subarray(12,16).toString()==='IHDR'&&bytes.subarray(-8,-4).toString()==='IEND'||bytes.length>=4&&bytes.subarray(0,3).equals(Buffer.from([255,216,255]))&&bytes.subarray(-2).equals(Buffer.from([255,217])));
         const voice=b.type==='record'&&(bytes.length>=44&&bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WAVE'&&bytes.readUInt32LE(4)===bytes.length-8||bytes.subarray(0,9).toString()==='#!SILK_V3'||bytes.subarray(1,10).toString()==='#!SILK_V3');
-        if(!image&&!voice)throw new InputError('UNSUPPORTED_MEDIA_FORMAT');
-        return {type:b.type as Segment['type'],data:{file}};
+        const document=b.type==='file'&&typeof d.name==='string'&&/^[^\\/]{1,100}\.(txt|pdf|png|jpg|wav)$/i.test(d.name)&&![...d.name].some(c=>c.charCodeAt(0)<32)&&bytes.length>0;
+        if(!image&&!voice&&!document)throw new InputError('UNSUPPORTED_MEDIA_FORMAT');
+        return {type:b.type as Segment['type'],data:{file,...(document?{name:String(d.name)}:{})}};
       }
       return {type:b.type as Segment['type'],data:{...( /^[a-zA-Z0-9_-]{1,200}(\.[a-zA-Z0-9]{1,8})?$/.test(file)?{file}:{}),...(typeof d.name==='string'?{name:d.name.slice(0,100)}:{})}};
     }
     throw new InputError('UNSUPPORTED_MESSAGE_TYPE');
   });
-  if(JSON.stringify(result).length>(outbound?48000:12000))throw new InputError('MESSAGE_TOO_LONG');return result;
+  if(outbound&&result.some(s=>s.type==='file')&&result.length!==1)throw new InputError('FILE_MUST_BE_SINGLE');
+  if(JSON.stringify(result).length>(outbound?2_800_000:12000))throw new InputError('MESSAGE_TOO_LONG');return result;
 }
 export function messageId(value:unknown){const id=typeof value==='number'&&Number.isSafeInteger(value)?String(value):string(value,64);if(!/^-?[0-9]+$/.test(id))throw new InputError('INVALID_MESSAGE_ID');return id;}
 export function inbound(input:unknown,config:QQConfig) {
@@ -44,7 +46,7 @@ export function inbound(input:unknown,config:QQConfig) {
   // CQ strings are treated as plain text; only structured arrays carry mentions/media.
   const parts=segments(typeof b.message==='string'?[{type:'text',data:{text:b.message}}]:b.message);
   if(to.kind==='group'&&!parts.some(s=>s.type==='at'&&s.data.qq===config.accountId))return null;
-  const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片：尚未接入图片理解]':s.type==='record'?'[语音：尚未接入语音转写]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
+  const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片]':s.type==='record'?'[语音]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
   if(!text)return null;
   return {id:messageId(b.message_id),author,target:to,parts,text};
 }

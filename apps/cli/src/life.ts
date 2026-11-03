@@ -1,9 +1,9 @@
+import {readInput as input} from './input.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { readConnection, requestRuntime } from '../../runtime/src/connection.js';
 import type { DataPaths } from '../../runtime/src/paths.js';
 import type { MemoryTask } from '../../runtime/src/memory/types.js';
-async function input() { let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>65536)throw new Error('INPUT_TOO_LARGE');}return JSON.parse(text); }
 export async function lifeCommand(p:DataPaths,args:string[],output:(v:unknown)=>void) {
  const c=readConnection(p),[command,action,id]=args,call=<T>(url:string,method='GET',body?:unknown)=>requestRuntime<T>(c,url,method,body);
  if(command==='life') {if(!action||action==='home')output(await call('/v1/life'));else if(action==='timeline'||action==='moods')output(await call('/v1/life/'+action));else throw new Error('INVALID_ARGUMENTS');return;}

@@ -45,7 +45,7 @@ npm run cli -- cancel MESSAGE_ID --json
 
 模型密钥以 AES-256-GCM 加密写入 SQLite，独立随机密钥存于受限的 `config/master.key`。查询不返回 API Key。丢失 master.key 时不会悄悄生成新密钥来替代已有凭据。后续备份默认排除此文件；迁移需要重新配置模型凭据。该方式保护静态存储与误导出，不防御同一操作系统用户控制下的恶意进程。
 
-引擎数据位于 `data/engine/<会话ID>/`，包含持久上下文。受控 profile 禁用默认 shell、文件操作、工作目录工具、会话日志贡献及插件清单上传；P1 不开放任何产品工具。桥接使用随机鉴权的回环连接，转发实际流帧并使用原生取消接口。这不是操作系统沙箱。未来产品工具仍须经过 Runtime 权限与审批。
+引擎数据位于 `data/engine/<会话ID>/`，包含持久上下文。受控 profile 禁用默认 shell、文件操作、工作目录工具、会话日志贡献及插件清单上传；P7 仅将主人已授权且启用的产品插件工具注册到DSH。外部渠道主体不获得管理工具。桥接使用随机鉴权的回环连接，转发实际流帧并使用原生取消接口。这不是操作系统沙箱。工具每次执行仍经Runtime主体、代次、权限与取消检查，不能自批社交动作。接口与实际SDK示例见 [开发指南](developer.md)。
 
 ## 状态与验证边界
 
@@ -63,7 +63,7 @@ npm run cli -- cancel MESSAGE_ID --json
 
 「生活」按日期和 IANA 时区（例如 `Asia/Shanghai`）生成日记，只引用该当地日期的实际活动和相关聊天，以及有界的已确认参考记忆。候选时间窗口按页完整检查，最多扫描 10000 条活动；选定日期最多 200 条活动、活动及相关聊天来源合计最多 24000 字。来源或扫描超预算时明确报错，不生成截断的日记。再次生成更新同一日期/时区的版本；失败后可再次发起。任务有独立状态、取消、幂等请求 ID，异常重启标为中断。主页、兴趣、关系、经历和心情从 Runtime 读取；心情是基于实际事件的模拟状态，没有平台连接时不会生成观看或社交活动。
 
-SQLite 是权威数据。日记副本位于 `data/diaries/<日记ID>.md`，使用受限权限和原子替换；写入失败会显示「日记已保存，文件副本失败」，可点击重建。记忆导出仅包含选中的记忆和来源，桌面显示实际保存位置 `data/exports/<随机ID>-bigfatfish-memories.json` 或 `.md`，不包含模型密钥、连接 token 或其他账号数据。JSON/Markdown 是可读导出，完整备份恢复仍在 P6。
+SQLite 是权威数据。日记副本位于 `data/diaries/<日记ID>.md`，使用受限权限和原子替换；写入失败会显示「日记已保存，文件副本失败」，可点击重建。记忆导出仅包含选中的记忆和来源，桌面显示实际保存位置 `data/exports/<随机ID>-bigfatfish-memories.json` 或 `.md`，不包含模型密钥、连接 token 或其他账号数据。JSON/Markdown 是可读导出，完整备份恢复见 [安装与迁移](install-and-migrate.md)。
 
 ```bash
 npm run cli -- life home --json
@@ -85,3 +85,5 @@ npm run cli -- diaries rebuild DIARY_ID --json
 ```
 
 输入示例：搜索 `{"query":"茶","status":"confirmed","kind":"preference","offset":0}`（每页100条）；直接创建 `{"kind":"interest","subject":"绘画","content":"我喜欢水彩","importance":3}`；确认 `{"version":1,"status":"confirmed"}`；编辑携带当前 `version` 及需修改字段；删除仅需 `{"version":2}`；合并 `{"version":2,"otherId":"另一条ID","otherVersion":1}`；导出 `{"ids":["记忆ID"],"format":"json"}`。提取 `{"conversationId":"会话ID","requestId":"唯一请求ID"}`；日记 `{"day":"2026-11-03","timezone":"Asia/Shanghai","requestId":"唯一请求ID"}`。省略请求 ID 时 CLI 自动生成；同 ID 重试返回原任务，失败后重试执行须使用新 ID。
+
+P7已提供统一ASR/TTS的CLI、桌面和Web消费者，输入与媒体预算、兼容协议及AI合成说明见 [媒体接口](developer.md#api-与事件)。

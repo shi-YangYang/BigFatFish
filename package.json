@@ -11,7 +11,7 @@
     "bigfatfishd": "dist/runtime/src/main.js"
   },
   "scripts": {
-    "build": "npm run build:node && npm run build:desktop",
+    "build": "npm run build:node && npm run build:desktop && npm run build:web",
     "build:node": "tsc -p tsconfig.node.json && node scripts/copy-runtime-assets.mjs",
     "build:desktop": "vite build --config apps/desktop/vite.config.ts",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json",
@@ -22,7 +22,8 @@
     "desktop:dev": "cd apps/desktop && tauri dev",
     "desktop:build": "npm run release:prepare && cd apps/desktop && tauri build",
     "frontend:dev": "vite --config apps/desktop/vite.config.ts",
-    "release:prepare": "npm run build:node && node scripts/prepare-release.mjs"
+    "release:prepare": "npm run build:node && npm run build:web && node scripts/prepare-release.mjs",
+    "build:web": "vite build --config apps/web/vite.config.ts"
   },
   "dependencies": {
     "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-alpha.2",

@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'node:http';
 export async function onebotFixture(){
- const controls={online:true,account:'10001',token:'fixture-token',send:'ok',healthDelay:0};const requests:{action:string;params:Record<string,unknown>;echo:string}[]=[];
+ const controls={online:true,account:'10001',token:'fixture-token',send:'ok',healthDelay:0,media:''};const requests:{action:string;params:Record<string,unknown>;echo:string}[]=[];
  let loginGate:{entered:()=>void;wait:Promise<void>}|undefined;
  const releases=new Set<()=>void>();
  const pauseNextLogin=()=>{let entered!:()=>void,release!:()=>void;const reached=new Promise<void>(r=>{entered=r;}),wait=new Promise<void>(r=>{release=()=>{releases.delete(release);r();};});releases.add(release);loginGate={entered,wait};return {reached,release};};
@@ -11,6 +11,8 @@ export async function onebotFixture(){
   if(r.action==='get_login_info'){const gate=loginGate;loginGate=undefined;if(gate){gate.entered();void gate.wait.then(()=>reply({user_id:controls.account}));}else setTimeout(()=>reply({user_id:controls.account}),controls.healthDelay);}
   else if(r.action==='get_status')reply({online:controls.online,good:true});
   else if(r.action==='get_version_info')reply({app_name:'protocol-fixture'});
+  else if(r.action==='get_file'||r.action==='get_record')reply({base64:controls.media});
+  else if(r.action==='upload_private_file'||r.action==='upload_group_file')reply({file_id:'fixture-file-id'});
   else if(r.action.startsWith('send_')){if(controls.send==='silent')return;if(controls.send==='disconnect'){ws.close();return;}if(controls.send==='malformed')reply({message_id:'not-an-id'});else if(controls.send==='async')reply(null,'async',1);else if(controls.send==='reject')reply(null,'failed',100);else {reply({message_id:123},'ok',0,'wrong-echo');reply({message_id:String(requests.length)});}}
  });});
  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));

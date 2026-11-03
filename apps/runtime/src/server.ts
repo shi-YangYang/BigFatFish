@@ -6,7 +6,7 @@ import { readLogs } from './logger.js';
 import type { DataPaths } from './paths.js';
 import { SCHEMA_VERSION } from './storage/database.js';
 export function createServer(p: DataPaths, connection: Connection, shutdown: () => void) {
-  const app = Fastify({ logger: false, bodyLimit: 65536, requestTimeout: 5000, connectionTimeout: 5000, keepAliveTimeout: 1000, forceCloseConnections: true, ajv: { customOptions: { removeAdditional: false } } });
+  const app = Fastify({ logger: false, bodyLimit: 24_000_000, requestTimeout: 5000, connectionTimeout: 5000, keepAliveTimeout: 1000, forceCloseConnections: true, ajv: { customOptions: { removeAdditional: false } } });
   app.addHook('onRequest', async (req, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     const host = req.headers.host;

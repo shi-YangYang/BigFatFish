@@ -1,7 +1,7 @@
+import {readInput as input} from './input.js';
 import { randomUUID } from 'node:crypto';
 import { readConnection, requestRuntime } from '../../runtime/src/connection.js';
 import type { DataPaths } from '../../runtime/src/paths.js';
-async function input(){let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>65536)throw new Error('INPUT_TOO_LARGE');}return JSON.parse(text);}
 export async function bilibiliCommand(p:DataPaths,args:string[],output:(value:unknown)=>void){
  const [,action='status',id]=args,c=readConnection(p),base='/v1/bilibili',call=(url:string,method='GET',body?:unknown)=>requestRuntime(c,base+url,method,body);
  if(action==='status')output(await call(''));

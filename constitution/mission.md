@@ -13,7 +13,7 @@ BigFatFish 是开源、跨平台、插件化的 AI 养成软件，让用户长�
 
 ## 核心原则
 
-1. 一个独立 Runtime，多种入口；Desktop、CLI、未来 Web Console 共用核心业务。
+1. 一个独立 Runtime，多种入口；Desktop、CLI、Web Console 共用核心业务。
 2. Runtime 统一管理人格、记忆、模型、调度、权限和平台插件；入口不得直接操作数据库或平台插件。
 3. AgentEngine 抽象隔离 DSH Harness；模型上下文和 Agent Session 不等于长期记忆。
 4. 养成体验与专业控制台并存；心情和成长是产品状态模拟，不声称真实意识或情感。
@@ -26,4 +26,4 @@ BigFatFish 是开源、跨平台、插件化的 AI 养成软件，让用户长�
 
 ## 当前阶段
 
-用户已授权持续实现完整 P0–P7，并在每阶段实现与代码验收后本地commit。P0/P1已有实际本机与Linux路径，Windows和真实云凭据证据单列；按路线继续后续能力。实际进度由根 ROADMAP.md、IMPLEMENTATION_STATUS.md 和对应 Spec 验收证据维护。
+用户已授权持续实现完整 P0–P7，并在每阶段实现与代码验收后本地commit。P0–P7本地代码均已有独立验收记录，Mac/Linux有实际运行路径；抖音部分发送协议、Windows、真实账号/云与正式发行仍未完成，不能将代码验收等同完整产品交付。实际进度由根 ROADMAP.md、IMPLEMENTATION_STATUS.md 和对应 Spec 验收证据维护。

@@ -24,9 +24,11 @@ BigFatFish 通过 OneBot 11 正向 WebSocket 连接用户独立运行的 NapCat�
 
 ## 媒体范围
 
-- 入站识别文本、图片、语音、文件、真实提及及引用消息；保留类型与安全元数据，不获取 URL、不读取本机路径。图片理解、语音转写和文件阅读尚未接入，模型收到明确的未理解标记，不会获得伪造转写。
+完整P7接口、NapCat前置条件与运行证据边界见 [开发与协议](developer.md#qq-媒体与实际协议)。
+
+- 入站识别文本、图片、语音、文件、真实提及及引用消息；保留类型与安全元数据，不获取 URL、不读取本机路径。P7通过同账号的get_file/get_record只获取有界base64字节，图片交视觉模型、语音交统一ASR；未取得字节或模型失败时明确标记未理解。文件内容阅读仍不支持。
 - 自动回复为文本并引用原消息，单条文本最多 4000 字，不自动拆分长消息。输入最多 64 个段；不支持的消息段和畸形事件不会进入模型。
-- 主动图片/语音可以从桌面选择 PNG/JPEG/WAV 文件，单个最多 32 KB，审批页显示图片/语音预览。CLI JSON 另支持 SILK 语音（桌面无法预听 SILK）。总段数据不超过 48 KB。文件附件发送、长媒体、视频、视觉/ASR 消费者尚未实现，留待后续阶段。
+- 主动图片/语音可以从桌面选择 PNG/JPEG/WAV 文件，单个最多 2 MB，审批页显示图片/语音预览。CLI JSON 另支持 SILK 语音（桌面无法预听 SILK）。总段数据不超过 2.8 MB。P7支持单独发送最多2MB的TXT/PDF文件审批，upload_private_file/upload_group_file本身即实际发送，不再发送第二条消息。长媒体与视频仍不支持。
 - 发送只接受本机认证入口明确提供的媒体字节，经格式和大小校验后转为 OneBot `base64://`；不接受任意 URL、路径或入站缓存文件名。协议服务仍可能因媒体编码或账号状态拒绝请求。
 
 此边界依据固定 NapCat `98d781d19815d1625b24d717ce280ecf0a4f6d0c` 的 `packages/napcat-onebot/api/msg.ts`（`handleOb11FileLikeMessage`、`handleObfuckName`）及 `packages/napcat-common/src/file.ts`：缓存名未命中可回落到本地文件解析，因此不透传缓存名。OneBot 11 标准 `message/segment.md` 明确支持图片/语音 base64 输入。详情和许可见 [上游记录](upstreams.md)。没有复制这些上游实现。

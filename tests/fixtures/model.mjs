@@ -1,9 +1,11 @@
+import {Buffer} from 'node:buffer';
 import { createServer } from 'node:http';
 export async function fixtureModel() {
-  const requests = [], controls = { memoryResponse: undefined, slowMemory: false };
+  const requests = [], controls = { memoryResponse: undefined, slowMemory: false, tool: false };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     if(req.url==='/v1/audio/transcriptions'){requests.push({url:req.url,raw});res.setHeader('content-type','application/json');res.end(JSON.stringify({text:'隔离音轨转写：海洋里的鱼'}));return;}
+    if(req.url==='/v1/audio/speech'){const bytes=Buffer.alloc(80044);bytes.write('RIFF');bytes.writeUInt32LE(80036,4);bytes.write('WAVEfmt ',8);bytes.writeUInt32LE(16,16);bytes.writeUInt16LE(1,20);bytes.writeUInt16LE(1,22);bytes.writeUInt32LE(8000,24);bytes.writeUInt32LE(16000,28);bytes.writeUInt16LE(2,32);bytes.writeUInt16LE(16,34);bytes.write('data',36);bytes.writeUInt32LE(80000,40);for(let i=0;i<40000;i++)bytes.writeInt16LE(Math.round(8000*Math.sin(i*2*Math.PI*440/8000)),44+i*2);res.setHeader('content-type','audio/wav');res.end(bytes);return;}
     const body = JSON.parse(raw || '{}'); requests.push({ url: req.url, authorization: req.headers.authorization, body });
     if (req.url === '/models') { res.setHeader('content-type','application/json'); res.end(JSON.stringify({object:'list',data:[{id:'deepseek-v4-flash',object:'model'}]})); return; }
     if (req.url === '/anthropic/v1/messages' || req.url === '/anthropic/messages') {
@@ -20,6 +22,8 @@ export async function fixtureModel() {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'fixture-1', object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     emit({ role: 'assistant' });
+    if(controls.tool && body.tools?.length && !body.messages.some(m=>m.role==='tool')){emit({tool_calls:[{index:0,id:'call-fixture',type:'function',function:{name:body.tools.find(t=>t.function.name.includes('greet'))?.function.name??body.tools[0].function.name,arguments:JSON.stringify({name:'实际DSH'})}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}
+    if(controls.tool&&body.messages.some(m=>m.role==='tool')){emit({content:'已消费真实工具结果：'+body.messages.filter(m=>m.role==='tool').map(m=>m.content).join('')});emit({},'stop');res.end('data: [DONE]\n\n');return;}
     let parts = prompt.includes('SLOW_NOW') ? Array(100).fill('慢') : ['测试', '模型', '回复'];
     const last = body.messages?.find(m=>m.role==='user' && (JSON.stringify(m.content).includes('BFF_MEMORY_EXTRACT') || JSON.stringify(m.content).includes('BFF_DAILY_DIARY')))?.content;
     const input = typeof last === 'string' ? last : JSON.stringify(last);

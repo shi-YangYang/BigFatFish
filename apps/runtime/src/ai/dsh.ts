@@ -25,6 +25,7 @@ export class DSHAdapter implements AgentEngine {
       try {
         let body = ''; for await (const chunk of req) { body += chunk; if (body.length > 262144) throw new Error(); }
         const data = JSON.parse(body);
+        if(data.tool && data.sessionId===input.sessionId){const tool=input.tools?.find(t=>t.name===data.tool);if(!tool)throw new Error();input.signal.throwIfAborted();input.onTool?.({name:tool.name,state:'running'});try{const value=await tool.execute(data.args,input.signal);input.signal.throwIfAborted();const result=JSON.stringify({result:value});if(result.length>65536)throw new Error();input.onTool?.({name:tool.name,state:'completed'});res.end(result);return;}catch{input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}}
         if (data.ready === true && Number.isInteger(data.port) && data.port > 0 && data.port < 65536) childPort = data.port;
         else if (data.sessionId === input.sessionId && !input.signal.aborted) {
           const frame = data.frame;
@@ -56,7 +57,7 @@ export class DSHAdapter implements AgentEngine {
     const bridgePort = (bridge.address() as { port: number }).port;
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_MODEL_API_KEY: input.key || 'local-no-key', BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
+    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.key || 'local-no-key', BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
     harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, maxTokens: input.model.maxTokens, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {

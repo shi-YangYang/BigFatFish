@@ -10,14 +10,8 @@ import {
 } from "../../runtime/src/connection.js";
 import type { DataPaths } from "../../runtime/src/paths.js";
 import { start, stop } from "./process.js";
-export async function readInput(): Promise<Record<string, unknown>> {
-  let raw = "";
-  for await (const chunk of process.stdin) {
-    raw += chunk;
-    if (raw.length > 65536) throw new Error("INPUT_TOO_LARGE");
-  }
-  return raw.trim() ? JSON.parse(raw) : {};
-}
+import {readInput} from './input.js';
+export {readInput} from './input.js';
 export async function maintenanceCommand(p: DataPaths, args: string[]) {
   const [command, action] = args;
   if (command === "backup") {
