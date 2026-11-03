@@ -1,3 +1,4 @@
+import { ApprovalStore } from '../permissions/store.js';
 import { validateHeaderValue } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
@@ -7,21 +8,21 @@ import { configuration, inbound, segments, target } from './protocol.js';
 import { loadQQ } from './plugin.js';
 import type { Approval, ChannelStatus, Plugin, QQConfig, Segment, Target } from './types.js';
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
-type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'approval'};
+type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'approval';assertScope:()=>void};
 export class Channels {
-  private plugin!:Plugin;private manifest:Record<string,unknown>={};private config:QQConfig|null=null;private revision='';private closing=false;
+  private approvalStore:ApprovalStore;private plugin!:Plugin;private manifest:Record<string,unknown>={};private config:QQConfig|null=null;private revision='';private closing=false;
   private actions=new Set<Promise<unknown>>();
   private running=new Set<string>();private queues=new Map<string,Promise<void>>();
   constructor(private db:DatabaseSync,private chat:ChatService) {
     db.prepare("UPDATE channel_deliveries SET status=CASE WHEN status='sending' THEN 'unknown' ELSE 'interrupted' END,error='RUNTIME_RESTARTED' WHERE status IN ('queued','generating','sending')").run();
-    db.prepare("UPDATE approvals SET status='unknown' WHERE status='executing'").run();
+    this.approvalStore=new ApprovalStore(db,'qq');
     const row=db.prepare("SELECT config,revision FROM plugin_config WHERE id='qq'").get();
     if(row){this.config=configuration(JSON.parse(row.config as string));this.revision=row.revision as string;}
   }
   async initialize(){const loaded=await loadQQ();this.plugin=loaded.plugin;this.manifest=loaded.manifest;this.plugin.initialize({event:value=>this.receive(value),status:()=>{}});if(this.config?.enabled)this.start();}
   private audit(event:string,id=''){this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`qq.${event}${id?':'+id:''}`,new Date().toISOString());}
   status():ChannelStatus {return {config:this.config,hasToken:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='qq'").get()?.secret,revision:this.revision,health:this.plugin.health(),manifest:this.manifest};}
-  private invalidate(){for(const id of this.running)this.chat.cancel(id);this.plugin.stop();this.db.prepare("UPDATE approvals SET status='revoked' WHERE status='pending'").run();}
+  private invalidate(){for(const id of this.running)this.chat.cancel(id);this.plugin.stop();this.approvalStore.revoke();}
   save(input:unknown){
     if(this.closing)throw new InputError('RUNTIME_STOPPING',503);
     const b=object(input),config=configuration(b);
@@ -80,7 +81,7 @@ export class Channels {
     try{
       const result=await this.plugin.send(to.kind,to.id,parts,()=>{
         if(!this.allowed(to,revision,proactive))throw new InputError('PERMISSION_REVOKED',403);
-        if(authorization.kind==='reply')authorization.assertScope();
+        authorization.assertScope();
       });this.state(id,'sent',null,result.messageId);this.audit('send.sent',id);
       this.chat.life.memories.record({id:`qq-sent:${id}`,kind:'qq.sent',sourceId:id,summary:'QQ 消息发送已由协议服务确认',occurredAt:new Date().toISOString()});
       return 'sent';
@@ -92,20 +93,16 @@ export class Channels {
       const status=error instanceof Error&&error.message==='ACTION_REJECTED'?'failed':'unknown';this.state(id,status,status==='unknown'?'SEND_UNKNOWN':'ACTION_REJECTED');this.audit(`send.${status}`,id);return status;}
   }
   deliveries(){return this.db.prepare('SELECT id,target,author,status,message_id AS messageId,error,created_at AS createdAt FROM channel_deliveries ORDER BY rowid DESC LIMIT 100').all();}
-  approvals():Approval[]{this.db.prepare("UPDATE approvals SET status='expired' WHERE status='pending' AND expires_at<=?").run(Date.now());return this.db.prepare('SELECT id,payload,digest,expires_at AS expiresAt,status FROM approvals ORDER BY rowid DESC LIMIT 100').all().map(r=>({...r,payload:JSON.parse(r.payload as string)}) as unknown as Approval);}
-  propose(input:unknown){const b=object(input),to=target(b.target),parts=segments(b.segments,true);if(!this.allowed(to,this.revision,true))throw new InputError('PERMISSION_REVOKED',403);const id=randomUUID(),payload=JSON.stringify({target:to,segments:parts});this.db.prepare("INSERT INTO approvals(id,payload,digest,revision,expires_at,status,created_at) VALUES(?,?,?,?,?,'pending',?)").run(id,payload,digest(payload),this.revision,Date.now()+300000,new Date().toISOString());this.audit('approval.created',id);return this.approvals().find(a=>a.id===id)!;}
+  approvals():Approval[]{return this.approvalStore.list() as unknown as Approval[];}
+  propose(input:unknown){const b=object(input),to=target(b.target),parts=segments(b.segments,true);if(!this.allowed(to,this.revision,true))throw new InputError('PERMISSION_REVOKED',403);const a=this.approvalStore.create({target:to,segments:parts},this.revision);this.audit('approval.created',a.id);return a;}
   decide(id:string,input:unknown){
     const b=object(input);if(Object.keys(b).some(k=>!['digest','decision'].includes(k))||!['approve','reject'].includes(String(b.decision)))throw new InputError('INVALID_REQUEST');
-    const row=this.db.prepare('SELECT * FROM approvals WHERE id=?').get(id);if(!row)throw new InputError('APPROVAL_NOT_FOUND',404);
-    if(row.status!=='pending'||Number(row.expires_at)<=Date.now())throw new InputError('APPROVAL_NOT_PENDING',409);
-    if(b.digest!==row.digest||digest(row.payload as string)!==row.digest)throw new InputError('APPROVAL_MISMATCH',409);
-    const payload=JSON.parse(row.payload as string) as Approval['payload'];
-    if(b.decision==='reject'){this.db.prepare("UPDATE approvals SET status='rejected' WHERE id=?").run(id);this.audit('approval.rejected',id);return {status:'rejected'};}
-    if(!this.allowed(payload.target,row.revision as string,true))throw new InputError('PERMISSION_REVOKED',403);
-    if(this.plugin.health().state!=='online')throw new InputError('CHANNEL_OFFLINE',409);
-    this.db.prepare("UPDATE approvals SET status='executing' WHERE id=?").run(id);
+    const row=this.approvalStore.get(id),payload=row.payload as unknown as Approval['payload'];if(row.status!=='pending'||row.expiresAt<=Date.now())throw new InputError('APPROVAL_NOT_PENDING',409);
+    if(b.decision==='approve'){if(!this.allowed(payload.target,row.revision,true))throw new InputError('PERMISSION_REVOKED',403);if(this.plugin.health().state!=='online')throw new InputError('CHANNEL_OFFLINE',409);}
+    this.approvalStore.decide(id,string(b.digest,64),this.revision,String(b.decision));
+    if(b.decision==='reject'){this.audit('approval.rejected',id);return {status:'rejected'};}
     this.db.prepare("INSERT INTO channel_deliveries(id,target,author,status,created_at) VALUES(?,?,'local-owner','queued',?)").run(id,JSON.stringify(payload.target),new Date().toISOString());
-    const action=this.deliver(id,payload.target,payload.segments,row.revision as string,{kind:'approval'}).then(status=>{this.db.prepare('UPDATE approvals SET status=? WHERE id=?').run(status,id);}).catch(()=>{this.state(id,'blocked','PERMISSION_REVOKED');this.db.prepare("UPDATE approvals SET status='revoked' WHERE id=?").run(id);});
+    const action=this.deliver(id,payload.target,payload.segments,row.revision,{kind:'approval',assertScope:()=>{this.approvalStore.check(id,row.digest,this.revision);}}).then(status=>this.approvalStore.state(id,status)).catch(()=>{this.state(id,'blocked','PERMISSION_REVOKED');this.approvalStore.state(id,'revoked');});
     this.actions.add(action);void action.finally(()=>this.actions.delete(action));return {status:'executing'};
   }
   auditLog(){return this.db.prepare("SELECT event,at FROM audit WHERE event LIKE 'qq.%' ORDER BY id DESC LIMIT 100").all();}

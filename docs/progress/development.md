@@ -78,3 +78,29 @@
 - implement_p4已取得固定commit完整源码、抽取20个实际CLI/QrAuth依赖文件，保留LICENSE/NOTICE/原manifest元数据/bff.patch；显式工作/风控目录与网络/命令/输出边界已编码。schema5视频任务、统一DSH图像理解、候选兴趣/活动和QQ审批分享已接入，CLI/Desktop及真正上游+ffmpeg+DSH验证正在进行，未提前判PASS。
 - implement_p4完整报告已读取：累计10文件24项不同定向检查、type/lint/build/最终Node构建与macOS release通过；实际CLI/原生桌面搜索/观看/字幕九帧与来源显示通过。新增SIGKILL从实际在途任务验证临时明文自动清理、重启interrupted。实际whale/ffmpeg/DSH，网络和账号为夹具；真实平台/云/Windows仍未验证。报告已入Spec006 Plan，转新独立验收，不重复已通过检查。
 - 新的accept_p4独立验收PASS：上游/许可、凭据与数据隔离、真实观看/统一DSH/记忆、任务与QQ审批、入口和文档符合Spec。针对少帧误报的具体疑点，隔离1秒/5秒真实媒体配9秒元数据，whale/ffmpeg抽帧失败无SHEET，未复现误报；没有扩大编解码矩阵，已清理实验。完整报告落盘Acceptance，准备按授权本地阶段提交，真实平台/云/Windows仍未验证。
+- P4在dev本地提交`7ceb617 feat: 实现 P4 B站接入与统一观看记忆`，70文件；暂存已逐项检查，未来Spec007–009未夹带，无push。按Goal继续P5。
+
+## P5 抖音与统一调度开始
+
+- Spec007已核对两上游实际BrowserController/Python FastMCP接口、CDP严格接入/目录隔离、独立人格记忆副作用、注册白名单和最终写入审批边界。P4基线7ceb617，普通模块/单根依赖不变；观看和互动由一个Browser Manager/队列持有专用会话，统一调度复用B站与抖音。
+- 真实账号、扫码、验证码和社交写操作未授权；以实际浏览器/上游/MCP和隔离页面/模型协议验证，外部平台证据继续单列。单个实施Agent串行实施后新独立验收。
+- implement_p5进度：固定来源/许可/patch、LockyBee原始观察/三帧proof/音轨采样切片、Python FastMCP严格CDP/逐提交guard、Browser host父进程退出清理、ApprovalStore与QQ作用域迁移、schema6任务/定时/自主决策、抖音读/观看/附件/审批、统一ASR及CLI/API已编码。Desktop和实际浏览器/MCP/网络最终guard/取消验证进行中，未提前判通过；QQ原有全表撤销已按plugin限定，最终reply guard保留待直接回归。
+- 协调源码阅读指出两处具体边界：未启动抖音取消不得等待队列前方无关B站长任务；自主浏览不能只选固定已看ID。实施者已改即时取消未运行项/只drain实际运行项，将加对应定向用例；自主发现按授权主题/平台、最多2次搜索/推荐、最多20候选、一次DSH选择/休息与单轮预算实现，语义补入Spec。
+- 实施者报告真实Python凭据读取、LockyBee三帧/音轨→统一ASR/DSH图像→候选兴趣/时间线/日记链已跑通；点赞隔离页面的状态属性与上游语义不符导致unknown，正在修正夹具，保持产品回执验证，不降低断言。最终检查/独立验收尚未完成。
+- P5真实综合集成已通过（约52秒，一项大场景）：Chromium/LockyBee/Python FastMCP/ASR/DSH/记忆日记、正常点赞、导航等待撤销、工具guard放行后延迟网络提交再撤销零请求、账号变化、未知不重试、真实搜索候选与DSH自主选择、暂停/CLI。实际SIGKILL Runtime后专用浏览器退出、重启interrupted和未开始任务取消不等待无关前置平台用例已过。type/lint/build/macOS release已过；QQ回归发现已结束审批错误码优先级变化，实施者修回APPROVAL_NOT_PENDING并仅重跑失败用例。原生UI、附件/依赖等窄边界及最终文档检查仍进行中。
+- 全历史观看去重已由持久查询替代最近100条列表；新增activity_requests映射/视频索引，先检查requestId参数冲突，再保存去重别名，定向历史边界检查进行中。
+- P5原生macOS release已再次构建，隔离真实Runtime已启动；操作窗口时CUA报告Mac锁屏且自动解锁失败，因此本轮原生UI操作未通过、未绕过锁屏。root已异步请用户解锁，尚未答复，继续其余验证；可恢复夹具/tmp/bff-p5-ui.mjs，实施者负责最终清理/交接。此前P4原生证据不替代P5。
+- implement_p5完整报告已读取并入Spec007 Plan：累计12文件22不同定向测试、type/lint/Node/macOS release、两份patch dry-run与自有diff通过；无界面React+真实Runtime配置/观看/Home在途/审批/暂停通过，root已查看截图。原生UI锁屏门槛及真实账号/其他系统缺口保持。进程/测试数据已清理，转新的独立验收。
+- 用户明确答复：暂无Windows电脑/虚拟机，先继续其他开发验证；Mac已解锁，可继续原生桌面操作。两条输入已处理，不重复询问。
+- accept_p5完整FAIL报告已读取并落盘：批准目标外的点赞+额外评论实际穿过网络门且completed；缺稳定ID的同名私信对象仍获准；未发送的编辑框正文被认作成功收据；ASR跨chunk汉字损坏。均隔离复现，非外部账号缺口。创建新实施返工及新独立复验流程，P5不提交；原生UI在返工后用已解锁Mac补证据。
+- rework_p5报告ASR分块用例、真实Python/Chrome收据15场景、Runtime/Chrome/Python实际外发11场景通过；点赞/评论正向各仅一次获批外发，错目标/错正文零外发，重复/额外动作及错收据不再completed。评论首轮失败为隔离HTML缺charset导致中文乱码，权限门正确拒绝，修正夹具后受影响矩阵通过。尚待完整报告与新独立验收。DM/分享/上传实际wire schema无法由固定来源确认，当前拒绝外发，保留真实上游DOM流程及准确能力状态；Python DOM正向不等于Runtime或真实平台可发送。新版.app已实际打开并连接隔离Runtime，原生操作继续中。
+- rework_p5完整报告已读取并入Plan：追加授权等待后会话切换负例后，Python/Chrome累计16场景；网络11场景、3文件4项窄TS测试、type/lint/Node/macOS build及patch dry-run通过。原生Mac账号验证/点赞审批/观看/Home经历/暂停恢复/计划停用已实际操作，CLI同目录确认3任务completed；隔离进程与数据清理。新独立accept_p5_rework开始；DM/分享/投稿协议未实现与真实账号门槛仍单列，未提交。
+
+- accept_p5_rework完整FAIL已读取并记Acceptance：实际获准POST经307跳其他来源/端点且接收器收到；顶层评论响应带未批准父ID仍completed；隐藏旧消息显示后被DOM识别为新增。已创建新rework_p5_second，仅处理重定向真正外发边界/父目标语义/不依赖可见性的收据基线及直接回归。P5仍不提交，原生Mac既有证据有效。
+- rework_p5_second完整报告已读取入Plan：原生CDP重定向补门、父字段一致校验、全ID历史基线完成。本轮3TS文件8项、Python8组，实际生产转发/普通及登录跳转、popup/OOPIF/取消/撤销和14场景网络矩阵通过；正常批准1次、受限后续0。typecheck/Node build/定向lint/patch dry-run通过；进程/临时数据清理。新独立accept_p5_second_rework开始，P5仍未提交，DM/分享/投稿协议缺项保留。
+
+- accept_p5_second_rework完整FAIL已读取入Acceptance：原三项修复与证据一致；新CDP守卫对普通worker误用Fetch.enable，返回-32601后关闭主页面。生产BrowserManager+loopback普通Worker已复现，无写请求。创建新rework_p5_worker仅修target能力/网络归属及直接回归，不重跑无变化模块；P5继续未提交。
+
+- rework_p5_worker完整报告已入Plan：Dedicated/嵌套/Shared HTTP归属、普通读取和受限请求、生命周期/取消共4项直接检查与build/type/lint通过。新accept_p5_worker确认HTTP修复，但用生产BrowserManager+本地WS实证Dedicated/Shared在read无gate时各发1条消息，Page同类0；完整FAIL入Acceptance，创建新rework_p5_worker_ws修同一未知WS拒绝边界，P5不提交。
+
+- rework_p5_worker_ws完整报告及新独立accept_p5_worker_ws PASS已读取并落盘：启动前拒绝代理拦截WS/WSS且无直连后备，Worker16尝试目标TCP/握手/消息0，正常HTTP16次；9项直接检查、Node/type/lint通过，公开官方镜像HTTPS 200/TLS1.3。最终验收核对源码与实际日志未发现疑点，未重复测试。root同步全局状态，准备按授权本地提交P5可验收代码；协议未完成/真实账号/其他系统缺口保留，随后继续P6。

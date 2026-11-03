@@ -1,0 +1,20 @@
+{
+  "lockybee": {
+    "url": "https://github.com/LockyBee/dsh-douyin-agent",
+    "commit": "7989640e340f0fd79e2de9874880d5197546e755",
+    "files": [
+      "core.mjs",
+      "LICENSE"
+    ],
+    "adaptation": "Host-owned BrowserController observation/capture subset; original readPageState/currentVideo/captureSharedFrames/captureAudio/proof algorithms; no brain, path discovery, memory or launcher imports"
+  },
+  "kdcadmin": {
+    "url": "https://github.com/kdcadmin/dsh_douyin_tools",
+    "commit": "aaf9f9a862afafd45a15acf32789da97688de695",
+    "files": [
+      "vendor/douyin-mcp/mcp_server.py",
+      "LICENSE"
+    ],
+    "adaptation": "Strict owned CDP only, explicit home, async per-submit authorization guard, stable recipient and strict correlated receipt checks including parent aliases and hidden-message baselines; optional watch/memory/ASR not exposed"
+  }
+}

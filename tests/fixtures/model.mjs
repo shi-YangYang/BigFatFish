@@ -3,6 +3,7 @@ export async function fixtureModel() {
   const requests = [], controls = { memoryResponse: undefined, slowMemory: false };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
+    if(req.url==='/v1/audio/transcriptions'){requests.push({url:req.url,raw});res.setHeader('content-type','application/json');res.end(JSON.stringify({text:'隔离音轨转写：海洋里的鱼'}));return;}
     const body = JSON.parse(raw || '{}'); requests.push({ url: req.url, authorization: req.headers.authorization, body });
     if (req.url === '/models') { res.setHeader('content-type','application/json'); res.end(JSON.stringify({object:'list',data:[{id:'deepseek-v4-flash',object:'model'}]})); return; }
     if (req.url === '/anthropic/v1/messages' || req.url === '/anthropic/messages') {
@@ -28,6 +29,7 @@ export async function fixtureModel() {
       if (input.includes('BFF_MEMORY_EXTRACT')) parts = [JSON.stringify({ memories: sources.filter(s=>s.quote.includes('茉莉花茶')).map(s=>({kind:'preference',subject:'主人饮品偏好',content:'主人喜欢茉莉花茶',importance:4,sources:[s]})) })];
       else parts = [JSON.stringify({content:'今天完成了对话，聊到了用户的饮品偏好。',sourceIds:sources.map(s=>s.id)})];
     }
+    if(prompt.includes('BFF_ACTIVITY_CHOOSE'))parts=[JSON.stringify({index:prompt.includes('候选：[]')?-1:0,reason:'已确认兴趣与允许的视频相符'})];
     if(prompt.includes('BFF_VIDEO_UNDERSTAND'))parts=[JSON.stringify({summary:'本次依据官方字幕和采样画面了解蓝色海洋中的鱼。',interests:['海洋生物']})];
     if (input?.includes('BFF_MEMORY_EXTRACT') && controls.memoryResponse !== undefined) parts = [controls.memoryResponse];
     if (input?.includes('BFF_MEMORY_EXTRACT') && controls.slowMemory) parts = Array(100).fill('慢');

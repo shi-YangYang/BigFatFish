@@ -1,0 +1,22 @@
+BigFatFish Douyin adapters
+
+LockyBee/dsh-douyin-agent, commit 7989640e340f0fd79e2de9874880d5197546e755, MIT.
+lockybee/core.mjs is a recorded subset of upstream core.mjs. Original video identity,
+DOM observation, proof verification, temporal sampling and audio capture algorithms
+are retained. The constructor accepts only an already-owned Playwright Page.
+Standalone memory/persona/limits/launcher/brain imports and unused operations are
+removed. lockybee/bff.patch applies to the fixed original core.mjs.
+Original license is retained at lockybee/LICENSE.
+
+kdcadmin/dsh_douyin_tools, commit aaf9f9a862afafd45a15acf32789da97688de695, MIT.
+The full vendor/douyin-mcp/mcp_server.py is retained in services/douyin with a patch
+removing implicit home/CDP fallbacks and making all final-submit markers await a
+one-call Runtime guard; stable-recipient checks and strict new sent-message receipts
+replace body-text/count fallbacks; pre-submit stable-ID baselines include hidden nodes.
+Comment receipts bind exact request and response, with explicit, consistent parent aliases;
+publish response alone remains unverified without media identity binding. The runtime whitelist excludes independent memory, watch,
+Whisper, SMS and other standalone application tools. No unrelated vendor code is
+copied. Original license is retained at services/douyin/LICENSE.
+
+No separate npm workspace or independent model/personality/memory process is loaded.
+Node Playwright and the Python protocol dependencies retain their installed licenses.

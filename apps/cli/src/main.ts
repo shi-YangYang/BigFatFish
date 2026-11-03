@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { activityCommand } from './activities.js';
 import { bilibiliCommand } from './bilibili.js';
 import { channelCommand } from './channels.js';
 import { lifeCommand } from './life.js';
@@ -14,15 +15,17 @@ try {
   const options = parseOptions(process.argv.slice(2));
   json = options.json;
   if (options.help || !options.command) {
-    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks|channels|permissions|bilibili> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
+    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks|channels|permissions|bilibili|douyin|activities|schedules> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
   } else {
+    const activity=['douyin','activities','schedules'].includes(options.command);
     const bili=options.command==='bilibili';
     const channel = ['channels','permissions'].includes(options.command);
     const life = ['life','memories','diaries','memory-tasks'].includes(options.command);
     const ai = ['models','routes','persona','sessions','chat','cancel'].includes(options.command);
-    if (!bili && !ai && !life && !channel && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
+    if (!activity && !bili && !ai && !life && !channel && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
     const p = paths(dataRoot(options['data-dir']));
-    if(bili)await bilibiliCommand(p,options.positionals,output);
+    if(activity)await activityCommand(p,options.positionals,output);
+    else if(bili)await bilibiliCommand(p,options.positionals,output);
     else if (channel) await channelCommand(p,options.positionals,output);
     else if (life) await lifeCommand(p, options.positionals, output);
     else if (ai) await aiCommand(p, options.positionals, json, output);

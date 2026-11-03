@@ -1,3 +1,7 @@
+import { Douyin } from './douyin/service.js';
+import { registerDouyin } from './douyin/routes.js';
+import { TaskQueue } from './tasks/queue.js';
+import { Activities } from './tasks/service.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { preparePaths, assertRegular, privateFile, type DataPaths } from './paths.js';
@@ -14,7 +18,7 @@ import { registerAi } from './ai/routes.js';
 import { createServer } from './server.js';
 import type { Connection } from './connection.js';
 
-export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?:ConstructorParameters<typeof Bilibili>[4]}) {
+export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?:ConstructorParameters<typeof Bilibili>[4];douyin?:ConstructorParameters<typeof Douyin>[4]}) {
   process.umask(0o077);
   preparePaths(p);
   const release = acquireInstance(p.lock);
@@ -24,7 +28,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
   let stopping = false;
   let chat: ChatService | undefined;
   let channels: Channels | undefined;
-  let bilibili: Bilibili | undefined;
+  let bilibili: Bilibili | undefined;let douyin:Douyin|undefined;let activities:Activities|undefined;
   const connection: Connection = { version: 1, pid: process.pid, port, token: randomBytes(32).toString('hex'), instanceId: randomUUID(), startedAt: new Date().toISOString() };
   let initialized!: () => void;
   const initialization = new Promise<void>(resolve => { initialized = resolve; });
@@ -37,6 +41,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
     // Fastify close must not race with an unresolved listen, even during startup failure.
     await initialization;
     const errors: unknown[] = [];
+    try { await activities?.close();await douyin?.close(); } catch(error){errors.push(error);}
     try { await bilibili?.close(); } catch (error) { errors.push(error); }
     try { await channels?.close(); } catch (error) { errors.push(error); }
     try { await chat?.close(); } catch (error) { errors.push(error); }
@@ -89,6 +94,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       channels = new Channels(db,chat); await channels.initialize();
       registerChannels(app,channels);
       bilibili=new Bilibili(db,chat,channels,p,adapters?.bilibili);await bilibili.initialize();registerBilibili(app,bilibili);
+      const queue=new TaskQueue(db);douyin=new Douyin(db,chat,queue,p,adapters?.douyin);activities=new Activities(db,queue,chat,bilibili,douyin);registerDouyin(app,douyin,activities);
       const address = await app.listen({ host: '127.0.0.1', port });
       if (stopping) throw new Error('START_INTERRUPTED');
       connection.port = Number(new URL(address).port);

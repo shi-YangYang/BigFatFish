@@ -36,13 +36,14 @@ export class Bilibili {
   verify(){return this.operation(async signal=>{const c=this.secret();if(!c)throw new InputError('BILI_LOGIN_REQUIRED',409);try{const account=await this.module.verifyAccount(c,{signal});signal.throwIfAborted();this.account=account;this.accountState='verified';return this.status();}catch{this.accountState='expired-or-unavailable';throw new InputError('BILI_LOGIN_FAILED',409);}});}
   async logout(){await this.abort();this.account=undefined;this.accountState='signed-out';this.save(null);return this.status();}
   async login(action:string,id?:string){this.assertEnabled();try{if(action==='start')return await this.qr.start();if(action==='poll'&&id)return await this.qr.poll(id);if(action==='cancel')return this.qr.cancel(id);}catch{throw new InputError('BILI_LOGIN_FAILED',409);}throw new InputError('INVALID_REQUEST');}
-  search(input:unknown){const b=object(input);return this.operation(signal=>this.upstream.search(string(b.query,200),this.secret(),signal));}
+  search(input:unknown,external?:AbortSignal){const b=object(input);return this.operation(signal=>this.upstream.search(string(b.query,200),this.secret(),external?AbortSignal.any([signal,external]):signal));}
   read(input:unknown){const b=object(input),kind=b.kind;if(!['video','comments','debrief'].includes(String(kind)))throw new InputError('INVALID_REQUEST');return this.operation(signal=>this.upstream.read(this.bvid(b.bvid),kind as 'video'|'comments'|'debrief',this.secret(),signal));}
   private bvid(input:unknown){const value=string(input,12);if(!/^BV[0-9A-Za-z]{10}$/.test(value))throw new InputError('INVALID_BVID');return value;}
+  seen(bvid:string){return !!this.db.prepare("SELECT id FROM video_tasks WHERE bvid=? AND status IN ('queued','running','understanding','completed','partial') LIMIT 1").get(bvid);}
   task(id:string):VideoTask{const row=this.db.prepare('SELECT id,bvid,status,result,error,created_at AS createdAt FROM video_tasks WHERE id=?').get(id);if(!row)throw new InputError('TASK_NOT_FOUND',404);return {...row,result:row.result?JSON.parse(row.result as string):null} as unknown as VideoTask;}
   tasks(){return this.db.prepare('SELECT id FROM video_tasks ORDER BY rowid DESC LIMIT 100').all().map(r=>this.task(r.id as string));}
   watch(input:unknown){
-    this.assertEnabled();const b=object(input),bvid=this.bvid(b.bvid),requestId=string(b.requestId,100);
+    this.assertEnabled();if(this.db.prepare("SELECT value FROM settings WHERE key='activities.paused'").get()?.value==='true')throw new InputError('ACTIVITIES_PAUSED',409);const b=object(input),bvid=this.bvid(b.bvid),requestId=string(b.requestId,100);
     const duplicate=this.db.prepare('SELECT task_id AS id,bvid FROM video_requests WHERE request_id=?').get(requestId);if(duplicate){if(duplicate.bvid!==bvid)throw new InputError('IDEMPOTENCY_CONFLICT',409);return this.task(duplicate.id as string);}
     const seen=this.db.prepare("SELECT id FROM video_tasks WHERE bvid=? AND status IN ('queued','running','understanding','completed','partial') ORDER BY rowid DESC LIMIT 1").get(bvid);if(seen){this.db.prepare('INSERT INTO video_requests(request_id,task_id,bvid) VALUES(?,?,?)').run(requestId,seen.id!,bvid);return this.task(seen.id as string);}
     if(this.operations.size)throw new InputError('BILI_BUSY',409);

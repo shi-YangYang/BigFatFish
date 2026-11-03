@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -32,6 +32,13 @@ export const migrations = [
    CREATE TABLE channel_deliveries (id TEXT PRIMARY KEY, target TEXT NOT NULL, author TEXT NOT NULL, segments TEXT, status TEXT NOT NULL, message_id TEXT, error TEXT, created_at TEXT NOT NULL);
    CREATE TABLE approvals (id TEXT PRIMARY KEY, payload TEXT NOT NULL, digest TEXT NOT NULL, revision TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);`,
   `CREATE TABLE video_tasks (id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, bvid TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT, created_at TEXT NOT NULL); CREATE INDEX video_bvid ON video_tasks(bvid,status); CREATE TABLE video_requests (request_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES video_tasks(id), bvid TEXT NOT NULL);`,
+  `ALTER TABLE approvals ADD COLUMN plugin TEXT NOT NULL DEFAULT 'qq';
+   ALTER TABLE approvals ADD COLUMN approved_by TEXT;
+   CREATE TABLE activity_tasks(id TEXT PRIMARY KEY,request_id TEXT UNIQUE NOT NULL,platform TEXT NOT NULL,kind TEXT NOT NULL,mode TEXT NOT NULL,input TEXT NOT NULL,status TEXT NOT NULL,result TEXT,error TEXT,created_at TEXT NOT NULL);
+   CREATE TABLE activity_schedules(id TEXT PRIMARY KEY,config TEXT NOT NULL,next_at INTEGER NOT NULL,enabled INTEGER NOT NULL);
+   CREATE INDEX activity_status ON activity_tasks(platform,status);
+   CREATE TABLE activity_requests(request_id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES activity_tasks(id),platform TEXT NOT NULL,kind TEXT NOT NULL,input TEXT NOT NULL);
+   CREATE INDEX activity_video ON activity_tasks(platform,kind,json_extract(input,'$.videoId'),status);`,
 ];
 export function migrate(db: DatabaseSync, steps = migrations) {
   const current = Number(db.prepare('PRAGMA user_version').get()?.user_version);
