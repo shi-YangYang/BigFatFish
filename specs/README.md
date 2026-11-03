@@ -20,3 +20,4 @@
 - [Spec 007：P5 抖音与统一调度](spec-007-p5-douyin/spec.md)：[本地代码返工PASS](spec-007-p5-douyin/acceptance.md)；原生Mac已验证，未完成协议与外部缺口单列。
 - [Spec 008：P6 安装、运行与数据迁移](spec-008-p6-release/spec.md)：[本地代码返工PASS](spec-008-p6-release/acceptance.md)；Mac/Linux产物与迁移路径有证据，Windows和正式签名/发行未完成。
 - [Spec 009：P7 Web Console与插件生态](spec-009-p7-web-plugins/spec.md)：[返工复验PASS](spec-009-p7-web-plugins/acceptance.md)；远程认证、可安装插件、真实工具回合、媒体与开发者文档，本地代码与安装证据通过，外部验证单列。
+- [Spec 010：Desktop WebUI 与大肥鱼娘形象](spec-010-desktop-webui/spec.md)：[返工复验 PASS](spec-010-desktop-webui/acceptance.md)；精简导航、统一视觉与大肥鱼娘品牌，最终本机包证据见 Plan。

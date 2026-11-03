@@ -1,26 +1,349 @@
-import {Plugins} from './components/Plugins';
-import {Media} from './components/Media';
-import {WebSettings} from '../../web/src/Settings';
-import { Setup, Backup, Updates } from './components/Setup';
-import { Douyin, Activities, DouyinApprovals } from './components/Douyin';
-import { useCallback, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { api, errorText, isWeb, webRequest } from './api';
-import { Home, Life } from './components/Life';
-import { Memories } from './components/Memories';
-import { Channels, Permissions } from './components/Channels';
-import { Bilibili } from './components/Bilibili';
-import { Chat } from './components/Chat';
-import { Models } from './components/Models';
-import { Personality } from './components/Personality';
-import type { ModelConfig } from '../../runtime/src/ai/types';
-export default function App(){
- const [page,setPage]=useState('主页'),[error,setError]=useState(''),[connected,setConnected]=useState(false),[models,setModels]=useState<(ModelConfig&{hasKey:boolean})[]>([]);
- const fail=useCallback((e:unknown)=>setError(errorText(e)),[]);
- const reload=useCallback(async()=>{setModels(await api('/v1/models'));},[]);
- const connect=useCallback(async()=>{try{await (isWeb?api('/v1/status'):invoke('runtime_status'));await reload();setConnected(true);setError('');return true;}catch(e){setConnected(false);fail(e);return false;}},[reload,fail]);
- useEffect(()=>{let cancelled=false;let timer:ReturnType<typeof setTimeout>|undefined;const attempt=async(count:number)=>{const ready=await connect();if(!cancelled&&!ready&&count<20)timer=setTimeout(()=>void attempt(count+1),500);};void (isWeb?Promise.resolve({complete:true}):invoke<{complete:boolean}>('desktop_settings')).then(settings=>{if(settings.complete)void attempt(0);else void connect();}).catch(fail);return()=>{cancelled=true;if(timer)clearTimeout(timer);};},[connect,fail]);
- return <div className="app"><header><h1>BigFatFish</h1><span>{connected?'已连接':'未连接'}</span><button onClick={()=>void connect()}>刷新连接</button>{isWeb&&<button onClick={()=>void webRequest('/auth/logout','POST').catch(fail)}>退出登录</button>}</header><nav>{['主页','聊天','生活','记忆','人格','模型','插件','语音','日志','渠道','B站','抖音','任务','权限',...(isWeb?['设置']:['设置','备份','更新'])].map(item=><button className={page===item?'active':''} key={item} onClick={()=>{setPage(item);setError('');}}>{item}</button>)}</nav>{error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>关闭</button></div>}<main>{page==='更新'?<Updates fail={fail}/>:page==='设置'?(isWeb?<WebSettings fail={fail}/>:<Setup fail={fail} done={()=>{void connect();}}/>):page==='备份'?(isWeb?<WebSettings fail={fail}/>:<Backup fail={fail}/>):connected?(page==='插件'?<Plugins fail={fail}/>:page==='语音'?<Media fail={fail}/>:page==='日志'?<Logs fail={fail}/>:page==='抖音'?<Douyin fail={fail}/>:page==='任务'?<Activities fail={fail}/>:page==='B站'?<Bilibili fail={fail}/>:page==='渠道'?<Channels fail={fail}/>:page==='权限'?<><Permissions fail={fail}/><DouyinApprovals fail={fail}/></>:page==='主页'?<Home navigate={setPage}/>:page==='生活'?<Life fail={fail}/>:page==='记忆'?<Memories fail={fail}/>:page==='聊天'?<Chat models={models} fail={fail}/>:page==='模型'?<Models models={models} reload={reload} fail={fail}/>:<Personality fail={fail}/>):isWeb?<p>连接已断开，请刷新连接。</p>:<Setup fail={fail} done={()=>{setPage('模型');void connect();}}/>}</main></div>;
+import { useCallback, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { api, errorText, isWeb, webRequest } from "./api";
+import { Chat } from "./components/Chat";
+import { Setup } from "./components/Setup";
+import { MyFish, Connections, Settings } from "./components/Workspaces";
+import { Permissions } from "./components/Channels";
+import { DouyinApprovals, type ActivityOverview } from "./components/Douyin";
+import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
+import type { ModelConfig } from "../../runtime/src/ai/types";
+export default function App() {
+  const [page, setPage] = useState("聊天"),
+    [settingsTab, setSettingsTab] = useState("模型"),
+    [error, setError] = useState("");
+  const [connected, setConnected] = useState(false),
+    [initialized, setInitialized] = useState(false),
+    [firstRun, setFirstRun] = useState(false),
+    [loading, setLoading] = useState(true);
+  const [models, setModels] = useState<(ModelConfig & { hasKey: boolean })[]>(
+      [],
+    ),
+    [drawer, setDrawer] = useState(false),
+    [menu, setMenu] = useState(false),
+    [approvalCount, setApprovalCount] = useState(0),
+    [activity, setActivity] = useState<ActivityOverview>();
+  const live = useRef(false);
+  const fail = useCallback((e: unknown) => setError(errorText(e)), []);
+  const reload = useCallback(async () => {
+    setModels(await api("/v1/models"));
+  }, []);
+  const connect = useCallback(async () => {
+    try {
+      await (isWeb ? api("/v1/status") : invoke("runtime_status"));
+      if (live.current) {
+        setConnected(true);
+        setInitialized(true);
+        setError("");
+      }
+      await reload().catch(fail);
+      return true;
+    } catch (e) {
+      if (live.current) {
+        setConnected(false);
+        fail(e);
+      }
+      return false;
+    }
+  }, [reload, fail]);
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = fishGirl;
+  }, []);
+  useEffect(() => {
+    live.current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = async (count: number) => {
+      const ready = await connect();
+      if (live.current && !ready && count < 20)
+        timer = setTimeout(() => void attempt(count + 1), 500);
+    };
+    void (
+      isWeb
+        ? Promise.resolve({ complete: true })
+        : invoke<{ complete: boolean }>("desktop_settings")
+    )
+      .then((s) => {
+        if (!live.current) return;
+        setFirstRun(!s.complete);
+        if (s.complete) void attempt(0);
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (live.current) {
+          fail(e);
+          setLoading(false);
+        }
+      });
+    return () => {
+      live.current = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [connect, fail]);
+  useEffect(() => {
+    if (!initialized) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        await api("/v1/status");
+        if (active) setConnected(true);
+      } catch {
+        if (active) setConnected(false);
+        return;
+      }
+      try {
+        const [a, q, d] = await Promise.all([
+          api<ActivityOverview>("/v1/activities"),
+          api<{ status: string }[]>("/v1/permissions/approvals"),
+          api<{ status: string }[]>("/v1/douyin/approvals"),
+        ]);
+        if (active) {
+          setActivity(a);
+          setApprovalCount(
+            [...q, ...d].filter((v) => v.status === "pending").length,
+          );
+        }
+      } catch (e) {
+        if (active) fail(e);
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 4000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [initialized, fail]);
+  function navigate(next: string) {
+    setPage(next);
+    setMenu(false);
+    setError("");
+  }
+  const addModel = () => {
+    setSettingsTab("模型");
+    navigate("设置");
+  };
+  const menuContents = (
+    <>
+      <div className="brand">
+        <FishAvatar />
+        <div>
+          <strong>BigFatFish</strong>
+          <span>你的大肥鱼</span>
+        </div>
+      </div>
+      <nav className="primary-nav" aria-label="主导航">
+        {(["聊天", "我的鱼", "连接"] as const).map((item, i) => (
+          <button
+            className={page === item ? "active" : ""}
+            aria-current={page === item ? "page" : undefined}
+            key={item}
+            onClick={() => navigate(item)}
+          >
+            {i === 1 ? (
+              <FishAvatar className="nav-portrait" alt="" />
+            ) : (
+              <Icon name={i === 0 ? "chat" : "link"} />
+            )}
+            {item}
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-bottom">
+        <button
+          className={page === "设置" ? "active" : ""}
+          onClick={() => navigate("设置")}
+        >
+          <Icon name="settings" />
+          设置
+        </button>
+        <span className="sidebar-note">慢慢聊，一起成长。</span>
+      </div>
+    </>
+  );
+  return (
+    <div className="app-shell">
+      <aside className="app-sidebar">{menuContents}</aside>
+      <div className="app-workspace">
+        <header className="topbar">
+          <button
+            className="icon-button mobile-menu"
+            aria-label="打开导航"
+            onClick={() => setMenu(true)}
+          >
+            <Icon name="menu" />
+          </button>
+          <h1>{page}</h1>
+          <div className="topbar-actions">
+            {approvalCount > 0 && (
+              <button
+                className="approval-button compact"
+                onClick={() => setDrawer(true)}
+              >
+                待审批 <b>{approvalCount}</b>
+              </button>
+            )}
+            <details className="runtime-menu">
+              <summary>
+                <span className={`status-dot ${connected ? "online" : ""}`} />
+                {connected
+                  ? activity?.paused
+                    ? "活动已暂停"
+                    : "已连接"
+                  : "未连接"}
+              </summary>
+              <div className="runtime-popover">
+                <button onClick={() => void connect()}>重新连接</button>
+                {activity && (
+                  <button
+                    onClick={() =>
+                      void api("/v1/activities/pause", "POST", {
+                        paused: !activity.paused,
+                      })
+                        .then(() =>
+                          setActivity({
+                            ...activity,
+                            paused: !activity.paused,
+                          }),
+                        )
+                        .catch(fail)
+                    }
+                  >
+                    {activity.paused ? "恢复活动" : "暂停活动"}
+                  </button>
+                )}
+                <button onClick={() => setDrawer(true)}>审批与记录</button>
+                {isWeb && (
+                  <button
+                    onClick={() =>
+                      void webRequest("/auth/logout", "POST").catch(fail)
+                    }
+                  >
+                    退出登录
+                  </button>
+                )}
+              </div>
+            </details>
+          </div>
+        </header>
+        {error && (
+          <div className="app-error" role="alert">
+            <span>{error}</span>
+            <button className="compact" onClick={() => setError("")}>
+              关闭
+            </button>
+          </div>
+        )}
+        {initialized && !connected && (
+          <div className="connection-banner" role="status">
+            连接已断开，当前内容与草稿已保留。
+            <button className="compact" onClick={() => void connect()}>
+              重新连接
+            </button>
+          </div>
+        )}
+        <main
+          className={`workspace-main ${page === "聊天" ? "chat-page" : ""}`}
+        >
+          {loading ? (
+            <div className="empty-state">正在连接…</div>
+          ) : firstRun ? (
+            <div className="content-page settings-page">
+              <Setup
+                fail={fail}
+                done={() => {
+                  setFirstRun(false);
+                  addModel();
+                  void connect();
+                }}
+              />
+            </div>
+          ) : (
+            <>
+              {initialized && (
+                <div className="chat-mount" hidden={page !== "聊天"}>
+                  <Chat
+                    models={models}
+                    fail={fail}
+                    configureModel={addModel}
+                    connected={connected}
+                    active={page === "聊天"}
+                  />
+                </div>
+              )}
+              {page !== "聊天" && (
+                <div
+                  className={`content-page ${page === "设置" ? "settings-page" : ""}`}
+                >
+                  {page === "我的鱼" ? (
+                    <MyFish fail={fail} />
+                  ) : page === "连接" ? (
+                    <Connections fail={fail} />
+                  ) : (
+                    <Settings
+                      models={models}
+                      reload={reload}
+                      fail={fail}
+                      done={() => void connect()}
+                      tab={settingsTab}
+                      setTab={setSettingsTab}
+                    />
+                  )}
+                </div>
+              )}
+              {page === "聊天" && !initialized && (
+                <div className="empty-state">
+                  <FishAvatar />
+                  <h2>暂时无法连接你的鱼</h2>
+                  <button onClick={() => void connect()}>重新连接</button>
+                  <button
+                    onClick={() => {
+                      setSettingsTab("通用");
+                      navigate("设置");
+                    }}
+                  >
+                    打开运行设置
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+      {menu && (
+        <Drawer title="导航" close={() => setMenu(false)}>
+          <div className="mobile-navigation">{menuContents}</div>
+        </Drawer>
+      )}
+      {drawer && (
+        <Drawer title="审批与记录" close={() => setDrawer(false)}>
+          <ApprovalContents />
+        </Drawer>
+      )}
+    </div>
+  );
 }
 
-function Logs({fail}:{fail:(e:unknown)=>void}){const [lines,setLines]=useState<string[]>([]);useEffect(()=>{void api<{lines:string[]}>('/v1/logs').then(r=>setLines(r.lines)).catch(fail);},[fail]);return <section><h2>运行日志</h2><pre>{lines.join('\n')}</pre></section>;}
+function ApprovalContents() {
+  const [error, setError] = useState("");
+  const fail = useCallback((e: unknown) => setError(errorText(e)), []);
+  return (
+    <>
+      {error && (
+        <div className="error approval-error" role="alert">
+          <span>{error}</span>
+          <button className="compact" onClick={() => setError("")}>
+            关闭提示
+          </button>
+        </div>
+      )}
+      <Permissions fail={fail} approvalsOnly />
+      <DouyinApprovals fail={fail} />
+    </>
+  );
+}

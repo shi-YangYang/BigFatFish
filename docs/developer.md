@@ -31,7 +31,7 @@ bigfatfish web serve --data-dir /absolute/path/fish
 
 Web 配置位于受保护的 `runtime/web-config.json`，不进入逻辑备份。正在运行的网关持有独立锁，`web configure` 返回 `WEB_STOP_REQUIRED`，不会假装已换密。先停止 `web serve`（Ctrl+C 或停止所属服务），再配置和启动；所有旧会话随进程退出失效。证书续期后也须重启网关。本地测试证书仅在独立浏览器上下文中信任，不安装全局 CA。
 
-主页、聊天、人格、生活、记忆、模型、渠道、B站、抖音、任务、权限、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
+Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人格、经历、记忆、模型、平台、任务、审批、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
 
 备份与恢复由仍在线的网关先排空 Runtime、调用同一离线维护核心及固定实例锁，再启动 Runtime。只有恢复/备份及启动均结束才返回 completed；浏览器上传/下载字节，不指定服务器任意文件路径。恢复替换当前鱼，原始目录在 rollback 目录保留；插件安装代码、旧授权和会话不随逻辑备份恢复。恢复后重新安装/授权。schema 保持6，P6归档可直接导入，未知版本仍拒绝。
 
@@ -56,7 +56,7 @@ Web 配置位于受保护的 `runtime/web-config.json`，不进入逻辑备份�
 
 WebSocket：本机 `/v1/events?conversationId=ID` 使用 bearer；Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。初始 ready 不是生成完成。断线后的权威记录从消息 HTTP API 重新读取，发送使用 requestId 防重复。前端会话切换与草稿版本保护不能省略。
 
-ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；Desktop/Web「语音」可显式调用和播放。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
+ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；Desktop/Web 聊天中可上传音频转写、朗读回复，「设置 → 声音」保留声音与媒体操作。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
 
 ## 从外部目录开发插件
 

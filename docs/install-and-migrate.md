@@ -10,7 +10,7 @@
 
 ## 桌面首次运行
 
-macOS 将 `.app` 放入用户 Applications，Windows 运行对应安装器。首次选择绝对数据目录、鱼的名字、关闭窗口后是否后台运行；之后填写模型地址、名称及自己的密钥。在「模型」保存后会选择首个模型作为默认聊天模型。
+macOS 将 `.app` 放入用户 Applications，Windows 运行对应安装器。首次可使用默认数据目录，按需设置鱼的名字、关闭窗口后是否后台运行；之后在「设置 → 模型」填写模型地址、名称及自己的密钥。保存后会选择首个模型作为默认聊天模型。
 
 默认关闭窗口保留 Runtime，菜单栏托盘提供打开、暂停自动活动、退出并停止服务。设置中可以启用/撤销登录启动，默认关闭。已有同数据目录的 Runtime 会复用，停止通过认证接口完成。开机项只管理本应用。
 
@@ -93,7 +93,7 @@ CLI portable 更新需 `bigfatfish update trust` 从标准输入接收 `{source,
 
 安装过程保留程序与数据，拒绝同版本和降级包；`update rollback` 在停服后恢复二者。回退会作废旧审批、暂停自动活动、禁用平台和计划，防止旧任务再次外发。中断后可从 `.bigfatfish-previous/bin/bigfatfish update rollback --data-dir ...` 执行恢复；若处于 journal 未提交状态，不继续新更新。Windows portable 更新明确拒绝，使用原生安装器。`update install-file` 可从标准输入接收 `{file,manifest}` 安装已下载的包，仍需提前配置同一公钥且严格验签。首次下载到生产更新源前应由用户核对发行者公钥。
 
-桌面使用 Tauri 官方 updater 的 Minisign 公钥与 HTTPS manifest（含目标 `schema` 和支持原数据的 `minSchema`，本阶段实际版本为6），与 portable 的 Ed25519 清单是不同格式。在线清单和实际更新包地址都必须使用 HTTPS，不跟随重定向；不安全的包地址在显示可用更新或下载前拒绝。还可在界面提供本地清单及更新包路径，离线模式直接读取本地字节并验证官方签名及版本绑定，不会访问清单中的下载地址。先在「更新」设置来源和公钥；官方插件验证签名及签名版本后才安装。候选目标 schema 可高于当前6，但最低支持版本不能高于当前数据；声明的 schema 必须与签名包内 metadata 一致。macOS 以原数据副本实际启动验证兼容；本阶段没有虚构新业务 schema，实际升级演练仅验证6→6，未来跨 schema 仍须由候选实际迁移通过。安装前保留原始config/data至 `runtime/desktop-update-snapshot`。安装后保留维护标记，只有新程序自身版本匹配才能清除并启动；安装失败原数据保留。必要时重新安装上一版桌面，然后以其内置CLI执行 `update desktop-rollback` 恢复数据，失败版本数据保留在 `rollback-<id>`；macOS 旧程序实体保留在快照的 `BigFatFish-previous.app`，退出新程序后可用该副本替换安装目录，再执行其内置 CLI 的 `update desktop-rollback`。Windows 实际安装/回退仍未验证。
+桌面使用 Tauri 官方 updater 的 Minisign 公钥与 HTTPS manifest（含目标 `schema` 和支持原数据的 `minSchema`，本阶段实际版本为6），与 portable 的 Ed25519 清单是不同格式。在线清单和实际更新包地址都必须使用 HTTPS，不跟随重定向；不安全的包地址在显示可用更新或下载前拒绝。还可在界面提供本地清单及更新包路径，离线模式直接读取本地字节并验证官方签名及版本绑定，不会访问清单中的下载地址。先在「设置 → 关于 → 软件更新」设置来源和公钥；官方插件验证签名及签名版本后才安装。候选目标 schema 可高于当前6，但最低支持版本不能高于当前数据；声明的 schema 必须与签名包内 metadata 一致。macOS 以原数据副本实际启动验证兼容；本阶段没有虚构新业务 schema，实际升级演练仅验证6→6，未来跨 schema 仍须由候选实际迁移通过。安装前保留原始config/data至 `runtime/desktop-update-snapshot`。安装后保留维护标记，只有新程序自身版本匹配才能清除并启动；安装失败原数据保留。必要时重新安装上一版桌面，然后以其内置CLI执行 `update desktop-rollback` 恢复数据，失败版本数据保留在 `rollback-<id>`；macOS 旧程序实体保留在快照的 `BigFatFish-previous.app`，退出新程序后可用该副本替换安装目录，再执行其内置 CLI 的 `update desktop-rollback`。Windows 实际安装/回退仍未验证。
 
 macOS新程序启动失败时，按以下顺序人工回退（没有后台自动回退守护）：
 

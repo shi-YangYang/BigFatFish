@@ -1,25 +1,27 @@
 # Task Handoff
 
-## 当前任务
+## 当前任务结果
 
-Desktop产品与UI/UX设计。用户已清除旧P0–P7 Goal并说“先进行到这里，足够了”；不要自行恢复旧Goal、重复平台验证或索要账号。dev基线2351730，开始时工作区干净。
+Spec 010：Desktop WebUI 精简与大肥鱼娘形象已实施，首轮两处问题返工后由新的独立 Agent 复验 PASS。用户已审阅方案并要求“改”；保留桌面窗口承载统一 WebUI，三个主入口+底部设置，品牌/头像/favicon/原生图标同源。此前 P0–P7 Goal 已结束，不恢复旧工作或索要账号。
 
-用户已明确选择：保留桌面窗口，里面只承载一套简洁的WebUI。当前17项Desktop一级导航曝光过多，组件尺寸、配色和排版需要统一。Desktop/Web已共用App/style.css，保持现有Runtime与源码目录约束。
+## Evidence / Reports
 
-## 协作与交付状态
+- 规格、两轮实施记录、当前 PASS 与首轮 FAIL 历史：specs/spec-010-desktop-webui/。
+- 决策、联网来源、素材与生成提示词：.ai/decisions/010-desktop-webui-redesign.md。
+- 最终生产组件示例截图：docs/design/desktop-webui-chat.png、desktop-webui-settings.png；它们明确使用隔离示例，非真实服务响应。
+- 本机包：apps/desktop/src-tauri/target/release/bundle/macos/BigFatFish.app、bundle/dmg/BigFatFish_0.1.0_aarch64.dmg；DMG SHA-256 4ca042adfc779099ea405d0d627de811b0926351532cbe1a47831c7c5210fbe1。
+- 包内图标/最终 Web 资源一致性：build/desktop-webui/package-evidence.json。
 
-两个设计Agent均已完成，完整报告已处理。唯一设计报告为.ai/decisions/010-desktop-webui-redesign.md；版本化HTML和聊天/设置截图位于docs/design/。生产源码未改，推荐方案是聊天/我的鱼/连接三个主入口和底部设置，默认聊天；壳方式已获用户确认，其余为本轮待审阅提案。root已实际查看现状和方案截图。
+## 协作闭环
 
-- /root/desktop_product_design：产品任务、导航精简、现有功能迁移、首启/异常路径与本机壳边界。只读源码，不操作桌面。
-- /root/desktop_ui_ux_design：现有界面视觉检查、组件设计规范、与产品方向一致的HTML/CSS设计预览；本轮唯一UI操作者。预览仅写被忽略build/desktop-design，明确示例数据。
-- root：合并报告到.ai/decisions/010-desktop-webui-redesign.md这一个设计文档，管理当前交接；两报告均已处理，无本轮运行中设计Agent或待收报告。
+实施 /root/implement_desktop_webui → 首验 /root/accept_desktop_webui FAIL → 新实施 /root/rework_desktop_webui → 新验收 /root/accept_desktop_webui_rework PASS。所有报告已完整读取处理，任务无未解决阻塞，结束后不追加测试。R1 临时会话草稿迁移、R2 审批模态局部错误均修复。
 
-两个Agent不得再创建子Agent，不修改生产源码/依赖、既有文档或Git/index。无业务重构/删除功能已经发生。设计稿不冒充真实业务实现。预览用自己的隔离资源，不读取用户真实鱼/其他应用凭据，本轮没有启动真实Runtime或读取真实数据。仅保留一个127.0.0.1的Vite预览服务供用户查看：http://127.0.0.1:53421/preview.html，PID94297，exec session61620，同时承载隔离current.html与方案preview.html；浏览器临时尺寸覆盖已恢复。后续可只停止该owned预览服务，勿影响其他进程。
+S2 相关 TypeScript、定向 ESLint、两前端构建、定向 UI 回归通过；本机 Tauri 重新打包成功，未重复旧平台矩阵。现有会话 API 无来源字段，QQ 仅在明确后端只读拒绝后展示只读；真实模型/平台、Windows及本轮原生启动未验证。Runtime/API/数据/权限未改变。不得将本次 UI PASS 当作全平台产品验收。
 
-## 阅读与验证
+## Git / Authorization
 
-AGENTS、mission/tech-stack、全部.ai/rules、README及产品基线；本轮用户精简方向优先，旧功能设计不等于必须全一级曝光。查看实际App/main/style/组件与Web入口，视觉问题应有真实页面或CSS证据。设计文档S0只检查diff；有HTML预览则仅做对应渲染/交互核对，不跑未变业务测试或完整构建。
+dev 基线 06a073e，开始时干净；本轮全部改动属于用户批准的改版。用户持续授权每完成阶段本地 commit，root 完成最终暂存审阅后提交；具体已完成提交以 git log 为准。本轮无 push/PR/合并/发布授权，也未执行这些操作。所有子 Agent 不写 Git。
 
-## Git与旧成果
+## 预览资源
 
-dev2351730。现有Mac/Linux arm64/x64产物和验收不因本轮设计改变，完整旧状态见IMPLEMENTATION_STATUS和Spec008/009。用户持续要求每完成阶段本地commit；无push/PR/merge/发布授权。root检查并仅提交本轮已完成设计文档与预览，最终提交号以git log为准，不夹带未知修改；设计提交不表示生产界面已改版。
+上一设计阶段拥有的 loopback Vite 服务仍为 127.0.0.1:53421，PID94297、exec session61620；preview.html 是旧设计稿，current.html 加载当前生产组件及隔离示例。只保留这一预览服务供审阅，不读取真实鱼或其他应用凭据。后续不需要时可只关闭该 owned 服务，不影响其他进程。

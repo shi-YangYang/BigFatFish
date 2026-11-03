@@ -2,16 +2,16 @@
 
 ## 状态
 
-设计提案已完成，待用户审阅。产品设计与UI/UX设计两个Agent的完整报告均已处理，协调者已查看当前页面和最终预览截图。用户已结束此前P0–P7持续开发任务，本轮单独进行Desktop产品精简和UI/UX设计；原开发缺项保留，不继续扩展旧Goal。
+设计提案已完成；用户于 2026-11-03 明确回复“改”，已授权实施，并要求联网搜索“大肥鱼”、替换为大肥鱼娘形象。Spec 010 已实施并在 R1/R2 返工后通过新独立验收；最终生产截图与本机包证据见该 Spec Plan。产品设计与UI/UX设计两个Agent的完整报告均已处理，协调者已查看当前页面和最终预览截图。用户已结束此前P0–P7持续开发任务，此后单独进行Desktop产品精简和UI/UX改版；原开发缺项保留，不继续扩展旧Goal。
 
 ## 已确认方向
 
 - 用户认为当前Desktop功能曝光过多，组件尺寸、颜色与排版不统一。
 - 用户已选择：保留桌面窗口，里面只承载一套简洁的WebUI。
 - 两个独立设计角色并行：产品设计梳理功能/导航/用户路径，UI/UX设计检查真实界面并形成统一视觉方案。
-- 本轮交付设计提案与可审阅预览，生产业务代码尚未改动；导航精简不自动意味着删除Runtime能力。
+- 设计阶段交付了提案与可审阅预览，当时未改生产业务代码；用户随后授权实施。导航精简不意味着删除Runtime能力。
 
-## 当前事实
+## 改版前事实
 
 `apps/web/src/main.tsx`已直接复用Desktop的`App`与`style.css`。Desktop和Web不是两套需要合并的业务页面；现有差异主要是传输/认证与本机设置、备份、更新等能力。
 
@@ -19,7 +19,7 @@
 
 ## 产品设计提案
 
-产品设计Agent已完成只读梳理。以下为推荐方案；用户已经确认桌面承载方式，导航名称与具体布局交付审阅。
+产品设计Agent已完成只读梳理。以下方案已交付审阅并获用户“改”的实施指令；实际结果和验收以 Spec 010 为准。
 
 ### 信息架构
 
@@ -73,7 +73,7 @@ Tauri继续承接Runtime生命周期、受控本机访问、数据目录、托�
 
 ### 已实测问题
 
-当前页面直接加载生产React/CSS，用隔离示例数据替代Tauri读取；没有启动真实鱼。以下是现状问题，尚未在生产代码中修复。
+当前页面直接加载生产React/CSS，用隔离示例数据替代Tauri读取；没有启动真实鱼。以下为设计阶段采集的问题证据；后续生产修复见 Spec 010。
 
 | 优先级 | 现状证据 | 原因/改版方向 |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ Tauri继续承接Runtime生命周期、受控本机访问、数据目录、托�
 - [聊天截图](../../docs/design/desktop-chat-preview.jpg)、[设置截图](../../docs/design/desktop-settings-preview.jpg)已保存到版本库；其他现状和窄屏截图位于被忽略的`build/desktop-design/`。
 - 实际查看当前首页/模型/聊天，以及方案中的聊天/我的鱼/连接/设置/审批；核对导航、折叠、平台详情、关闭/Escape和窄屏菜单。
 - 1100×760、820×760、640×760均无横向溢出，聊天输入区底部分别约708、712、716px。最终设置输入/下拉/保存及聊天发送按钮实测40px。
-- 本轮为S0设计产物检查，生产代码未修改，未跑生产测试/build/CI。实际业务状态接入与跨入口回归属于下一轮实施，不能用本预览代替。
+- 设计阶段为S0设计产物检查，当时生产代码未修改，未跑生产测试/build/CI。实际业务状态接入与跨入口回归属于下一轮实施，不能用本预览代替。
 
 ## 边界与后续
 
@@ -116,4 +116,19 @@ Tauri继续承接Runtime生命周期、受控本机访问、数据目录、托�
 
 推荐实施顺序：先重组共享App外壳/导航并修正聊天高度；再提取确有共用语义的Button/Field/Status/Drawer；随后迁移我的鱼、连接和设置；最后接回首启、断连、请求状态与待审批。保持普通源码组件，不新建公共包或迁移目录。录音、插件市场、新平台发送协议不纳入这次界面改版。
 
-实施验收应覆盖：三个主入口加设置；已配置模型可直接聊天；无模型/断连/审批有清楚下一步；草稿与会话不因断连丢失；授权和未知结果保持明确；Desktop/Web共用页面而按宿主显示能力；既有本机维护仍可找到；规定窗口宽度下无横向溢出，聊天发送区始终可见。用户当前仅确认桌面承载方式，推荐导航/默认首屏及视觉稿作为后续实施的审阅依据。
+实施验收应覆盖：三个主入口加设置；已配置模型可直接聊天；无模型/断连/审批有清楚下一步；草稿与会话不因断连丢失；授权和未知结果保持明确；Desktop/Web共用页面而按宿主显示能力；既有本机维护仍可找到；规定窗口宽度下无横向溢出，聊天发送区始终可见。用户已确认落地上述导航/默认首屏与视觉方向；最终生产行为及验证记录以 Spec 010 为准。
+
+
+## 大肥鱼娘品牌（2026-11-03）
+
+用户追加要求已通过联网检索确认：社区主流鲸鱼娘具有蓝色渐变长发、鲸鳍与鲸尾、白色女仆头饰及蓝白服饰；参考 [社区形象整理](https://aigengtu.com/zh/whale-chan) 与 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)。这是社区形象，不声称 DeepSeek 官方吉祥物。
+
+采用内置 imagegen 基于 dsh-pet 的 logo 重新制作头像，去除文字/表情包装饰，保留人物识别特征。参考版本 `92521b74a13f7e480f7ec0fdc2fc1403eb9fb8e3` 的 `dsh-pet/assets/logo.png`，实际下载文件 Git blob 与该版本一致。仓库 MIT 文本与来源保存在 `apps/desktop/src/assets/fish-girl.NOTICE.txt`；未采用 QCYTSN 另有限制的 legacy 素材，也不把生成操作说成消除了角色相关权利。
+
+项目源图 `apps/desktop/src/assets/fish-girl.png` 为 1254×1254。使用 `npx --no-install tauri icon apps/desktop/src/assets/fish-girl.png --output build/desktop-brand/icons` 生成平台编码，只替换现有原生图标文件；旧 `icons/source.svg` 被已落盘的 PNG 源图取代。App/聊天头像/favicon 与原生 icon 同源。功能性按钮仍用含义清晰的图形，不把所有操作都画成角色头像。
+
+最终生成提示词（内置工具，未调用外部 API CLI）：
+
+> Transform the supplied community whale girl reference into one square BigFatFish app icon. Chibi round face, deep blue hair becoming light blue at the tips, blue eyes, curved single ahoge, whale-fin ears, white frilled maid headband with tiny blue bow, navy-and-white modest maid collar. Friendly centered head-and-shoulders portrait, both eyes open, subtle rosy cheeks, small whale tail behind one shoulder. Pale powder-blue square background, clean dark-blue outlines, simple cel shading, readable at small sizes. Remove all lettering, Ciallo text, symbols, stars and speech bubbles; no watermark or wordmark.
+
+早期 HTML 预览与截图保留为设计历史；实施后的真实组件截图单独记录，不把预览替换图像当作生产验证。

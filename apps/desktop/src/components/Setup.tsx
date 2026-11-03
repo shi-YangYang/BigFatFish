@@ -26,7 +26,7 @@ export function Setup({
     try {
       await invoke("desktop_configure", { ...s, complete: true });
       const p = await api<Record<string, unknown>>("/v1/persona");
-      if (!s.complete) await api("/v1/persona", "PUT", { ...p, name });
+      if (!s.complete) await api("/v1/persona", "PUT", { ...p, name: name.trim() || "大肥鱼" });
       done();
     } catch (e) {
       fail(e);
