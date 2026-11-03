@@ -143,3 +143,8 @@ Tauri继续承接Runtime生命周期、受控本机访问、数据目录、托�
 已查阅 [beUI theme](https://beui.dev/docs/theme)、[Button](https://beui.dev/components/motion/button) 与其官方源码仓库；它依赖 Tailwind4/Motion，支持复制组件源码。本项目目前没有这些依赖，按用户明确允许的方式手动建立基础语义组件并迁移现有使用点。本轮不引入其他UI库，不把此取舍表述为beUI不兼容或已经接入。具体范围、实际布局证据与验收见 Spec011。
 
 Spec011 已落地并独立复验 PASS：共享原生控件覆盖 Desktop/Web，常规控件40px、显式紧凑动作32px，使用操作行/字段网格消除混排和间距不一致；确认区遗漏经新实施/新验收关闭。蓝色生产截图位于 docs/design/desktop-webui-{chat,settings,general,data}.png；最终产物与验证边界记录在 Spec011 Plan/Acceptance。旧绿色预览仅为历史。
+
+## 布局收敛（Spec 012）
+用户截图明确指出宽主导航、双顶部栏与常驻会话侧栏重复占位；本轮把宽主导航改为约72px窄导航，合并聊天顶部操作，历史按需浮层展开。入口和状态仍保留，消息/输入保持居中阅读宽度。此项取代Spec010的宽导航与常驻历史展示方式；不改变业务信息架构或数据边界。
+
+已实现72px导航、60px单顶栏和720px阅读列，并通过新独立验收。历史复用现有Drawer，在选择/Escape/关闭后恢复焦点；App与Chat通过显式React节点组合头部，业务状态仍由Chat持有。最终截图/验证/包证据见Spec012，按用户持续授权本地提交。

@@ -16,7 +16,7 @@ export function FishAvatar({
 export function Icon({
   name,
 }: {
-  name: "chat" | "fish" | "link" | "settings" | "menu" | "close" | "plus";
+  name: "chat" | "fish" | "link" | "settings" | "menu" | "close" | "plus" | "history";
 }) {
   const paths = {
     chat: "M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z",
@@ -27,6 +27,7 @@ export function Icon({
     menu: "M4 6h16M4 12h16M4 18h16",
     close: "m6 6 12 12M6 18 18 6",
     plus: "M12 5v14M5 12h14",
+    history: "M3 11a9 9 0 1 1 2.7 7M3 4v7h7m2-5v6l4 2",
   };
   return (
     <svg

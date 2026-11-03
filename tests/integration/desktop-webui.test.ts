@@ -276,6 +276,8 @@ it.skipIf(!existsSync(executable))(
               ),
             ),
         );
+        expect(await page.locator(".topbar:visible").count()).toBe(1);
+        if (width > 700) expect((await page.locator(".app-sidebar").boundingBox())!.width).toBeLessThanOrEqual(80);
         const box = await page
           .getByRole("button", { name: "发送", exact: true })
           .boundingBox();
@@ -289,6 +291,16 @@ it.skipIf(!existsSync(executable))(
           path: `build/desktop-webui/chat-${width}.png`,
         });
       }
+      expect(await page.locator(".topbar:visible").count()).toBe(1);
+      expect(await page.locator(".session-list:visible").count()).toBe(0);
+      const historyButton = page.getByRole("button", { name: "历史对话", exact: true });
+      await historyButton.click();
+      await page.getByRole("dialog", { name: "历史对话", exact: true }).waitFor();
+      await page.keyboard.press("Escape");
+      expect(await historyButton.evaluate((el) => el === document.activeElement)).toBe(true);
+      await historyButton.click();
+      await page.locator(".session-list button.active").click();
+      expect(await page.getByRole("dialog").count()).toBe(0);
       // Narrow navigation closes via Escape and routes into the same shared content.
       await page.getByRole("button", { name: "打开导航" }).click();
       await page.getByRole("dialog", { name: "导航" }).waitFor();
@@ -382,20 +394,25 @@ it.skipIf(!existsSync(executable))(
       hold = false;
       await page.getByRole("button", { name: "发送", exact: true }).waitFor();
       expect(await input.inputValue()).toBe("发送期间的新草稿");
+      async function selectHistory(name: RegExp) {
+        await page.getByRole("button", { name: "历史对话", exact: true }).click();
+        await page.getByRole("dialog", { name: "历史对话", exact: true })
+          .getByRole("button", { name }).click();
+      }
       // Unknown transport result retains the idempotency key when returning to the session.
       unknown = true;
       await input.fill("需要核对的消息");
       await page.getByRole("button", { name: "发送", exact: true }).click();
       await page.getByText(/若发送结果未知/).waitFor();
       const first = requests.at(-1)!.body.requestId;
-      await page.getByRole("button", { name: /QQ 里的对话/ }).click();
-      await page.getByRole("button", { name: /聊聊最近的生活/ }).click();
+      await selectHistory(/QQ 里的对话/);
+      await selectHistory(/聊聊最近的生活/);
       expect(await input.inputValue()).toBe("需要核对的消息");
       unknown = false;
       await page.getByRole("button", { name: "发送", exact: true }).click();
       await new Promise((r) => setTimeout(r, 100));
       expect(requests.at(-1)!.body.requestId).toBe(first);
-      await page.getByRole("button", { name: /QQ 里的对话/ }).click();
+      await selectHistory(/QQ 里的对话/);
       await input.fill("从本机发送");
       await page.getByRole("button", { name: "发送", exact: true }).click();
       await page.getByText("此会话仅供查看，请从 QQ 继续。").waitFor();
@@ -403,7 +420,7 @@ it.skipIf(!existsSync(executable))(
       await page.getByRole("button", { name: "新对话", exact: true }).click();
       await input.fill("第一句话");
       // Restoring an unsaved conversation must not keep its draft after it is sent.
-      await page.getByRole("button", { name: /聊聊最近的生活/ }).click();
+      await selectHistory(/聊聊最近的生活/);
       await page.getByRole("button", { name: "新对话", exact: true }).click();
       expect(await input.inputValue()).toBe("第一句话");
       const before = requests.length;
@@ -435,7 +452,9 @@ it.skipIf(!existsSync(executable))(
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
       await page.getByRole("button", { name: "新对话", exact: true }).click();
       expect(await input.inputValue()).toBe("");
+      await page.getByRole("button", { name: "历史对话", exact: true }).click();
       await page.locator(".session-list button").first().click();
+      expect(await page.getByRole("dialog", { name: "历史对话" }).count()).toBe(0);
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
       data["/v1/douyin/approvals"] = [
         {

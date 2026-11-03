@@ -299,11 +299,11 @@ article {
   overflow: hidden;
 }
 .app-sidebar {
-  width: 220px;
+  width: 72px;
   flex-shrink: 0;
   background: #f3f5fb;
   border-right: 1px solid var(--border);
-  padding: 26px 16px 18px;
+  padding: 12px 8px 16px;
   display: flex;
   flex-direction: column;
 }
@@ -355,10 +355,21 @@ article {
 .sidebar-bottom {
   margin-top: auto;
 }
-.sidebar-note {
-  color: #919aa0;
+.app-sidebar .brand {
+  justify-content: center;
+  padding: 0;
+  margin-bottom: 24px;
+}
+.app-sidebar .brand > div { display: none; }
+.app-sidebar .primary-nav button,
+.app-sidebar .sidebar-bottom button {
+  height: 56px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 2px;
   font-size: 11px;
-  padding: 12px 14px 0;
+  line-height: 16px;
 }
 .app-workspace {
   flex: 1;
@@ -368,18 +379,18 @@ article {
   background: #fff;
 }
 .topbar {
-  height: 64px;
-  min-height: 64px;
-  padding: 0 32px;
+  height: 60px;
+  min-height: 60px;
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
 }
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   margin-left: auto;
 }
 .status-dot {
@@ -536,26 +547,17 @@ article {
   flex-direction: column;
   min-height: 0;
 }
-.chat-toolbar {
-  height: 52px;
-  min-height: 52px;
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #eff1f3;
-}
+.page-title,
 .chat-title {
   flex: 1;
-  font-size: 13px;
-  color: var(--muted);
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.history-toggle {
-  display: none;
-}
+.history-toggle { flex-shrink: 0; }
 .chat-layout {
   display: flex;
   flex: 1;
@@ -563,12 +565,7 @@ article {
   position: relative;
 }
 .session-list {
-  width: 184px;
-  flex-shrink: 0;
-  padding: 22px 12px;
-  background: #fafbfc;
-  border-right: 1px solid #eff1f3;
-  overflow: auto;
+  width: 100%;
 }
 .session-heading {
   font-size: 11px;
@@ -1039,9 +1036,6 @@ audio {
   display: none !important;
 }
 @media (max-width: 1100px) {
-  .session-list {
-    width: 160px;
-  }
   .messages {
     padding: 24px 20px;
   }
@@ -1050,32 +1044,6 @@ audio {
   }
 }
 @media (max-width: 960px) {
-  .app-sidebar {
-    width: 188px;
-    padding: 26px 12px 18px;
-  }
-  .topbar {
-    padding: 0 24px;
-  }
-  .session-list {
-    display: none;
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 4;
-    width: 240px;
-    box-shadow: 8px 0 30px #202b3314;
-  }
-  .session-list.is-open {
-    display: block;
-  }
-  .history-toggle {
-    display: inline-flex;
-  }
-  .chat-toolbar {
-    padding: 0 20px;
-  }
   .content-page {
     padding: 28px 24px;
   }
@@ -1112,9 +1080,6 @@ audio {
   .section-tabs {
     gap: 3px;
     margin-bottom: 24px;
-  }
-  .chat-toolbar {
-    padding: 0 16px;
   }
   .messages {
     padding: 24px 16px 16px;
@@ -1153,9 +1118,8 @@ audio {
   .drawer-body {
     padding: 20px;
   }
-  .chat-title {
-    max-width: 160px;
-  }
+  .new-chat-button { width: 40px; padding: 9px; }
+  .new-chat-button span { display: none; }
   .chat-welcome > .fish-portrait {
     width: 80px;
     height: 80px;
@@ -1174,12 +1138,9 @@ audio {
   .composer-tools select {
     max-width: 130px;
   }
-  .chat-title {
-    display: none;
-  }
-  .chat-toolbar > .ui-button-compact:last-child {
-    margin-left: auto;
-  }
+  .topbar { padding: 0 10px; gap: 6px; }
+  .topbar-actions { gap: 6px; }
+  .topbar .approval-button { padding-inline: 8px; }
   .connection-list article {
     flex-wrap: wrap;
   }

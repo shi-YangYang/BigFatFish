@@ -1,5 +1,5 @@
 import { Button } from "./components/Controls";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { api, errorText, isWeb, webRequest } from "./api";
 import { Chat } from "./components/Chat";
@@ -131,7 +131,7 @@ export default function App() {
   };
   const menuContents = (
     <>
-      <div className="brand">
+      <div className="brand" title="BigFatFish">
         <FishAvatar />
         <div>
           <strong>BigFatFish</strong>
@@ -152,7 +152,7 @@ export default function App() {
             ) : (
               <Icon name={i === 0 ? "chat" : "link"} />
             )}
-            {item}
+            <span>{item}</span>
           </Button>
         ))}
       </nav>
@@ -163,87 +163,90 @@ export default function App() {
           onClick={() => navigate("设置")}
         >
           <Icon name="settings" />
-          设置
+          <span>设置</span>
         </Button>
-        <span className="sidebar-note">慢慢聊，一起成长。</span>
       </div>
     </>
   );
+  const renderHeader = (content: ReactNode) => (
+    <header className="topbar">
+      <Button
+        type="button"
+        className="mobile-menu"
+        size="icon"
+        aria-label="打开导航"
+        onClick={() => setMenu(true)}
+      >
+        <Icon name="menu" />
+      </Button>
+      {content}
+      <div className="topbar-actions">
+        {approvalCount > 0 && (
+          <Button
+            type="button"
+            className="approval-button"
+            size="compact"
+            onClick={() => setDrawer(true)}
+          >
+            待审批 <b>{approvalCount}</b>
+          </Button>
+        )}
+        <details className="runtime-menu">
+          <summary>
+            <span className={`status-dot ${connected ? "online" : ""}`} />
+            {connected
+              ? activity?.paused
+                ? "活动已暂停"
+                : "已连接"
+              : "未连接"}
+          </summary>
+          <div className="runtime-popover">
+            <Button type="button" onClick={() => void connect()}>
+              重新连接
+            </Button>
+            {activity && (
+              <Button
+                type="button"
+                onClick={() =>
+                  void api("/v1/activities/pause", "POST", {
+                    paused: !activity.paused,
+                  })
+                    .then(() =>
+                      setActivity({
+                        ...activity,
+                        paused: !activity.paused,
+                      }),
+                    )
+                    .catch(fail)
+                }
+              >
+                {activity.paused ? "恢复活动" : "暂停活动"}
+              </Button>
+            )}
+            <Button type="button" onClick={() => setDrawer(true)}>
+              审批与记录
+            </Button>
+            {isWeb && (
+              <Button
+                type="button"
+                onClick={() =>
+                  void webRequest("/auth/logout", "POST").catch(fail)
+                }
+              >
+                退出登录
+              </Button>
+            )}
+          </div>
+        </details>
+      </div>
+    </header>
+  );
+  const chatVisible = initialized && !loading && !firstRun && page === "聊天";
   return (
     <div className="app-shell">
       <aside className="app-sidebar">{menuContents}</aside>
       <div className="app-workspace">
-        <header className="topbar">
-          <Button
-            type="button"
-            className="mobile-menu"
-            size="icon"
-            aria-label="打开导航"
-            onClick={() => setMenu(true)}
-          >
-            <Icon name="menu" />
-          </Button>
-          <h1>{page}</h1>
-          <div className="topbar-actions">
-            {approvalCount > 0 && (
-              <Button
-                type="button"
-                className="approval-button"
-                size="compact"
-                onClick={() => setDrawer(true)}
-              >
-                待审批 <b>{approvalCount}</b>
-              </Button>
-            )}
-            <details className="runtime-menu">
-              <summary>
-                <span className={`status-dot ${connected ? "online" : ""}`} />
-                {connected
-                  ? activity?.paused
-                    ? "活动已暂停"
-                    : "已连接"
-                  : "未连接"}
-              </summary>
-              <div className="runtime-popover">
-                <Button type="button" onClick={() => void connect()}>
-                  重新连接
-                </Button>
-                {activity && (
-                  <Button
-                    type="button"
-                    onClick={() =>
-                      void api("/v1/activities/pause", "POST", {
-                        paused: !activity.paused,
-                      })
-                        .then(() =>
-                          setActivity({
-                            ...activity,
-                            paused: !activity.paused,
-                          }),
-                        )
-                        .catch(fail)
-                    }
-                  >
-                    {activity.paused ? "恢复活动" : "暂停活动"}
-                  </Button>
-                )}
-                <Button type="button" onClick={() => setDrawer(true)}>
-                  审批与记录
-                </Button>
-                {isWeb && (
-                  <Button
-                    type="button"
-                    onClick={() =>
-                      void webRequest("/auth/logout", "POST").catch(fail)
-                    }
-                  >
-                    退出登录
-                  </Button>
-                )}
-              </div>
-            </details>
-          </div>
-        </header>
+        {!chatVisible && renderHeader(<h1 className="page-title">{page}</h1>)}
         {error && (
           <div className="app-error" role="alert">
             <span>{error}</span>
@@ -286,6 +289,7 @@ export default function App() {
                     configureModel={addModel}
                     connected={connected}
                     active={page === "聊天"}
+                    renderHeader={renderHeader}
                   />
                 </div>
               )}

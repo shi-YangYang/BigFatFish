@@ -1,12 +1,12 @@
 import { Button, Textarea, Input, Field, Select } from "./Controls";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ChatMessage,
   Conversation,
   ModelConfig,
 } from "../../../runtime/src/ai/types";
 import { api, errorText, statusText } from "../api";
-import { FishAvatar, Icon } from "./UI";
+import { Drawer, FishAvatar, Icon } from "./UI";
 type PendingMessage = { content: string; requestId: string };
 export function Chat({
   models,
@@ -14,12 +14,14 @@ export function Chat({
   configureModel,
   connected = true,
   active = true,
+  renderHeader,
 }: {
   models: ModelConfig[];
   fail: (e: unknown) => void;
   configureModel: () => void;
   connected?: boolean;
   active?: boolean;
+  renderHeader: (content: ReactNode) => ReactNode;
 }) {
   const [sessions, setSessions] = useState<Conversation[]>([]),
     [selection, setSelection] = useState({ id: "" }),
@@ -52,6 +54,7 @@ export function Chat({
     setText(value);
   }
   function selectSession(id: string) {
+    setHistory(false);
     if (currentSelection.current.id === id) return;
     drafts.current.set(currentSelection.current.id, textRef.current);
     const next = { id };
@@ -61,8 +64,10 @@ export function Chat({
     setMessages([]);
     setTools([]);
     setNotice("");
-    setHistory(false);
   }
+  useEffect(() => {
+    if (!active) setHistory(false);
+  }, [active]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -240,52 +245,58 @@ export function Chat({
   const title = sessions.find((s) => s.id === selected)?.title ?? "新对话";
   return (
     <section className="chat">
-      <div className="chat-toolbar">
-        <Button
-          type="button"
-          className="history-toggle"
-          size="compact"
-          onClick={() => setHistory(!history)}
-          aria-expanded={history}
-        >
-          历史对话
-        </Button>
-        <span className="chat-title">{title}</span>
-        <Button
-          type="button"
-          size="compact"
-          disabled={busy}
-          onClick={() => {
-            selectSession("");
-            setHistory(false);
-          }}
-        >
-          <Icon name="plus" />
-          新对话
-        </Button>
-      </div>
+      {renderHeader(
+        <>
+          <Button
+            type="button"
+            className="history-toggle"
+            size="icon"
+            aria-label="历史对话"
+            title="历史对话"
+            onClick={() => setHistory(true)}
+            aria-expanded={history}
+          >
+            <Icon name="history" />
+          </Button>
+          <h1 className="chat-title" title={title}>
+            {title}
+          </h1>
+          <Button
+            type="button"
+            className="new-chat-button"
+            aria-label="新对话"
+            title="新对话"
+            disabled={busy}
+            onClick={() => selectSession("")}
+          >
+            <Icon name="plus" />
+            <span>新对话</span>
+          </Button>
+        </>,
+      )}
+      {active && history && (
+        <Drawer title="历史对话" close={() => setHistory(false)}>
+          <div className="session-list">
+            <div className="session-heading">最近对话</div>
+            {sessions.length ? (
+              sessions.map((s) => (
+                <Button
+                  type="button"
+                  className={s.id === selected ? "active" : ""}
+                  key={s.id}
+                  onClick={() => selectSession(s.id)}
+                >
+                  <span>{s.title}</span>
+                  <small>{new Date(s.createdAt).toLocaleDateString()}</small>
+                </Button>
+              ))
+            ) : (
+              <p className="muted">还没有对话</p>
+            )}
+          </div>
+        </Drawer>
+      )}
       <div className="chat-layout">
-        <aside
-          className={`session-list ${history ? "is-open" : ""}`}
-          aria-label="历史对话"
-        >
-          <div className="session-heading">最近对话</div>
-          {sessions.length ? (
-            sessions.map((s) => (
-              <Button
-                type="button"
-                className={s.id === selected ? "active" : ""}
-                key={s.id}
-                onClick={() => selectSession(s.id)}
-              >
-                <span>{s.title}</span>
-                <small>{new Date(s.createdAt).toLocaleDateString()}</small>
-              </Button>
-            ))
-          ) : (
-            <p className="muted">还没有对话</p>
-          )}
-        </aside>
         <div className="conversation">
           <div className="messages" aria-live="polite">
             {!messages.length && (

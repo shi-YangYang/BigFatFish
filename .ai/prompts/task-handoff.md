@@ -1,6 +1,16 @@
 # Task Handoff
 
-## 当前阶段：Spec 011 已完成
+## 当前阶段：Spec 012 已完成
+
+用户最新截图反馈宽导航、双topbar、常驻会话sidebar不协调。dev基线33bae64，工作区开始时干净。当前Spec：specs/spec-012-compact-chat-layout/。已落实72px窄导航、60px单顶部栏、历史按需Drawer及720px阅读列，保留Chat挂载/草稿/请求归属/审批/蓝色控件。App用renderHeader组合全局操作，Chat仍拥有会话状态；未改Runtime/API/数据/依赖。
+
+实施 /root/implement_compact_chat → 新独立验收 /root/accept_compact_chat PASS，全部报告已读取处理。前端TS/定向lint/两前端构建/desktop-webui回归通过；12张聊天/历史/设置截图覆盖1100/820/640/380，无横向溢出，发送可见。实际目视范围与测试路径适配记录见Spec012。无剩余阻塞，停止追加验证。
+
+最新截图docs/design/desktop-webui-{chat,settings,history}.png；此前general/data图是Spec011历史。最新本机app/DMG路径仍位于apps/desktop/src-tauri/target/release/bundle，DMG SHA-256 7e093ea6355f5b085c53154101534eb4c6879d86ff8b5b2b3ddd8c2103142bd7。Tauri退出0，包内Web4文件与dist一致，最终Desktop入口index-03TosSDu.js、Web index-CY9vEUkm.js、CSS index-7QmdWZzq.css；build/compact-chat/package-evidence.json保存证据。本轮未原生启动/调用真实服务；旧Windows/真实账号/签名缺口不扩大。
+
+用户持续授权阶段完成本地commit，由root执行，具体hash以git log为准；无push/PR/合并授权或操作，远端本轮未刷新。当前owned预览为http://127.0.0.1:53421/blue.html、exec session94483（替代旧session），隔离IPC示例。下方Spec011内容均为前阶段历史，不当作最新产物或进程。旧P0–P7工作不恢复。
+
+## 上一阶段：Spec 011 已完成
 
 用户要求 DS 蓝色系并修复组件大小/对齐；允许 UI 库或手动封装（库推荐 beUI）。现已采用官方品牌蓝 #4D6BFE 与同色系主按钮 #3959E4，按用户允许手封普通源码组件，未接入 beUI、未引入 Tailwind/Motion 或分包。
 
