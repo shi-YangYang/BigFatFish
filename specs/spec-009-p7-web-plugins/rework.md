@@ -17,3 +17,11 @@ S3依据为共用撤销/会话边界；定向验证三问题及直接影响范�
 ## 报告
 
 说明根因、职责层/直接影响、具体修复、实际命令和验证顺序、产物路径/哈希及自有资源清理；没有执行的检查明确写未执行。无Git/index操作、无子Agent、无真实账号/云/发布。root负责治理文档和验收后本地commit。
+
+## F4：提交后发现 Docker 缺少 P7 Web 资源
+
+原三项已新独立PASS并提交92e9764。本项是root沿最终Linux交付核对时的直接源码发现：infra/docker/Dockerfile仅build:node，不构建dist/web，而P7网关静态入口依赖dist/web。保持原Docker部署边界，补必要Web生产构建；以现有Linux/arm64容器真实核对当前CLI/插件/DSH工具与TLS Web，不把P6旧Linux镜像证据冒充新产物。
+
+S3依据为发行构建和新增跨平台子进程/资源路径。定向验证以上新增路径，不全量test或重演已过P6矩阵。产出当前Linux/arm64 portable归档及哈希，不覆盖Mac build/portable或P7最终app关联资源；使用现有release工具的参数/隔离工作目录。遇到直接缺陷按正确层修，不新增服务/账户/全局配置。完工后新独立验收和已授权本地commit，保留本项发现/实际失败与修复证据。
+
+F4状态：新finish_linux_p7实施及accept_linux_p7独立PASS报告均已处理。两文件构建/说明修改和当前Linux/arm64镜像、portable新增路径通过；root按持续授权本地提交。

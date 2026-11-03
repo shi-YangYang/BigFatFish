@@ -145,3 +145,25 @@ Risk S3，限定三项直接边界。顺序：
 build/p7-evidence/rework-final-artifacts.json含源码哈希/顺序/一致性。最终app路径apps/desktop/src-tauri/target/release/bundle/macos/BigFatFish.app，树SHA256 5b9890cdb2ed65f14e1bfa3a1d0e76e5a07e531f6bffb13d8bc83ec59ad5f38c；同bundle/dmg/BigFatFish_0.1.0_aarch64.dmg SHA256 ef637212287c318a6f0c6dacd29d6fbe427825040c2e73c5283a9931ae57d3de；build/portable树4150d7b5e14a2c25aa3a70e291848ca01d68fc072208d23e08670d04f7e0ba25；原生binary 98346e7b2232ac6042a78d91f80c30b7d1e38e9ca59687ece1e1b2354c346070。
 
 rework-web-recovery.json和PNG、rework-*检查/构建日志保留；首轮final-artifacts/installed/native截图均保留为历史，不冒充新原生操作。本轮自有Runtime/网关/Chrome/插件进程及临时数据/证书私钥已清理，未原生启动或改desktop.json。RPC为实际进程和宿主signal，不是真实云中断；未重做P6/Linux/全媒体/三平台/原生矩阵。Windows/真实账号/云/正式签名发布仍无证据，无待用户决策事项。
+
+## P7 提交后 Linux 交付衔接
+
+P7本地提交92e9764，90文件/1335新增/138删除，提交后dev工作区/index干净，未push。P6历史Linux证据不能代表本次新增Web/插件入口。root检查实际infra/docker/Dockerfile发现build阶段仅运行build:node，因此最终镜像没有dist/web；这是构建产物缺陷，不是要求重复全部P6矩阵。现有Docker服务linux/arm64可用，继续在同一完整Goal内修复直接遗漏并验证最终Linux交付。
+
+范围：Docker构建包含真实Web资源；在隔离非root Linux镜像/独立发行中验证当前CLI、SDK安装调用与真实DSH工具回合、TLS Web登录/认证资源入口等直接新增路径，保留默认不暴露公网。按现有release工具准备最终Linux/arm64产物并准确区分Mac产物，不复制Mac原生依赖。无必要不动schema/公共API/原平台业务，不重演P6完整备份/更新/systemd矩阵或三平台账号流程。
+
+新实施者报告实际构建/运行/产物与清理，新的独立验收后按持续授权本地提交直接修复。账号/云/Windows/正式发行门槛不变。
+
+## F4 Linux Implementation Report
+
+finish_linux_p7完整报告已处理。仅改infra/docker/Dockerfile增加build:web和docs/install-and-migrate.md说明镜像Web/SDK/平台资源及显式网关启用；不改认证/业务/默认端口。未动Git/index、未写Mac产物。
+
+S3限发行构建/新增Linux路径。实际docker build --platform linux/arm64 -f infra/docker/Dockerfile -t bigfatfish:p7-linux-local .通过。最终镜像UID1000/network=none实际外部SDK打包/安装/授权调用/停用及缺权拒绝，真实DSH0.2.2-alpha.2调用并消费工具结果及事件；本地协议fixture，不是云模型。TLS校验临时CA，首页JS/CSS200，未登录/错密码401、无CSRF403、同Runtime管理/插件调用、退出后旧cookie401；目录0700、connection/Web配置0600，默认无Web配置/不开放端口。
+
+现有prepare-release/release-archive在Linux隔离目录生成portable，在不含/app的干净基础镜像解压实际归档，仅随包Node/CLI、PATH=/usr/bin:/bin同样通过上述路径；关键资源与镜像一致。初次prepare误用尚未下完Node归档，既有SHA守卫返回NODE_CHECKSUM_MISMATCH；保留失败日志，官方续传完核对固定SHA后仅恢复发行，不重复已过镜像检查。
+
+最终build/p7-linux/BigFatFish-0.1.0-linux-arm64.tar.gz，185164407字节，SHA256 65bb7de29e911fa0aa4261772e8940d69bf69ce8188c63605f5ad0359225a37b，旁有.sha256和release.json。镜像bigfatfish:p7-linux-local，ID sha256:7cb15adf9a7944e3303cd4f574d0c34931c90fe8e970bab918b795fed1ab2cbc。证据build/p7-evidence/linux-artifacts.json、linux-image.json、linux-portable.json、linux-commands.json及对应日志/脚本。
+
+三个owned容器及匿名卷已删除，Runtime/网关/fixture停止，临时数据/TLS私钥/工作目录清理；保留无秘密证据/最终产物。范围仅Docker内Linux arm64、TLS HTTP客户端；无新增浏览器UI/Linux x64/裸机/Windows/云/账号/正式签名发布，不重演P6矩阵。无待用户决策事项，交新的独立验收。
+
+F4新独立accept_linux_p7 PASS已处理：两修改文件与证据SHA对应、归档大小/checksum与关键资源记录一致、临时目录清理；正确构建层修复且默认部署/认证边界保持。未重复已过构建/运行矩阵，范围仅Linux/arm64 Docker和portable，root同步状态并提交直接修复。

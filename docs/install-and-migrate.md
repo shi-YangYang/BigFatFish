@@ -58,6 +58,8 @@ docker compose -f infra/docker/compose.yaml stop
 
 镜像以 node 用户运行，卷保存 `/home/node/.local/share/bigfatfish`，健康检查调用认证 CLI。管理 API 不发布端口，只能在容器内访问 loopback；需要远程操作时通过 SSH 执行 Docker CLI。重新构建/替换容器保留卷，`down -v` 会删除数据，普通升级不要使用它。导出备份应另起临时容器挂载已停止服务的同一卷，避免 PID1 停止导致 `docker exec backup` 被容器终止。
 
+镜像构建包含 `dist/web`、插件 SDK、示例和三个平台安装产物。默认命令仍只启动 Runtime；HTTPS 控制台须按 [Web 管理说明](developer.md#启用-https-控制台) 显式配置并单独启动网关，Compose 不会自动发布 Web 端口。
+
 ## 可选能力依赖
 
 基础聊天所需 DSH/桥接插件/QQ/B站/抖音宿主源码均随包提供。B站画面需要 ffmpeg；抖音需要实际 Chrome/Chromium 和 Python 环境，安装方式见 [B站](bilibili.md) 与 [抖音](douyin.md)。在 GUI 中使用绝对可执行路径，不依赖终端的 nvm/venv。缺失这些依赖只影响相应能力，不应阻止基础聊天。抖音私信、分享、上传仍属于未实现发送协议，不因安装包提供资源而变为可用。

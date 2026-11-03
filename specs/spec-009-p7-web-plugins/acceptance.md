@@ -2,7 +2,17 @@
 
 ## Result
 
-PASS。新的独立accept_p7_rework完整报告已由root处理。F1/F2/F3已修复，无本轮直接未解决问题；保留首轮其他已审阅结论。仅为P7本地代码与返工验收，不表示完整产品或全部平台交付。历史FAIL保留下方。
+PASS。新的独立accept_p7_rework完整报告已由root处理。F1/F2/F3已修复，无本轮直接未解决问题；保留首轮其他已审阅结论。仅为P7本地代码与返工验收，不表示完整产品或全部平台交付。历史FAIL保留下方。F4 Linux交付补充亦由新accept_linux_p7独立PASS，详见下节。
+
+## F4 Linux 交付补充验收
+
+新的accept_linux_p7完整PASS报告已处理，无直接未解决问题/返工。Docker明确build:node && build:web，最终COPY完整dist，Web/SDK/示例/三平台资源完整；只改构建层，非root/默认Runtime/不开端口及业务认证/schema不变。安装说明和链接准确。
+
+镜像和portable均有Linux arm64、UID1000、受限PATH、外部SDK授权/拒绝/调用/停用、真实DSH续答工具结果的实际证据；两者TLS临时CA/资源/登录/CSRF/同Runtime/退出撤销通过。portable在干净基础镜像解压最终tar并用随包Node运行，未复用Mac依赖/覆盖Mac产物。
+
+Risk S3限发行构建。验收只读审阅治理/Spec/报告/直接diff、Docker/Compose/release/smoke/命令和日志；实际轻量核对两修改文件SHA匹配、镜像ID/Dockerfile hash、归档185164407字节及旁置checksum、六关键资源记录一致、临时工作目录不存在。审阅构建完成/两result=completed/清理和首次不完整Node被SHA拒绝后续传恢复记录。未重复build/test/lint/typecheck/smoke或重算整个归档。
+
+最终build/p7-linux/BigFatFish-0.1.0-linux-arm64.tar.gz，记录SHA256 65bb7de29e911fa0aa4261772e8940d69bf69ce8188c63605f5ad0359225a37b。仅Docker内Linux arm64/TLS HTTP客户端，不扩大到x64/裸机/VPS/浏览器UI/Windows/云/账号/正式发布或P6全维护矩阵。验收时dev/92e9764，验收者无写入，root按授权收尾提交。
 
 ## Spec Coverage
 

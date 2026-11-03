@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --maxsockets=4
 COPY . .
-RUN npm run build:node
+RUN npm run build:node && npm run build:web
 
 FROM node:24.20.0-bookworm-slim
 ENV NODE_ENV=production BIGFATFISH_DATA_DIR=/home/node/.local/share/bigfatfish

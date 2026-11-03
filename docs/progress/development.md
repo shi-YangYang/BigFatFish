@@ -130,3 +130,6 @@
 - rework_p7完整报告已处理入Plan：统一同步revoke覆盖所有RPC后再dispose，Web共用认证状态/会话代次和错误提取，插件表单统一同步/异步清理。修前两失败、修后三RPC与真实TLS/Chrome恢复/网络403/迟到401/非法JSON重试通过，type与定向lint、受影响构建通过。错误cwd资源复制被拒后的旧包已重打，最终115资源一致，DMG ef637212287c318a6f0c6dacd29d6fbe427825040c2e73c5283a9931ae57d3de；首轮证据保留历史。新accept_p7_rework独立复验中，未重复P6/Linux/全媒体/三平台/原生矩阵，未提交。
 
 - 新accept_p7_rework完整PASS已处理：九返工文件与最终hash一致，关键资源与dist/portable/app匹配，三根因位于正确职责层且没有放宽服务端边界；不重复已过矩阵。root更新全局状态/Spec勾选/Acceptance并准备按授权本地提交P7。Windows/真实账号/云/签名发布及抖音未实现wire继续保留。
+- P7在dev本地提交92e9764，90文件/1335新增/138删除，提交后工作区和index干净，未push。随后root核对最终Linux交付发现Dockerfile只build:node、缺dist/web的直接构建遗漏；Docker daemon实际linux/arm64可用。新finish_linux_p7按F4补构建、验证本次新增Linux SDK/DSH工具/TLS入口并生成隔离Linux产物，不重演已过P6矩阵，不覆盖Mac产物；新的独立验收与修复提交待完成。
+
+- finish_linux_p7完整报告及新accept_linux_p7 PASS均已处理：Docker构建增加build:web，默认非root/不开Web端口保持；实际Linux/arm64镜像与无/app干净容器解压portable均通过外部SDK权限/调用、真实DSH工具、TLS资源/登录/CSRF/撤销。归档185164407字节、sha65bb7de29e911fa0aa4261772e8940d69bf69ce8188c63605f5ad0359225a37b，位于build/p7-linux；image 7cb15adf9a79。首次未完成Node下载被SHA拒绝、官方续传核对后只恢复发行；三个自有容器/匿名卷/数据/证书清理，Mac产物未改。root更新状态并准备本地提交构建补充。

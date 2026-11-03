@@ -69,3 +69,5 @@ Mac 已有 ad-hoc app/DMG 安装与实际升级/人工回退，Linux arm64 porta
 P7 本地代码及三项返工已通过新的独立验收，最终Mac app/DMG/portable资源一致。web 模块使用独立 TLS 网关/登录会话代理同一 Runtime；维护期间网关存活，调用原核心停服、维护和重启。`web configure/serve` 显式启用；网关锁阻止在线换密，停止后配置重启撤销旧会话。schema 保持 6，SDK 状态复用 plugin_config；逻辑备份去除插件安装路径、安装状态和授权，不迁移 Web 会话。
 
 SDK 源码在 `plugins/sdk/`，示例在 `examples/hello-fish/`，无独立 npm 包。build:node 生成随包平台目录、SDK 和示例，build:web 生成 dist/web，根 build 构建各入口，release:prepare 包含 Web。动态插件以受限 RPC 访问宿主能力，真实系统权限仍属于运行用户；平台适配沿用各自可信执行方式。详细协议、有限 schema、模型/媒体消费者及开发命令以 [开发者指南](../docs/developer.md) 为准。
+
+P7 Linux发行补充：Docker构建同时运行build:node/build:web；当前Linux/arm64镜像和独立归档的SDK/真实DSH工具/TLS入口已在非root隔离容器实跑并获新独立PASS，未重新覆盖裸机/x64或P6完整维护矩阵。最终Linux归档在build/p7-linux，Mac build/portable及app/DMG保持原产物，具体哈希见Spec009 Plan与本机build/p7-evidence。
