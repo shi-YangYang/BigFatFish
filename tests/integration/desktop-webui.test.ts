@@ -277,6 +277,13 @@ it.skipIf(!existsSync(executable))(
             ),
         );
         expect(await page.locator(".topbar:visible").count()).toBe(1);
+        const headerButtons = await page.locator(".topbar:visible > button:visible, .topbar:visible .topbar-actions > button").evaluateAll((buttons) => buttons.map((button) => ({
+          height: button.getBoundingClientRect().height,
+          radius: getComputedStyle(button).borderRadius,
+          library: button.getAttribute("data-beui"),
+        })));
+        expect(headerButtons.every((button) => button.height === 40 && button.radius === "8px" && button.library === "button")).toBe(true);
+
         if (width > 700) expect((await page.locator(".app-sidebar").boundingBox())!.width).toBeLessThanOrEqual(80);
         const box = await page
           .getByRole("button", { name: "发送", exact: true })

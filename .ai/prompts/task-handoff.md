@@ -1,5 +1,17 @@
 # Task Handoff
 
+## 当前阶段：Spec013 beUI接入已完成
+
+用户明确要求换成beUI，并指出顶栏新对话与待审批大小不同。dev基线3f15c3a、开始干净。specs/spec-013-beui-controls已Done：所有Controls.Button调用实际使用官方beUI Motion Button，原Input/Select/Textarea/Checkbox保持，不声称迁移。顶部统一40px高/8px圆角，桌面文字共用100px最小宽度（实际新对话100.84375、待审批100），窄屏图标40px。保留Spec012布局/聊天状态/数据与DS蓝。
+
+源码在components/beui/，固定revision6f153a06d2225ba07a0137f317ce19faf8da69ef，MIT/NOTICE随源，build输出beui-LICENSE.txt。根devDependencies新增Tailwind/Vite插件4.3.4、Motion14.9.0、clsx2.1.1、twmerge3.7.0；无旧依赖升级/删除。beui-theme仅theme/utilities、明确source、不启用Preflight，去除旧Button基础CSS，显式px避免14px根字号缩小尺寸。无分包、Runtime/API/业务变更。
+
+实施/root/implement_beui → 新独立验收/root/accept_beui PASS，全部报告已读取处理。前端TS/相关lint/两build/desktop-webui回归1项9.47秒通过；12视图无溢出，专项核对disabled/focus/键盘历史/reduced-motion。验收者实际查看4张代表图，未重复测试，无返工；最终证据/局限在Spec013。
+
+最新截图docs/design/desktop-webui-{chat,settings,history}.png；build/beui-ui保存metrics/interaction/package证据。Tauri退出0，最终Desktop index-Cr9eHNz3.js、Web index-DpaCgel1.js、CSS index-CMLyyJw7.css；随包Web5文件与dist一致，MIT及manifest/lock匹配源码。Mac app/DMG路径仍位于apps/desktop/src-tauri/target/release/bundle，DMG SHA-256 48a431704b6ef1bac459f85a649a14eb69af386d91f62823c8a4f954380409ca。本轮未原生启动/外部服务验证，仍ad-hoc未公证。旧账号/Windows缺口不扩大。
+
+root按持续授权本地commit，具体hash以git log为准；无push/PR/合并授权或操作，远端未刷新。旧P0–P7不恢复。下方均为历史完成阶段，旧产物hash不作为当前版本；当前预览/检查使用build/beui-ui证据，生产dist为准。
+
 ## 当前阶段：Spec 012 已完成
 
 用户最新截图反馈宽导航、双topbar、常驻会话sidebar不协调。dev基线33bae64，工作区开始时干净。当前Spec：specs/spec-012-compact-chat-layout/。已落实72px窄导航、60px单顶部栏、历史按需Drawer及720px阅读列，保留Chat挂载/草稿/请求归属/审批/蓝色控件。App用renderHeader组合全局操作，Chat仍拥有会话状态；未改Runtime/API/数据/依赖。

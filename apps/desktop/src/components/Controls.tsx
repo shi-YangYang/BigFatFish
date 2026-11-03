@@ -1,10 +1,13 @@
 import type { ComponentPropsWithRef, HTMLAttributes } from "react";
 
-type ButtonProps = ComponentPropsWithRef<"button"> & {
+import { Button as BeButton, type ButtonProps as BeButtonProps } from "./beui/button";
+import { cn } from "./beui/utils";
+
+type ButtonProps = Omit<BeButtonProps, "variant" | "size"> & {
   variant?: "secondary" | "primary" | "ghost" | "danger";
   size?: "regular" | "compact" | "icon";
 };
-/** Shared native semantics; form actions declare type="submit" at their call site. */
+/** Compatibility entry point; rendering and base variants come from beUI. */
 export function Button({
   variant = "secondary",
   size = "regular",
@@ -13,10 +16,16 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button
+    <BeButton
       {...props}
       type={type}
-      className={`ui-button ui-button-${variant} ui-button-${size} ${className}`}
+      variant={variant === "danger" ? "outline" : variant}
+      size={size === "regular" ? "md" : size === "compact" ? "sm" : "icon"}
+      className={cn(
+        `ui-button ui-button-${variant} ui-button-${size}`,
+        variant === "danger" && "text-[#a13b32] bg-[#fff7f5] border-[#ecc9c3] hover:bg-[#fff0eb]",
+        className,
+      )}
     />
   );
 }

@@ -185,7 +185,6 @@ export default function App() {
           <Button
             type="button"
             className="approval-button"
-            size="compact"
             onClick={() => setDrawer(true)}
           >
             待审批 <b>{approvalCount}</b>

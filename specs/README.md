@@ -25,3 +25,5 @@
 - [Spec 011：DeepSeek 蓝色与统一组件](spec-011-blue-ui-system/spec.md)：[返工复验 PASS](spec-011-blue-ui-system/acceptance.md)；统一蓝色主题与共享控件，复杂表单和确认区对齐，最终产物证据见 Plan。
 
 - [Spec 012：收敛导航与聊天布局](spec-012-compact-chat-layout/spec.md)：[独立验收PASS](spec-012-compact-chat-layout/acceptance.md)；72px窄导航、60px单顶部栏与按需历史对话，最终包见Plan。
+
+- [Spec 013：接入beUI并统一按钮](spec-013-beui-controls/spec.md)：[独立验收PASS](spec-013-beui-controls/acceptance.md)；官方Button源码/依赖与主题接入，修正顶部尺寸混用，原布局保持。

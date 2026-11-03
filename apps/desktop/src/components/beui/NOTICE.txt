@@ -1,0 +1,13 @@
+beUI Button
+Source: https://github.com/starc007/ui-components
+Revision: 6f153a06d2225ba07a0137f317ce19faf8da69ef
+Upstream files: components/motion/button/base.tsx, lib/ease.ts, lib/utils.ts
+License: MIT, Copyright (c) 2026 Saurabh Chauhan (see LICENSE).
+
+Local adaptations:
+- Relative imports and a data-beui marker for integration checks.
+- Explicit pixel size/radius tokens: app root font size is 14px, not 16px.
+- Default press scale 0.98 and no hover geometry scaling, preserving alignment.
+- Explicit border/appearance defaults because Tailwind Preflight is intentionally omitted.
+- Controls.tsx maps existing variants/sizes; source remains the actual rendered Motion Button.
+The full MIT license is emitted as beui-LICENSE.txt by both Vite builds.

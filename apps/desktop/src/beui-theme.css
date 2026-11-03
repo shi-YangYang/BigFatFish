@@ -1,0 +1,23 @@
+/* beUI semantic tokens. Import utilities without Preflight to preserve existing forms. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./components/beui";
+@source "./components/Controls.tsx";
+
+@theme inline {
+  --color-primary: var(--accent);
+  --color-primary-foreground: #fff;
+  --color-foreground: #202b33;
+  --color-muted-foreground: var(--muted);
+  --color-muted: #eef2ff;
+  --color-card: #fff;
+  --color-border: var(--border);
+}
+
+@layer base {
+  button {
+    font-family: inherit;
+    appearance: none;
+  }
+}

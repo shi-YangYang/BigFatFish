@@ -75,3 +75,9 @@ P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm6
 后续Mac↔Linux arm64迁移发现并修复共用CLI stop提前成功：连接消失不足以证明停机，现等待实例锁释放并在锁内复核身份；维护操作仍独立取锁。新产物完成无绕行的直接备份/恢复、DSH续聊和记忆/凭据/恢复失权验证，经新的独立验收PASS。当前Mac portable/app/DMG及Linux归档/镜像均已同步，最终路径与哈希见Spec008 Plan和本机build/p6-stop-rework/evidence.json；之前产物哈希保留为历史，Windows/真实云账号/跨schema限制不变。
 
 Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或依赖修改；本机Docker amd64模拟环境已实际运行x64 Node/SQLite/Runtime/DSH/SDK/TLS，独立包脱离源码目录仅用随包Node通过，新独立验收PASS。产物build/p6-linux-x64及build/artifacts同名linux-x64归档，命令/哈希/环境与清理见Spec008 Plan和build/p6-linux-x64-evidence/evidence.json。Mac/arm64既有产物未覆盖，原生x64 VPS、Windows和真实云账号仍未验证；用户已要求真实服务先保留待验项。
+
+## beUI 前端组件（Spec013）
+
+用户明确指定beUI；按其官方源码分发方式将基础Button放在apps/desktop/src/components/beui/，Controls.tsx保留变体/尺寸兼容入口，Desktop/Web共用。固定上游starc007/ui-components revision6f153a06d2225ba07a0137f317ce19faf8da69ef，MIT和本地尺寸/交互适配说明随源保留，两个Vite构建都输出beui-LICENSE.txt。
+
+根devDependencies固定tailwindcss与@tailwindcss/vite 4.3.4、motion14.9.0、clsx2.1.1、tailwind-merge3.7.0；构建时进入前端bundle，不是Runtime新增运行依赖。Tailwind仅引入主题/utility，不启用Preflight，通过明确source路径扫描beUI与Controls；保留旧表单和页面CSS。按钮采用px尺寸避免根字号14px造成rem缩小，DS蓝语义token通过beui-theme.css映射。原Input/Select/Textarea/Checkbox仍为现有原生控件，不把它们称作beUI组件。无需数据迁移。
