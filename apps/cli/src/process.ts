@@ -40,27 +40,44 @@ export async function start(p: DataPaths, port: number): Promise<RuntimeStatus> 
   throw new Error('START_TIMEOUT');
 }
 export async function stop(p: DataPaths): Promise<{ state: 'stopped'; alreadyStopped: boolean }> {
+  const readCurrent = () => {
+    try { return readConnection(p); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
+  };
   const readinessDeadline = Date.now() + 12000;
-  while (!existsSync(p.connection)) {
+  let connection;
+  while (!(connection = readCurrent())) {
     if (!existsSync(p.lock)) return { state: 'stopped', alreadyStopped: true };
     try { const release = acquireInstance(p.lock); release(); return { state: 'stopped', alreadyStopped: true }; }
     catch (error) { if (!(error instanceof Error) || error.message !== 'ALREADY_RUNNING') throw error; }
     if (Date.now() > readinessDeadline) throw new Error('STOP_TIMEOUT');
     await delay(80);
   }
-  const connection = readConnection(p);
+  let alreadyStopped = false;
   try { await requestRuntime(connection, '/v1/shutdown', 'POST'); }
   catch (error) {
-    // Only a confirmed connection refusal means a stale record; never treat auth failures as success.
+    // Refusal can mean shutdown is still draining. Auth failures must never mean success.
     const cause = (error as { cause?: { code?: string } }).cause?.code;
-    if (cause === 'ECONNREFUSED') return { state: 'stopped', alreadyStopped: true };
-    throw error;
+    if (cause !== 'ECONNREFUSED') throw error;
+    alreadyStopped = true;
   }
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
-    if (!existsSync(p.connection)) return { state: 'stopped', alreadyStopped: false };
-    const current = readConnection(p);
-    if (current.instanceId !== connection.instanceId) throw new Error('INSTANCE_CHANGED');
+    const current = readCurrent();
+    if (current && current.instanceId !== connection.instanceId) throw new Error('INSTANCE_CHANGED');
+    // Connection deletion and socket closure precede DB cleanup. Only the kernel
+    // lock proves that the old owner finished; maintenance still acquires its own lock.
+    let release;
+    try { release = acquireInstance(p.lock); }
+    catch (error) { if (!(error instanceof Error) || error.message !== 'ALREADY_RUNNING') throw error; }
+    if (release) {
+      try {
+        // A replacement may have published between our read and lock acquisition.
+        const latest = readCurrent();
+        if (latest && latest.instanceId !== connection.instanceId) throw new Error('INSTANCE_CHANGED');
+        return { state: 'stopped', alreadyStopped };
+      } finally { release(); }
+    }
     await delay(80);
   }
   throw new Error('STOP_TIMEOUT');

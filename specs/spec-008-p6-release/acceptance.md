@@ -2,6 +2,43 @@
 
 ## Result
 
+PASS。新的独立验收者accept_stop_migration完整报告已读取，覆盖跨系统迁移及其发现的共用CLI stop完成判定修复。没有与本轮直接相关的未解决问题；此前三项P6返工PASS及首轮FAIL历史保留如下。
+
+## Spec Coverage
+
+- 连接文件消失或ECONNREFUSED后继续等待实际取得实例锁，取得后再次核对instanceId，finally释放探测锁。保持认证失败拒绝、INSTANCE_CHANGED、启动中无连接等待、ENOENT竞态与STOP_TIMEOUT，不删锁文件、不按PID杀进程。
+- 修复位于共用CLI stop层，restart、backup export/restore、update与Desktop/Web维护沿用同一契约；Runtime清理顺序不变，维护核心独立取锁保持。
+- 脚本、源代码和实际命令记录证明：Mac运行中默认/加密导出，Linux运行中目标恢复、新增数据后直接导出，返回Mac运行中目标直接恢复，均无先单独stop绕行。
+- 源4条消息/3条确认记忆/5条经历，Linux新增后6/4/7；人格、模型路由、会话、消息、记忆来源、日记、时间线、心情与经历逐字段保持。真实DSH返程请求包含Mac历史、Linux新增历史及确认记忆。
+- 隔离模型/渠道夹具严格验证Authorization，加密凭据实际可用；默认无Key路径实际401。重新生成token、master key、instanceId和引擎session；插件机器路径、安装状态与权限剥离，存储保留；渠道/计划停用、旧审批不可执行、无自动重放。
+- 业务修改仅process.ts及两个直接测试文件，无schema、依赖、认证API或UI改动。最终产物包含修复，旧失败和中间错误产物记录保留，未冒充通过。
+
+## Validation
+
+- Risk Level: S3（共用生命周期与持久维护）。
+- 独立读取治理、Spec/Plan、历史验收、Rework、Decision008、交接与实施报告，审阅源码/diff、真实子进程SQLite锁夹具、六个用例、Runtime生命周期及直接调用方。
+- 审阅build/p6-stop-rework/evidence.json、三阶段报告、迁移/模型脚本、Linux执行命令、DMG证据及原失败；实际只读核对三个源/测试文件和四个编译资源哈希，与证据一致。
+- 审阅实施检查记录：Node构建（含相关类型检查）、三文件ESLint及stop-completion/lifecycle/backup/update四文件19项通过、1项Windows专用跳过。不存在的cli-maintenance.test.ts未计入执行结果。
+- 验收者未重复测试、build、lint、typecheck、全归档哈希或未变平台矩阵，未修改文件/Git/index。实施者负责的临时进程、容器、鱼与迁移归档已清理，DMG已卸载。
+
+## Issues
+
+无直接相关未解决问题。最终资源与迁移证据支持本轮结论。
+
+## Regression Risks
+
+stop与下一次维护取锁不是原子交接；随后启动的合法新实例可以导致维护安全拒绝，不可强行覆盖。证据范围为Mac arm64、Linux arm64隔离容器与本地鉴权夹具，不能覆盖Windows/x64/裸机、真实云模型和平台账号、跨schema或正式签名发行。本轮未重演未变的升级回退、systemd或原生UI矩阵。
+
+## Required Rework
+
+无。root同步治理并按既有授权本地提交；无push或发布授权。
+
+---
+
+# P6 First Rework Acceptance (historical)
+
+## Result
+
 PASS。新的独立 accept_p6_rework 完整报告已读取。首轮三项缺陷已修复，未发现直接相关未解决问题；这是本地代码返工验收，不代表Windows实机或完整跨平台发行完成。首轮FAIL历史保留如下。
 
 ## Spec Coverage

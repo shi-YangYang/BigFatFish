@@ -168,3 +168,35 @@ S3。`npm run build:node`、定向eslint（maintenance.ts、update.test.ts、mai
 独立app仍在build/artifacts/BigFatFish-0.1.0.app。公开证据build/p6-rework/evidence.json及evidence/{mac-app-cli,mac-portable-cli,linux-portable-cli,mac-executable}.json；可复用check-installed-cli.mjs无秘密。旧build/p6-updater-test/evidence.json将旧hash移历史字段，原生演练明确为返工前证据。**0.1.1签名候选未修改，属于历史证据、不含最终修复**。
 
 最终顺序：三项源码/测试/使用文档→Node定向检查→Rust fixture/格式/定向检查→最终Mac/Linux资源和产物→实际产物/字节核对→证据/清理，无后续业务改动。已卸载任务DMG、清理自有Runtime/鱼、Mac解压副本/Linux暂存/构建容器；未改全局CA/代理/Node/其他应用/真实鱼。未重演完整矩阵、原生升级回退或Docker/systemd全流程；Windows/正式签名公证发布/真实云账号/跨schema/注销重启限制保留。
+
+## 当前最终产物的跨系统迁移验收补充
+
+2026-11-03恢复全Goal时，root核对dev/9a9de0c干净及实际状态，确认先前跨目录恢复不等于Mac↔Linux跨系统迁移实证。Spec008功能8和最终目标数据迁移仍有明确证据缺口，且当前两系统产物可用，无需真实账号。因而继续这一直接验收，不以等待外部条件代替可执行工作；此前handoff“仅余外部条件”的判断已被此具体缺口修正。
+
+S3依据为跨OS持久数据/秘密重加密/本机路径及恢复授权。仅使用当前Mac app随包Node/CLI和最终Linux arm64归档，进行隔离测试鱼Mac→Linux→Mac加密逻辑备份、实际恢复与DSH续聊，核对人格/会话/确认记忆/生活数据、凭据可实际解密使用、旧token/PID/路径及插件执行授权不搬运、自动动作不重放。默认无凭据归档的状态只补同路径必要对照，不重做已有恶意归档/更新/systemd全矩阵。用本地协议fixture且无真实秘密，不触碰用户鱼或全局Desktop配置。
+
+新实施/验证Agent串行执行并返回证据；未发现缺陷不修改业务或新增机械单元测试。若出现具体跨系统缺陷先报告根因/影响，由root按AGENTS实施/独立验收闭环。新独立验收后同步本页/实际状态/进度并按既有授权本地提交。
+
+## 跨系统迁移 Implementation / Validation Report
+
+verify_cross_os_migration完整报告已读取。当前Mac app随包Node/CLI与Linux最终归档（sha65bb7de...）执行Mac→Linux→Mac；Linux非root/network=none、无/app、归档内部解压、随包Node24.20.0及受限PATH，路径含中文/空格。公开CLI创建数据，SQLite仅只读核对。源4消息/3确认记忆/日记v1/5经历；Linux新增6消息/4确认记忆/日记v2/7经历；回Mac人格/路由/完整消息/记忆来源/日记/时间线/心情/经历逐字段一致。
+
+两方向真实DSH续聊，受控服务严格校验fixture Authorization；回程上下文包含Mac历史、Linux新历史及确认记忆。默认无凭据恢复模型调用实际401，CLI MODEL_RUN_FAILED；加密模型Key与渠道token实际鉴权使用。两侧新token/instanceId/master key/DSH session，日记目标目录重建；插件路径/安装/授权清空，配置storage保留且重装授权后可读Mac和Linux值。渠道/计划停用、自主活动暂停、旧审批不存在且拒绝执行，无自动连接或重放；Linux显式重授权后渠道token有效。抖音旧Mac浏览器/Python路径重置为空/python3。
+
+但直接Linux backup export实际ALREADY_RUNNING：CLI stop看到connection消失提前返回，而lifecycle随后才db.close/release。root只读确认stop的ECONNREFUSED分支也存在同根因提前成功。原失败linux-stop-race.json保留；显式单独stop后再export完成逆向仅证明数据语义，不能将一体备份判通过。需新实施者修共用停止契约及相邻维护路径，再新独立验收。
+
+S3限跨系统持久化/秘密/授权。无业务或Git修改，无重复type/lint/build/test全套。脚本参数假设及一次检索提示不充分失败保留，未改DB/放宽断言。owned Runtime/DSH/fixture/容器/数据/迁移归档已清理，无命名卷/真实账号/全局配置改动。汇总build/p6-migration-evidence/evidence.json，source/linux/return/linux-default-passed/linux-stop-race及可复用脚本保留。Windows/x64/裸机/云/跨schema/发行不在范围。
+
+## 共用stop修复 Implementation Report
+
+fix_stop_completion完整报告已处理，随后新的accept_stop_migration独立验收PASS，完整结果见acceptance.md。仅改apps/cli/src/process.ts、tests/integration/stop-completion.test.ts和tests/fixtures/stop-lock.mjs，无Git/index/governance修改。
+
+根因是connection删除/HTTP拒绝早于DB清理与实例锁释放。共用stop等待实际取得内核锁，锁内再核instanceId；ENOENT消失竞态正常处理，认证拒绝保持，实例更换安全失败，Runtime释放顺序不改。restart/备份/恢复/更新/Web维护直接调用同契约；维护仍自行取得独占，合法新实例随后抢占可安全失败，不强杀/删锁/堆调用点sleep。
+
+S3。真实子进程SQLite锁+认证HTTP fixture：修前3失败/3通过（删除connection、ECONNREFUSED、持锁超时均提前成功）；修后6项覆盖上述及初始化无连接、认证失败、实例变化，停止返回后能立即取锁。build:node及三文件ESLint通过；stop-completion/lifecycle/backup/update共4文件19通过、Windows专属1跳过。最初命令的cli-maintenance.test.ts不存在，未声称执行；最终实际CLI迁移覆盖维护路径。定向diff通过。没有重做无关UI/systemd/发布矩阵。
+
+新产物直接Mac→Linux→Mac无显式先stop绕行：Mac运行中default/encrypted export；Linux非root/network=none解压安装，在运行中目标restore、实际DSH鉴权续聊、新记忆/日记/storage后直接encrypted export；Mac运行中目标直接restore，续聊包含两侧历史/确认记忆。默认无Key由fixture实际401/CLI MODEL_RUN_FAILED；新token/master key/DSH session、插件失权/渠道计划停用/旧审批不重放保持。4消息/3记忆/5经历→Linux6消息/4记忆/7经历→返程逐字段一致。
+
+Mac portable/app/DMG/更新归档、Linux portable/image均同步，只替换编译后的process.js，复用Node/生产依赖/Rust/前端，未重装或原生重编译。新process.js SHA256 0bded493b27c3d42f0cc1ad4efa48887a08b3e575441b64802ab6f9050b6b2d8各资源/归档/镜像一致；DMG内与最终app代码一致，ad-hoc codesign --verify --deep --strict通过。Mac portable归档sha6fb8094326ba2824a59551ded35171daec125383310d0171f5669348a563af32；app更新归档dbcf9350cdf911b21160d940a53986e44e18e8954ef8fbf83d1a3b7235aee6e5；Linux归档99d3dd9acd3055f13c28507feb3cd76e7f894700594efb005d1b44ab48bd19f8；DMG36db4a6edc29a9e6deb73e67ebe37aba130b78f5eb5feb2796007e869f2d717d。
+
+首次包装cwd错误生成旧资源中间bundle，被hash识别后正确重打，未作为成功证据；历史hash/失败日志保留。build/p6-stop-rework/evidence.json含完整路径/命令/迁移/清理。owned Runtime/DSH/fixture/容器/临时鱼/迁移归档清理，DMG卸载，无真实鱼/全局设置/他项资源改动。Windows/x64/裸机/云/账号/跨schema/正式发行限制保持，无其他直接问题。

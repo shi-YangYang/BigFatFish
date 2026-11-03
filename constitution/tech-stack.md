@@ -70,4 +70,6 @@ P7 本地代码及三项返工已通过新的独立验收，最终Mac app/DMG/po
 
 SDK 源码在 `plugins/sdk/`，示例在 `examples/hello-fish/`，无独立 npm 包。build:node 生成随包平台目录、SDK 和示例，build:web 生成 dist/web，根 build 构建各入口，release:prepare 包含 Web。动态插件以受限 RPC 访问宿主能力，真实系统权限仍属于运行用户；平台适配沿用各自可信执行方式。详细协议、有限 schema、模型/媒体消费者及开发命令以 [开发者指南](../docs/developer.md) 为准。
 
-P7 Linux发行补充：Docker构建同时运行build:node/build:web；当前Linux/arm64镜像和独立归档的SDK/真实DSH工具/TLS入口已在非root隔离容器实跑并获新独立PASS，未重新覆盖裸机/x64或P6完整维护矩阵。最终Linux归档在build/p7-linux，Mac build/portable及app/DMG保持原产物，具体哈希见Spec009 Plan与本机build/p7-evidence。
+P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm64镜像和独立归档的SDK/真实DSH工具/TLS入口已在非root隔离容器实跑并获新独立PASS，未重新覆盖裸机/x64或P6完整维护矩阵。该轮证据见Spec009 Plan与本机build/p7-evidence。
+
+后续Mac↔Linux arm64迁移发现并修复共用CLI stop提前成功：连接消失不足以证明停机，现等待实例锁释放并在锁内复核身份；维护操作仍独立取锁。新产物完成无绕行的直接备份/恢复、DSH续聊和记忆/凭据/恢复失权验证，经新的独立验收PASS。当前Mac portable/app/DMG及Linux归档/镜像均已同步，最终路径与哈希见Spec008 Plan和本机build/p6-stop-rework/evidence.json；之前产物哈希保留为历史，Windows/真实云账号/跨schema限制不变。
