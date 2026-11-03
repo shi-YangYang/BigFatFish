@@ -1,6 +1,6 @@
 # Spec 008: P6 跨平台安装、运行与数据迁移
 
-状态：原三项返工独立PASS并提交a0e8f61。后续跨系统迁移发现的共用stop提前返回已修复并获新的独立PASS；当前Mac/Linux arm64产物无绕行完成运行中直接备份/恢复及往返数据、记忆、凭据与恢复失权验证。Windows、真实云账号、跨schema及正式发行等未验项继续单列。
+状态：原三项返工独立PASS并提交a0e8f61，后续stop修复及Mac↔Linux arm64迁移独立PASS并提交cd106de。新增Linux x64镜像/独立归档在Docker amd64模拟环境实际运行并获新独立PASS。Windows、原生x64 VPS、真实云账号、跨schema及正式发行等未验项继续单列。
 
 ## 背景
 

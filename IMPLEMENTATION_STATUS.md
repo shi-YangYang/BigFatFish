@@ -8,6 +8,8 @@ P7已本地提交92e9764；随后发现的Docker遗漏Web资源已在构建层�
 
 当前产物已完成Mac→Linux arm64→Mac实际往返迁移：运行中的鱼直接备份、运行中目标直接恢复，无先单独stop绕行。迁移发现的共用停止竞态已修复，stop等待实例锁释放并复核实例身份；19项相关检查通过、1项Windows专用检查跳过，新的独立验收PASS。数据、记忆、鉴权续聊及恢复后撤权保持；模型与渠道鉴权使用隔离协议夹具，不能等同真实账号验证。证据见Spec008验收及本机build/p6-stop-rework/evidence.json。
 
+Linux x64镜像与独立包已按现有发行脚本生成，实际运行SQLite、Runtime、DSH工具回合、SDK和TLS入口通过，并获新的独立验收PASS；独立包在无源码目录、中文空格路径中仅由随包Node/CLI运行。环境为arm64 Mac上的Docker amd64模拟执行，不等于原生x64 VPS。证据见Spec008验收/Plan和本机build/p6-linux-x64-evidence/evidence.json。用户已明确真实服务暂未配置，先保留待验项。
+
 更新日期：2026-11-03。状态仅使用：已实现并通过测试、已实现但尚未完整验证、部分实现、尚未实现、被外部条件阻塞。
 
 | 功能/交付项 | 状态 | 证据与缺项 |
@@ -15,7 +17,7 @@ P7已本地提交92e9764；随后发现的Docker遗漏Web资源已在构建层�
 | 源码目录、Git 忽略与协作规范 | 已实现并通过测试 | Spec 001 静态验收通过；未将其等同运行测试 |
 | P0 Runtime/CLI/SQLite/API/桌面壳 | 已实现但尚未完整验证 | 本机/Linux/桌面运行与类型/Lint通过；三项返工经新独立审阅PASS，15项macOS用例累计有通过结果；Windows专属2项及原生构建未执行，首轮超时记录保留 |
 | P0 跨系统 CI | 已实现但尚未完整验证 | Node三系统与Windows/macOS桌面矩阵已编写；未推送或执行远端CI |
-| DSH 引擎适配、模型、聊天、人格与会话 | 已实现但尚未完整验证 | 真实SDK/Runtime/CLI、OpenAI与DeepSeek协议夹具、桌面及正式Linux镜像通过；两项桌面返工独立PASS，Windows与真实云模型仍未验证 |
+| DSH 引擎适配、模型、聊天、人格与会话 | 已实现但尚未完整验证 | 真实SDK/Runtime/CLI、OpenAI与DeepSeek协议夹具、桌面及Linux arm64/x64镜像通过；两项桌面返工独立PASS，x64独立包也有实际DSH工具续答；Windows与真实云模型仍未验证 |
 | 视觉、ASR/TTS与各用途模型消费者 | 已实现但尚未完整验证 | 前序聊天/记忆/视觉/自主决策与ASR已有证据；P7补统一ASR/TTS、实际WAV输入输出、CLI/共享语音界面与取消传递，相关定向检查和新独立验收通过；真实云质量未验证 |
 | 长期记忆、日记、兴趣、经历与心情 | 已实现但尚未完整验证 | 真实DSH主链路、原生macOS/CLI与相关检查通过；三项边界返工获新独立PASS，17项定向用例及真实React延迟保存通过；Linux arm64迁移后查询/新增记忆与日记、DSH记忆续聊及返Mac逐字段保持通过，Windows/云模型仍未验证 |
 | QQ 私聊、群聊、主人权限与账号重连 | 已实现但尚未完整验证 | 真实DSH/OneBot、23项相关累计检查、原生UI/构建后CLI有证据；两项返工经定向检查和新独立PASS闭环；真实QQ/Windows/云Key未验证 |
@@ -26,9 +28,9 @@ P7已本地提交92e9764；随后发现的Docker遗漏Web资源已在构建层�
 | 日志、备份、恢复、导出和迁移 | 已实现但尚未完整验证 | P6一致逻辑归档/选择范围/独立口令加密、暂存恢复、旧数据保留已实现；CLI及原生界面恢复后DSH续聊、错误归档/口令和10003条历史窗口有证据；Mac↔Linux arm64实际往返保持人格/历史/记忆/生活/加密凭据，插件与渠道恢复失权、旧审批不重放。共用停止竞态修复及无绕行直接维护获新独立PASS；Windows与跨schema迁移未验证 |
 | Windows Desktop 安装与使用 | 部分实现 | 已有随包Node/资源、Tauri安装器及CI路径；用户明确暂无Windows环境，构建/安装/权限实机证据仍缺 |
 | macOS Desktop 安装与使用 | 已实现但尚未完整验证 | arm64 ad-hoc .app/DMG实际挂载安装、向导、模型/聊天、关闭窗口后台、显式退出停服、登录启动开关及撤销有本机证据；更新至真实0.1.1并续聊，再人工回退0.1.0与原数据；安装目录符号链接别名被拒绝。本地代码返工独立PASS，正式签名/公证未执行 |
-| Linux CLI/Headless | 已实现但尚未完整验证 | P1真实DSH链路及P6 Linux/arm64独立内置Node CLI、非root运行、持久数据/健康有实证；P7当前Linux/arm64独立归档亦在无源码容器中仅随包Node通过SDK/DSH工具/TLS入口，F4独立PASS；其他架构/裸机发行版未实测 |
-| Docker/systemd 部署 | 已实现但尚未完整验证 | P6实际Docker/Compose健康及人格持久卷重启通过；专用PID1容器内systemd用户服务启动/重启/认证访问/停止通过，owned容器卷已清理；P7补齐Docker Web构建，当前非root镜像SDK/DSH工具/TLS实跑和F4独立PASS；不等同所有Linux发行版实机验证 |
+| Linux CLI/Headless | 已实现但尚未完整验证 | Linux arm64非root运行、持久数据/健康及当前独立包SDK/DSH工具/TLS入口已有证据与F4独立PASS；新增x64镜像和独立归档实际process.arch=x64，SQLite、随包Node/CLI、SDK/DSH/TLS通过。x64为Docker模拟运行，原生x64 VPS及其他发行版未实测 |
+| Docker/systemd 部署 | 已实现但尚未完整验证 | P6实际Docker/Compose健康及人格持久卷重启通过；专用PID1容器内systemd用户服务启动/重启/认证访问/停止通过，owned容器卷已清理；P7补齐Docker Web构建，arm64非root镜像SDK/DSH工具/TLS实跑和F4独立PASS，新增amd64镜像也有运行证据。x64未重做systemd矩阵，不等同所有Linux发行版实机验证 |
 | 可信更新与回退 | 已实现但尚未完整验证 | Ed25519 portable与Tauri Minisign/版本绑定分别实现；真实portable与macOS原生均完成0.1.0→0.1.1→回退。缺Node失败保持数据库；原生人工回退恢复4条原消息，失败版本6条消息另存，自动活动暂停。实际schema6→6，跨schema和Windows未实测；无正式发行信任，本地代码返工独立PASS |
-| 远程 Web Console | 已实现但尚未完整验证 | 实际本地TLS+隔离Chrome登录、聊天/插件页、维护停服恢复重启及Host/CSRF/未授权WS/退出撤销有实施证据；默认关闭、独立网关/凭据，未部署公网，会话过期恢复及定向TLS/Chrome通过，最终Mac产物与独立验收已完成，当前Linux/arm64镜像及portable的TLS HTTP链路也通过 |
+| 远程 Web Console | 已实现但尚未完整验证 | 实际本地TLS+隔离Chrome登录、聊天/插件页、维护停服恢复重启及Host/CSRF/未授权WS/退出撤销有实施证据；默认关闭、独立网关/凭据，未部署公网，会话过期恢复及定向TLS/Chrome通过，最终Mac产物与独立验收已完成，当前Linux arm64/x64镜像及portable的TLS HTTP链路也通过 |
 
 模型 API Key、平台扫码/账号、外部服务授权、发布签名不从本机其他应用偷取。需要它们时在对应功能显示明确配置状态；测试替身仅证明协议与内部逻辑，不证明外部平台可用。

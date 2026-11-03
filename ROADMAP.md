@@ -10,7 +10,7 @@
 | P3 QQ | NapCat/OneBot 私聊群聊、主人权限、统一会话 | 协议测试、授权账号收发和重连实测 | 两项返工独立PASS，本机路径通过；QQ媒体在P7补齐本机链路，真实账号验证单列 |
 | P4 B站 | 复用既有项目、插件接入、观看与记忆、健康状态 | 上游源码/许可证审查，适配测试，账号实测 | 独立代码验收PASS，本机链路通过；真实账号/云/Windows未验证 |
 | P5 抖音 | 两项目复用、共享浏览器、观看理解、互动审批、调度 | 队列互斥、权限拦截、上游适配、账号实测 | 本地代码返工独立PASS，原生Mac/CLI及实际协议夹具通过；DM/分享/投稿wire未完成，真实账号/云/其他系统单列，阶段未全完 |
-| P6 跨平台发布 | Windows/macOS 安装包、Linux CLI/Headless、Docker/systemd、更新备份恢复 | 各系统构建与安装、后台生命周期、真实恢复测试 | 本地代码返工及共用停止竞态修复独立PASS；Mac↔Linux arm64往返迁移与更新有运行证据，Windows实机与签名/发行仍未完成 |
+| P6 跨平台发布 | Windows/macOS 安装包、Linux CLI/Headless、Docker/systemd、更新备份恢复 | 各系统构建与安装、后台生命周期、真实恢复测试 | 本地返工、停机修复及Linux x64发行补充独立PASS；Mac↔Linux arm64迁移/更新与x64模拟运行有证据；Windows、原生x64 VPS及正式签名/发行仍待验 |
 | P7 Web 与插件生态 | 经认证远程管理、插件独立安装启停更新、SDK/示例/开发文档 | 控制台真实 API 联动、插件生命周期与权限、开发者示例运行 | 本地代码及三项返工独立PASS；TLS/Web、外部目录SDK、工具/媒体与原生有证据；Linux/arm64镜像和portable补充实跑及独立PASS，外部验证仍单列 |
 
 详细状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)，连续进展与命令结果保存在 [开发记录](docs/progress/development.md)。

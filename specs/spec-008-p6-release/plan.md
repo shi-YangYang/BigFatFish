@@ -200,3 +200,27 @@ S3。真实子进程SQLite锁+认证HTTP fixture：修前3失败/3通过（删�
 Mac portable/app/DMG/更新归档、Linux portable/image均同步，只替换编译后的process.js，复用Node/生产依赖/Rust/前端，未重装或原生重编译。新process.js SHA256 0bded493b27c3d42f0cc1ad4efa48887a08b3e575441b64802ab6f9050b6b2d8各资源/归档/镜像一致；DMG内与最终app代码一致，ad-hoc codesign --verify --deep --strict通过。Mac portable归档sha6fb8094326ba2824a59551ded35171daec125383310d0171f5669348a563af32；app更新归档dbcf9350cdf911b21160d940a53986e44e18e8954ef8fbf83d1a3b7235aee6e5；Linux归档99d3dd9acd3055f13c28507feb3cd76e7f894700594efb005d1b44ab48bd19f8；DMG36db4a6edc29a9e6deb73e67ebe37aba130b78f5eb5feb2796007e869f2d717d。
 
 首次包装cwd错误生成旧资源中间bundle，被hash识别后正确重打，未作为成功证据；历史hash/失败日志保留。build/p6-stop-rework/evidence.json含完整路径/命令/迁移/清理。owned Runtime/DSH/fixture/容器/临时鱼/迁移归档清理，DMG卸载，无真实鱼/全局设置/他项资源改动。Windows/x64/裸机/云/账号/跨schema/正式发行限制保持，无其他直接问题。
+
+## Linux x64 发行补充
+
+停机修复已本地提交cd106de，工作区干净。下一回合核实两个抖音上游HEAD仍分别为7989640/aaf9f9a；其私信/分享/投稿为页面自动化及收据识别，未提供可直接复用的请求解码，不能据此放宽已确认审批边界。暂无真实账号回复，继续不依赖账号的发行工作。
+
+prepare-release.mjs已声明linux-x64官方Node校验值，CI的ubuntu-latest及Docker默认目标包含该架构；现有真实运行证据仅arm64。当前Docker desktop-linux builder实际列出linux/amd64能力，因此以现有脚本构建并验证Linux x64发行，不需要新增平台接口或改架构。S3限目标架构的发行/原生依赖：在linux/amd64镜像运行真实process.arch、SQLite/CLI生命周期、固定DSH回合、SDK安装调用及TLS入口；独立归档在不含源码的干净amd64基础镜像解压，仅随包Node/CLI重复必要安装验证，采用原有linux-smoke脚本，不再跑未变全套测试或systemd/原生UI/跨OS迁移矩阵。
+
+构建使用现有Dockerfile与prepare-release/release-archive，独立容器目录产出，禁止覆盖Mac build/portable、app/DMG及Linux arm64最终包。新产物放build/p6-linux-x64并复制归档至build/artifacts，证据/实际命令/架构/哈希/清理放build/p6-linux-x64-evidence。无真实秘密，运行验证network=none/nonroot/不映射端口，临时TLS信任仅测试进程；构建下载允许正常网络。若出现具体架构缺陷先记录根因与必要范围，普通构建/依赖问题自主解决；不升级依赖/改schema或宽化权限。保留失败日志及仿真限制，不将Docker模拟执行声称为原生x64 VPS实测。新独立验收后root同步安装/状态文档及本地提交，不push/发布。
+
+## Linux x64 Implementation Report
+
+validate_linux_x64完整报告已读取。无生产源码、依赖、文档或Git/index修改，只新增被忽略的build/p6-linux-x64、build/p6-linux-x64-evidence及build/artifacts同名x64归档/校验文件；未覆盖Mac/arm64产物。用户同时明确真实服务“暂未配置，先保留待验项”。
+
+S3限目标架构。实际docker build --platform linux/amd64 -f infra/docker/Dockerfile -t bigfatfish:p6-linux-x64-local成功，包含Node类型编译和Web构建；官方Node x64归档固定SHA855d581f8a4eb1a8117e3426de25fe02770592febcfb31369aee1ffbfee9e8ec核对通过。实际process.platform=linux、arch=x64、uname=x86_64、UID1000、Node24.20.0，node:sqlite创建/写入/读取成功（SQLite3.53.4）。
+
+镜像network=none/无端口映射完成Runtime启停、目录0700/连接0600、Web默认未配置；外部示例SDK打包/安装/授权调用/缺权和停用拒绝；固定真实DSH0.2.2-alpha.2调用工具并消费返回值；TLS首页/资源、未登录和错密401、缺CSRF403、Cookie属性、同Runtime代理、退出撤销。模型仅本地协议夹具，没有云服务或模型鉴权声明，管理TLS认证实际有验证。
+
+独立amd64发行容器按原脚本生成归档，再于干净amd64基础镜像实际解压到/tmp/安装 包，无/app源码，PATH=/usr/bin:/bin，仅随包Node/CLI同样通过，并实际调用shell CLI入口。七项关键资源与镜像一致，process.js SHA0bded493b27c3d42f0cc1ad4efa48887a08b3e575441b64802ab6f9050b6b2d8包含cd106de停机修复。原生库存中目标模块为x64 ELF；node-pty包自带其他平台预编译文件，仅记录库存，不声称所有模块均已调用。
+
+最终image ID sha256:4587641260cc86cce6f50320ef7707f16b43d84607253d724dbd6bdbeb440d5e，tag bigfatfish:p6-linux-x64-local；归档build/p6-linux-x64/BigFatFish-0.1.0-linux-x64.tar.gz，182984198字节，SHA256 8e0b3cf85896c54533ec91530b1b730caabd867c886c85dc04082c164c232e1d，build/artifacts同名副本一致。完整证据build/p6-linux-x64-evidence/evidence.json、image/portable/native-inventory/commands及三阶段日志，避免全文读release依赖清单。
+
+构建/运行无失败。发行容器继承Runtime healthcheck而实际运行打包命令，期间unhealthy不等同Runtime失败；检查结果按真实命令exit0记录。三个owned容器/匿名卷及库存--rm容器已清理，Runtime/DSH/Web/模型、临时鱼和宿主工作目录/TLS私钥删除，仅保留最终产物/无秘密证据。未重复全套测试/Lint/systemd/更新/迁移/UI。范围为arm64 Mac上Docker amd64模拟运行，不是原生x64 VPS；Windows/账号/云/正式发行仍保留。无剩余实施问题，交新的独立验收。
+
+新accept_linux_x64完整PASS已读取，独立审阅构建/运行/归档隔离与证据，并只读核对六源/一个编译资源hash、两归档大小/校验文件、元数据、镜像和清理；未重复构建/测试/完整归档hash。无直接相关问题，详见Acceptance最新报告。root同步安装/状态/路线/交接并按既有授权本地提交本轮交付记录。

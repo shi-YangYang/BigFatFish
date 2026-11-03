@@ -73,3 +73,5 @@ SDK 源码在 `plugins/sdk/`，示例在 `examples/hello-fish/`，无独立 npm 
 P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm64镜像和独立归档的SDK/真实DSH工具/TLS入口已在非root隔离容器实跑并获新独立PASS，未重新覆盖裸机/x64或P6完整维护矩阵。该轮证据见Spec009 Plan与本机build/p7-evidence。
 
 后续Mac↔Linux arm64迁移发现并修复共用CLI stop提前成功：连接消失不足以证明停机，现等待实例锁释放并在锁内复核身份；维护操作仍独立取锁。新产物完成无绕行的直接备份/恢复、DSH续聊和记忆/凭据/恢复失权验证，经新的独立验收PASS。当前Mac portable/app/DMG及Linux归档/镜像均已同步，最终路径与哈希见Spec008 Plan和本机build/p6-stop-rework/evidence.json；之前产物哈希保留为历史，Windows/真实云账号/跨schema限制不变。
+
+Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或依赖修改；本机Docker amd64模拟环境已实际运行x64 Node/SQLite/Runtime/DSH/SDK/TLS，独立包脱离源码目录仅用随包Node通过，新独立验收PASS。产物build/p6-linux-x64及build/artifacts同名linux-x64归档，命令/哈希/环境与清理见Spec008 Plan和build/p6-linux-x64-evidence/evidence.json。Mac/arm64既有产物未覆盖，原生x64 VPS、Windows和真实云账号仍未验证；用户已要求真实服务先保留待验项。

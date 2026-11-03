@@ -2,6 +2,41 @@
 
 ## Result
 
+PASS。新独立验收者accept_linux_x64完整报告已处理。Linux x64发行补充满足本轮范围，无直接相关返工；不是完整P6或全产品完成。此前停机修复及P6历史验收保留如下。
+
+## Spec Coverage
+
+- 原Dockerfile与发行脚本实际生成linux/amd64镜像及linux-x64归档，无生产源码或依赖变更。运行报告证明linux/x64、uname x86_64、UID1000、Node24.20.0、SQLite3.53.4及数据库写入/查询、Runtime启停。
+- SDK打包/安装/拒权/调用/停用、真实固定DSH工具续答及结果消费、TLS首页/资源/登录/401/403/Cookie/同Runtime代理/退出撤销都有对应断言与执行记录。
+- 实际归档解压到/tmp/安装 包，干净容器无/app，受限PATH下使用随包Node/CLI；镜像与归档七项资源hash一致，包含已验收停机修复。
+- 产物路径隔离，未覆盖Mac/arm64产物，临时资源清理符合范围。
+
+## Validation
+
+- Risk Level: S3，限目标架构发行与运行。
+- 独立审阅治理、Spec/Plan/实施报告/历史验收/Decision008、Dockerfile、发行/运行脚本、模型夹具、命令、构建日志、两份运行报告及原生模块库存。
+- 实际只读核对六个源文件和编译process.js哈希，均与build/p6-linux-x64-evidence/evidence.json一致；两份归档均182984198字节，校验文件与报告一致，元数据目标linux-x64。
+- 实际核对Docker镜像ID/amd64/普通用户/无声明端口、临时目录已删除和任务容器为空。首次Docker模板读取缺失ExposedPorts字段失败，改读JSON确认空值，不是产品故障。
+- 未重跑构建、测试、Lint、完整归档哈希或其他平台矩阵，未修改文件/Git/index。
+
+## Issues
+
+无直接相关未解决问题。
+
+## Regression Risks
+
+arm64 Mac上的Docker amd64模拟执行不能证明原生x64 VPS实测。模型是本地协议夹具，不是云服务/模型鉴权证据；原生模块库存不等于逐个调用。Windows、真实平台账号、正式签名发布及其他未覆盖矩阵仍保留。
+
+## Required Rework
+
+无。root同步安装/实际状态/验收记录并按既有授权本地提交；无push/发布授权。
+
+---
+
+# Stop Completion and Cross-OS Migration Acceptance
+
+## Result
+
 PASS。新的独立验收者accept_stop_migration完整报告已读取，覆盖跨系统迁移及其发现的共用CLI stop完成判定修复。没有与本轮直接相关的未解决问题；此前三项P6返工PASS及首轮FAIL历史保留如下。
 
 ## Spec Coverage

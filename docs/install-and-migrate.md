@@ -18,6 +18,8 @@ macOS 将 `.app` 放入用户 Applications，Windows 运行对应安装器。首
 
 ## CLI 与 Linux 无界面运行
 
+本地已生成Linux arm64和x64独立归档，分别为`build/artifacts/BigFatFish-0.1.0-linux-arm64.tar.gz`和`build/artifacts/BigFatFish-0.1.0-linux-x64.tar.gz`，旁有SHA256校验文件。选择与目标系统架构一致的包。两者均有非root容器运行证据；x64在arm64 Mac的Docker amd64模拟环境验证，尚无原生x64 VPS实测。当前没有正式发布下载地址。
+
 解压独立发行目录到 `~/.local/opt/bigfatfish`，入口为 `bin/bigfatfish` 和 `bin/bigfatfishd`，二者使用随包 Node，不依赖系统 Node 或开发 shell PATH。Windows portable 入口为对应 `.cmd`。
 
 ```sh
