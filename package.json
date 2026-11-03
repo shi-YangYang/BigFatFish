@@ -20,8 +20,9 @@
     "cli": "node dist/cli/src/main.js",
     "runtime": "node dist/runtime/src/main.js",
     "desktop:dev": "cd apps/desktop && tauri dev",
-    "desktop:build": "cd apps/desktop && tauri build --no-bundle",
-    "frontend:dev": "vite --config apps/desktop/vite.config.ts"
+    "desktop:build": "npm run release:prepare && cd apps/desktop && tauri build",
+    "frontend:dev": "vite --config apps/desktop/vite.config.ts",
+    "release:prepare": "npm run build:node && node scripts/prepare-release.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-alpha.2",
@@ -33,6 +34,7 @@
     "qrcode": "1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "tar": "7.5.22",
     "ws": "8.22.1"
   },
   "devDependencies": {

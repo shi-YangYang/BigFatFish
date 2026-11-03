@@ -12,13 +12,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24.20.0
           cache: npm
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run build:desktop
+      - run: npm run release:prepare
+      - run: node scripts/release-archive.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable-${{ matrix.os }}
+          path: build/artifacts/*
   desktop:
     strategy:
       matrix:
@@ -28,11 +34,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24.20.0
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npm run desktop:build
+      - if: runner.os == 'macOS'
+        run: node scripts/desktop-update-archive.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/**/*.dmg
+            apps/desktop/src-tauri/target/release/bundle/**/*.msi
+            apps/desktop/src-tauri/target/release/bundle/**/*.exe
+            build/portable/release.json
+            build/artifacts/*.app.tar.gz*
   linux-container:
     runs-on: ubuntu-latest
     steps:

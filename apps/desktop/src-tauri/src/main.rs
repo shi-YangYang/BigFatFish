@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod connection_security;
+mod desktop;
+mod updater;
+use tauri::Manager;
 use serde::Deserialize;
 use std::{path::PathBuf, time::Duration};
 
@@ -8,6 +11,7 @@ use std::{path::PathBuf, time::Duration};
 struct Connection { version: u8, port: u16, token: String, instance_id: String }
 
 fn data_dir() -> Result<PathBuf, String> {
+    if let Some(path)=desktop::SELECTED.lock().map_err(|_|"SETTINGS_UNAVAILABLE")?.clone(){return Ok(path);}
     if let Ok(path) = std::env::var("BIGFATFISH_DATA_DIR") {
         if path.trim().is_empty() { return Err("INVALID_CONNECTION".into()); }
         return Ok(PathBuf::from(path));
@@ -69,6 +73,32 @@ async fn runtime_request(route: String, method: String, body: Option<serde_json:
     if !success { return Err(value["error"].as_str().unwrap_or("UNAVAILABLE").to_string()); }
     Ok(value)
 }
+fn initialize_tls() {
+    // The updater enables reqwest/rustls-no-provider. Management HTTP is created
+    // before the first update check, so initialize the shared provider at startup.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
 fn main() {
-    tauri::Builder::default().invoke_handler(tauri::generate_handler![runtime_status, runtime_request]).run(tauri::generate_context!()).expect("desktop initialization failed");
+    initialize_tls();
+    tauri::Builder::default()
+      .plugin(tauri_plugin_updater::Builder::new().build())
+      .plugin(tauri_plugin_autostart::Builder::new().args(["--background"]).build())
+      .setup(desktop::setup)
+      .on_window_event(|window,event|{if let tauri::WindowEvent::CloseRequested{api,..}=event{
+        api.prevent_close();
+        if desktop::settings(window.app_handle()).map(|s|s.background).unwrap_or(true){let _=window.hide();}
+        else{let app=window.app_handle().clone();tauri::async_runtime::spawn_blocking(move||{if desktop::cli(&app,vec!["stop".into()],serde_json::json!({})).is_ok(){desktop::ALLOW_EXIT.store(true,std::sync::atomic::Ordering::SeqCst);app.exit(0);}});}
+      }})
+      .invoke_handler(tauri::generate_handler![runtime_status, runtime_request, desktop::desktop_settings, desktop::desktop_configure, desktop::desktop_maintenance, updater::desktop_update_trust, updater::desktop_update, updater::desktop_update_file, updater::desktop_restart]).build(tauri::generate_context!()).expect("desktop initialization failed")
+      .run(|app,event| { if let tauri::RunEvent::ExitRequested { api,.. }=&event {if !desktop::ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst){api.prevent_exit();let app=app.clone();tauri::async_runtime::spawn_blocking(move||{if desktop::cli(&app,vec!["stop".into()],serde_json::json!({})).is_ok(){desktop::ALLOW_EXIT.store(true,std::sync::atomic::Ordering::SeqCst);app.exit(0);}});}}
+      #[cfg(target_os="macos")] if let tauri::RunEvent::Reopen {..}=event {if let Some(w)=app.get_webview_window("main"){let _=w.show();let _=w.set_focus();}} });
+}
+
+#[cfg(test)]
+mod client_tests {
+ #[test]
+ fn management_client_can_initialize_before_first_update_check(){
+   super::initialize_tls();
+   tauri::async_runtime::block_on(async { assert!(reqwest::Client::builder().no_proxy().build().is_ok()); });
+ }
 }

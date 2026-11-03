@@ -16,8 +16,8 @@ DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。P0/P1已�
 | `apps/desktop/src-tauri/src/` | Rust 桌面外壳与本机进程连接；窗口关闭与停止 Runtime 分离 |
 | `plugins/` | 随项目维护的平台与能力插件源码，不是用户安装插件的数据目录 |
 | `services/` | 按需接入的 Python 等独立辅助服务 |
-| `infra/docker/`、`infra/systemd/` | Docker 已有基础运行镜像；systemd 在 P6 实施 |
-| `scripts/` | Runtime 构建资源复制与真实 CLI smoke |
+| `infra/docker/`、`infra/systemd/` | 非 root Docker/Compose 与 systemd 用户服务；P6 已有隔离 Linux 实例运行证据，本地代码返工独立PASS |
+| `scripts/` | Runtime 资源复制、CLI smoke、独立发行包与桌面更新归档生成 |
 | `tests/integration/`、`tests/e2e/` | Vitest 跨模块集成与后续端到端测试；局部单元测试随模块放置 |
 | `docs/` | 上游研究、开发者详细文档和 docs/progress 连续记录；最新全阶段任务指定的产品原稿及 ROADMAP/CHANGELOG/ARCHITECTURE/CONTRIBUTING/SECURITY/IMPLEMENTATION_STATUS 位于根目录 |
 | `constitution/`、`specs/`、`.ai/` | 项目约束、规格与 Agent 协作治理，遵守根 AGENTS.md |
@@ -58,3 +58,9 @@ AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime
 运行命令以根 package.json 和 README 为准，模型/人格/会话及记忆/生活用法见docs/ai-core.md，QQ用法见docs/qq.md，B站用法见docs/bilibili.md，抖音/活动/调度见docs/douyin.md。P1经真实DSH、CLI、桌面与Linux镜像验证；P2记忆与P3 schema4/channels/内置QQ插件及审批的本机路径和返工已独立PASS。P4新增schema5视频任务、Runtime bilibili模块及固定whale插件依赖闭包；qrcode1.5.4由根管理，ffmpeg为明确外部依赖，统一DSH接受有界图像，本机检查与独立代码验收通过。
 
 P5新增schema6活动/请求映射/计划、共用permissions审批、douyin浏览器/MCP与ai/media。根管理playwright-core1.58.2，Python辅助服务在services/douyin，固定依赖/完整锁定清单与独立venv步骤见使用文档；实际浏览器由Runtime拥有，Python严格CDP复用。ASR用统一配置的OpenAI兼容转写接口，TTS尚待P7。核心本机链路、headless React和原生Mac操作已有证据；本地代码返工已独立PASS。HTTP重定向/Worker按实际target归属检查，未知WS/WSS由启动前本机拒绝代理拦截；专用浏览器HTTP/HTTPS直连、不继承系统代理。DM/分享/上传发布wire未确认而拒绝，部分实现。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。
+
+P6 实施完成，本地代码返工独立PASS。`maintenance/` 统一一致快照、选择性逻辑归档、凭据加密、恢复与更新 journal；CLI 和桌面调用同一核心。固定锁在 runtime 分区，更新保留旧程序与数据；macOS 首次启动失败后使用显式人工回退。安装与迁移说明见 [docs/install-and-migrate.md](../docs/install-and-migrate.md)。
+
+发行包固定官方 Node 24.20.0，按目标系统校验并安装生产依赖；构建暂存 manifest 不构成源码分包。`npm run release:prepare` 生成 portable 资源，`npm run desktop:build` 准备资源后执行 Tauri 真实 bundle；`desktop:dev` 前也须准备资源。Rust 最低 1.90，autostart 2.7.0、updater 2.14.1；桌面采用官方 Minisign 与签名版本绑定，portable 使用 Ed25519 签名清单，均无默认测试信任源。根 tar 7.5.22 用于受限解包。
+
+Mac 已有 ad-hoc app/DMG 安装与实际升级/人工回退，Linux arm64 portable、Docker/Compose/systemd 已有运行证据；Windows 构建及实机、正式签名公证与发布、跨 schema 升级、实际注销/重启仍未验证。现有 schema 仍为 6，本地代码验收不等同完整跨平台交付。

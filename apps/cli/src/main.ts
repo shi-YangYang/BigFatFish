@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { updateCommand } from './update.js';
+import { maintenanceCommand } from './maintenance.js';
 import { activityCommand } from './activities.js';
 import { bilibiliCommand } from './bilibili.js';
 import { channelCommand } from './channels.js';
@@ -15,16 +17,20 @@ try {
   const options = parseOptions(process.argv.slice(2));
   json = options.json;
   if (options.help || !options.command) {
-    console.log('bigfatfish <start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks|channels|permissions|bilibili|douyin|activities|schedules> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
+    console.log('bigfatfish <update|onboard|config|backup|start|stop|restart|status|logs|doctor|models|routes|persona|sessions|chat|cancel|life|memories|diaries|memory-tasks|channels|permissions|bilibili|douyin|activities|schedules> [--data-dir PATH] [--port PORT] [--lines 1..200] [--json]');
   } else {
+    const update=options.command==='update';
+    const maintenance=['backup','onboard','config'].includes(options.command);
     const activity=['douyin','activities','schedules'].includes(options.command);
     const bili=options.command==='bilibili';
     const channel = ['channels','permissions'].includes(options.command);
     const life = ['life','memories','diaries','memory-tasks'].includes(options.command);
     const ai = ['models','routes','persona','sessions','chat','cancel'].includes(options.command);
-    if (!activity && !bili && !ai && !life && !channel && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
+    if (!update && !maintenance && !activity && !bili && !ai && !life && !channel && options.positionals.length !== 1) throw new Error('INVALID_ARGUMENTS');
     const p = paths(dataRoot(options['data-dir']));
-    if(activity)await activityCommand(p,options.positionals,output);
+    if(update)output(await updateCommand(p,options.positionals));
+    else if(maintenance)output(await maintenanceCommand(p,options.positionals));
+    else if(activity)await activityCommand(p,options.positionals,output);
     else if(bili)await bilibiliCommand(p,options.positionals,output);
     else if (channel) await channelCommand(p,options.positionals,output);
     else if (life) await lifeCommand(p, options.positionals, output);

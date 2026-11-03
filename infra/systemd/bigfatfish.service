@@ -1,0 +1,20 @@
+[Unit]
+Description=BigFatFish personal AI runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/opt/bigfatfish/bin/bigfatfishd
+Environment=NODE_ENV=production
+EnvironmentFile=-%h/.config/bigfatfish/service.env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

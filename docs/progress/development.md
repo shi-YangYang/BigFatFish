@@ -104,3 +104,14 @@
 - rework_p5_worker完整报告已入Plan：Dedicated/嵌套/Shared HTTP归属、普通读取和受限请求、生命周期/取消共4项直接检查与build/type/lint通过。新accept_p5_worker确认HTTP修复，但用生产BrowserManager+本地WS实证Dedicated/Shared在read无gate时各发1条消息，Page同类0；完整FAIL入Acceptance，创建新rework_p5_worker_ws修同一未知WS拒绝边界，P5不提交。
 
 - rework_p5_worker_ws完整报告及新独立accept_p5_worker_ws PASS已读取并落盘：启动前拒绝代理拦截WS/WSS且无直连后备，Worker16尝试目标TCP/握手/消息0，正常HTTP16次；9项直接检查、Node/type/lint通过，公开官方镜像HTTPS 200/TLS1.3。最终验收核对源码与实际日志未发现疑点，未重复测试。root同步全局状态，准备按授权本地提交P5可验收代码；协议未完成/真实账号/其他系统缺口保留，随后继续P6。
+
+## P5本地提交与P6实施
+
+- P5在dev本地提交e9b080b，75文件，8203新增/98删除；未来Decision008与Spec008/009未夹带，未push。提交后index空，远端/PR未刷新核实。完整本地返工已独立PASS，未完成协议与外部证据仍明确保留。
+- Spec008/Decision008已进入实施，新implement_p6串行完成独立安装、备份恢复、后台/托盘、Linux部署与可信更新；用户无Windows、签名/发布条件尚缺，先完成可审阅本机/Linux产物。具体资源解析和数据保护边界已写入Plan/Handoff。
+- P6实施进度（尚未独立验收）：实施者报告真实DSH聊天→选择性备份/加密凭据→新目录恢复→续聊包含旧记录；错误口令/路径/过新schema原数据保持。已生成macOS .app/DMG并从安装副本完成原生向导、模型配置、实际DSH聊天；关闭窗口后受限PATH的CLI确认后台Runtime存活。Docker已构建，持久卷/systemd/更新验证继续。协调阅读发现并已交实施者补足模型路由/活动去重迁移及更新中断/数据兼容保护；不能提前将这些进度写成阶段PASS。
+- 后续直接证据：Docker非root健康、人格持久卷重启保持；专用PID1容器的systemd用户服务启动/认证访问/重启/停止通过。实际portable内置Node与受限PATH完成0.1.0→0.1.1→回滚0.1.0并保持人格，演练发现tar链接策略冲突后已修正。10003条迁移历史测试取最新100，明确省略数量且当前请求不重复。macOS更新仍在验证：默认Quit路径已修正并实际退出停服；测试LaunchAgent `/Users/yang/Library/LaunchAgents/BigFatFish.plist`已删除。界面等待根因定位为updater启用reqwest/rustls-no-provider后管理API Client构建panic，实施者正在应用入口注册一致ring provider后复验；早先IPC刷新/后台节流只是假设，未据此改CSP或异步模型。未进入独立验收，未提交P6。
+- P6实施报告已完整读取并整理入Plan008，业务冻结，进入新独立验收。最终原生Mac实际安装0.1.0→签名候选0.1.1→重启续聊→缺失Node失败保持原库→人工回退0.1.0并恢复4条原消息，失败版本6条保存在failedData。应用内确认替代WebView不可用的confirm，TLS provider和AppleDouble归档根问题已修复并实际复验。产物保留，任务应用/测试信任/临时数据及服务已清理；Windows、正式签名/发行、跨schema和实际注销重启仍未验证。Git仍dev/e9b080b，无P6提交，Spec009草稿不纳入P6。
+- 新accept_p6完整FAIL已处理并记录：HTTPS清单内HTTP包地址仍会被底层库下载（签名未绕过）；交互config无条件等待stdin EOF；Windows更新测试与明确拒绝portable安装的生产规则矛盾。创建新实施者按rework.md定向修复并更新受影响产物，再由新的验收者复核；不将外部Windows环境缺失当作这三项代码缺陷的解释，不提交未验收P6。
+- rework_p6完整报告已读取入Plan：三项修复完成，Node4过/Windows专用1跳过、Rust2过/HTTP请求0；最终DMG与Mac/Linux portable重建，三处内置CLI stdin保持打开均exit0。实际产物hash和源码/二进制对应证据在build/p6-rework，旧0.1.1候选明确为返工前证据。自有资源已清理，业务重新冻结，交新accept_p6_rework只读独立验收。
+- 新accept_p6_rework完整PASS已处理入Acceptance：源码/证据hash对应，三个缺陷均正确层修复且未放宽保护；未重复已过检查。root更新阶段状态并准备按授权本地提交P6，未来Decision009/Spec009排除，随后进入P7；完整跨平台/正式发行仍未完成。

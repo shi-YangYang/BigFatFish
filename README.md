@@ -6,9 +6,11 @@ BigFatFish 通过同一个独立 Runtime 提供桌面、命令行和无界面服
 
 ## 当前状态
 
-已具备本地 Runtime、后台进程管理 CLI、SQLite 存储和 React/Tauri 桌面入口，以及 DSH 驱动的模型配置、人格、会话和流式聊天。长期记忆、日记和养成主页、QQ 与 B站的本机路径已通过独立代码验收。抖音双上游、专用浏览器、观看理解和统一活动调度已通过本地代码验收及原生 macOS 操作。私信、分享、投稿的网络协议尚未完成，当前不可执行。真实平台账号和正式安装包仍有待完成项。桌面目前需要先通过 CLI 启动服务，关闭窗口不会停止服务。
+已具备统一 Runtime、CLI、DSH 聊天、人格、长期记忆、日记和养成主页。QQ、B站及抖音的本机代码路径已通过独立验收；抖音私信、分享、投稿的发送协议尚未完成，当前不可执行。真实平台账号和云模型仍有待验证。
 
-开发运行依赖 Node.js 24.9 或更新的 Node 24；桌面原生编译还需要 Rust 与对应系统的 Tauri 构建环境。尚未提供内置 Node 的独立安装包。各平台的实际验证范围见 [实现状态](IMPLEMENTATION_STATUS.md)，CI 配置不等于已经执行的跨平台验证。
+P6 本地代码及三项返工已通过独立验收：已生成内置 Node 的 macOS 安装包和独立 CLI，完成本机安装、向导、后台运行、备份恢复及 Linux Docker/systemd 实跑。原生更新已实际从 0.1.0 安装并重启至 0.1.1，再人工回退旧应用与原数据。安装后的用户不需要开发工具；具体步骤见 [安装、运行与迁移](docs/install-and-migrate.md)。本地 macOS 产物使用 ad-hoc 签名，尚无正式签名、公证或发行；Windows 安装未实测。
+
+源码开发需要 Node.js 24.9 或更新的 Node 24；发行准备使用固定 Node 24.20.0，原生编译需要 Rust 1.90+ 与对应系统的 Tauri 构建环境。各平台的证据见 [实现状态](IMPLEMENTATION_STATUS.md)，CI 配置不等于已执行验证。
 
 ## 快速开始
 
@@ -55,9 +57,10 @@ npm run cli -- stop --data-dir .local/bigfatfish
 
 ### 桌面开发
 
-先启动 Runtime，然后运行：
+准备独立运行资源后启动开发桌面；已有同目录 Runtime 会复用：
 
 ```bash
+npm run release:prepare
 npm run desktop:dev
 ```
 
@@ -83,7 +86,7 @@ docker build -f infra/docker/Dockerfile -t bigfatfish:local .
 docker run --rm bigfatfish:local node scripts/smoke.mjs
 ```
 
-测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 生成原生可执行文件，不执行签名或安装包发布。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器的 loopback 内；可通过容器中的 CLI 操作，后续部署与备份方案见路线。
+测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 准备独立资源并生成本机安装包；macOS 使用本地 ad-hoc 签名，不执行公证或发布。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器 loopback 内；Compose 持久卷、systemd 用户服务及备份操作见 [安装指南](docs/install-and-migrate.md)。
 
 ## 目录
 
@@ -91,8 +94,8 @@ docker run --rm bigfatfish:local node scripts/smoke.mjs
 - `apps/cli/src/`：命令行与后台进程连接。
 - `apps/desktop/`：React 界面与 `src-tauri/` 原生宿主。
 - `tests/`、`scripts/`：集成验证与实际运行检查。
-- `infra/`：Docker 及后续 systemd 部署。
-- `plugins/`、`services/`：后续平台插件与辅助服务。
+- `infra/`：Docker/Compose 与 systemd 部署。
+- `plugins/`、`services/`：平台插件源码与 Python 等辅助服务。
 - `constitution/`、`specs/`、`.ai/`：项目约束、规格与协作治理。
 
 JavaScript 工程使用单根依赖清单和锁文件，源码按职责组织为普通模块，不建立独立公共包。

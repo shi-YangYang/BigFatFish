@@ -31,4 +31,10 @@
 - 复用固定LockyBee采样算法与kdcadmin实际Python FastMCP，实现专用浏览器、统一ASR/DSH理解、抖音读取/观看/互动审批、任务历史和B站/抖音统一定时及自主发现。
 - 提取按插件隔离的共用ApprovalStore，保持QQ隐私发送门；增加抖音最终网络授权检查、崩溃清理、全历史观看去重与请求别名。提供CLI、桌面页面及Home活动联动；P5本地代码及原生Mac路径通过独立验收。修复实际请求绑定/重定向、稳定对象/收据、ASR中文与Worker HTTP/WS边界；私信/分享/投稿协议仍未完成并拒绝外发。
 
-当前尚无正式安装包；真实平台账号、云模型与Windows证据未齐，完整阶段状态见 [实现状态](IMPLEMENTATION_STATUS.md)。
+- P6实现内置固定Node/生产资源的独立发行、Tauri向导/后台/托盘/登录启动、Linux CLI/Headless、非root Docker/Compose与systemd用户服务；本机DMG与Linux运行已有实证，本地代码返工已独立验收PASS。
+- 实现选择性一致逻辑备份、口令加密凭据、暂存恢复/中断保护、旧数据保留与DSH近期上下文重建；恢复后暂停活动并失效旧审批，完整历史仍保留。
+- 实现portable签名更新与程序/数据回滚，Tauri官方签名及版本绑定、真实数据副本预检和旧应用/数据保留；两种实际0.1.0→0.1.1→回退链有证据，原生首次启动失败使用显式人工回退。
+- 原生演练修复TLS provider初始化panic导致异步响应丢失、退出菜单未停服、WebView确认未触发及AppleDouble更新归档问题；测试信任和自有运行资源已清理，P6本地代码返工已获新独立PASS。
+- P6独立验收后修复实际更新包HTTP降级、config交互等待EOF和Windows portable测试契约；定向回归通过，最终Mac/Linux产物重建并验证内置CLI，旧0.1.1候选保留为历史证据。
+
+已生成本地测试安装产物，尚无正式签名、公证或发布版本；真实平台账号、云模型与Windows证据未齐，完整阶段状态见 [实现状态](IMPLEMENTATION_STATUS.md)。

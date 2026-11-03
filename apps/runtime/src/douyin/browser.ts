@@ -7,7 +7,7 @@ import { WriteGate } from './write-gate.js';
 import { RedirectGuard, requestPolicy } from './redirects.js';
 import { InputError } from '../ai/types.js';
 import type { DataPaths } from '../paths.js';
-export function asset(path:string){return fileURLToPath(new URL(`../../../../${path}`,import.meta.url));}
+export function asset(path:string){const base=import.meta.url.includes('/dist/runtime/')?'../../../':'../../../../';return fileURLToPath(new URL(`${base}${path}`,import.meta.url));}
 export interface BrowserConfig{enabled:boolean;executablePath:string;pythonPath:string;headless:boolean;accountId:string}
 export class BrowserManager{
  private child?:ChildProcess;private browser?:Browser;context?:BrowserContext;endpoint='';private startPromise?:Promise<void>;private tail:Promise<unknown>=Promise.resolve();private closing?:Promise<void>;

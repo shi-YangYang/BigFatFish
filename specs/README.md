@@ -18,3 +18,4 @@
 | [006 P4 B站](spec-006-p4-bilibili/spec.md) | 固定上游复用、观看/理解/记忆与经QQ审批分享 | [代码验收PASS](spec-006-p4-bilibili/acceptance.md)，真实账号验证单列 |
 
 - [Spec 007：P5 抖音与统一调度](spec-007-p5-douyin/spec.md)：[本地代码返工PASS](spec-007-p5-douyin/acceptance.md)；原生Mac已验证，未完成协议与外部缺口单列。
+- [Spec 008：P6 安装、运行与数据迁移](spec-008-p6-release/spec.md)：[本地代码返工PASS](spec-008-p6-release/acceptance.md)；Mac/Linux产物与迁移路径有证据，Windows和正式签名/发行未完成。

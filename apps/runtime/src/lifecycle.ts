@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Douyin } from './douyin/service.js';
 import { registerDouyin } from './douyin/routes.js';
 import { TaskQueue } from './tasks/queue.js';
@@ -5,6 +6,7 @@ import { Activities } from './tasks/service.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { preparePaths, assertRegular, privateFile, type DataPaths } from './paths.js';
+import { recoverMaintenance } from './maintenance/archive.js';
 import { acquireInstance } from './instance.js';
 import { openDatabase } from './storage/database.js';
 import { createLogger } from './logger.js';
@@ -86,7 +88,14 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       // Only the lock owner may replace connection metadata or open the application DB.
       assertRegular(p.connection);
       if (existsSync(p.connection)) unlinkSync(p.connection);
+      if(existsSync(join(p.runtime,'update-pending.json')))throw new Error('UPDATE_IN_PROGRESS');
+      const updateJournal=join(p.runtime,'update-journal.json');
+      if(existsSync(updateJournal)&&JSON.parse(readFileSync(updateJournal,'utf8')).phase!=='committed')throw new Error('UPDATE_IN_PROGRESS');
+      recoverMaintenance(p);
       db = openDatabase(p.database);
+      if(process.env.BIGFATFISH_MAINTENANCE_PROBE === '1') {
+        db.exec("INSERT OR REPLACE INTO settings VALUES('activities.paused','true'); UPDATE plugin_config SET config=json_set(config,'$.enabled',json('false')); UPDATE activity_schedules SET enabled=0; DELETE FROM approvals;");
+      }
       app = createServer(p, connection, onSignal);
       chat = new ChatService(db, p);
       await registerAi(app, chat);
