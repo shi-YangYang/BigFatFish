@@ -115,8 +115,8 @@ JavaScript 工程使用单根依赖清单和锁文件，源码按职责组织为
 
 项目采用 [MIT 许可证](LICENSE)。集成第三方代码前需单独核对其许可证与使用条件。
 
-「连接 → QQ」可准备原版组件并扫码登录，Mac/Linux 需已启动本机 Docker，Windows x64 使用独立组件；也可连接已有 NapCat。真实账号收发仍待验证。主人/群授权、媒体范围与审批用法见 [QQ 渠道](docs/qq.md)。
+「连接 → QQ」可准备原版组件并扫码登录，Mac/Linux 需已启动本机 Docker，Windows x64 使用独立组件；也可连接已有 NapCat。真实账号收发仍待验证。唯一主人、多好友/群回复及直接发送用法见 [QQ 渠道](docs/qq.md)。
 
-B站的登录、观看、证据范围与 QQ 分享审批见 [B站使用说明](docs/bilibili.md)。
+B站的登录、观看、证据范围与 QQ 直接分享见 [B站使用说明](docs/bilibili.md)。
 
 抖音专用浏览器、依赖安装、互动审批与统一自主/定时活动见 [抖音与调度使用说明](docs/douyin.md)。

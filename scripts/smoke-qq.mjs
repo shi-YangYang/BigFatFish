@@ -11,12 +11,12 @@ try{
  await cli(['start']);await cli(['models','set'],{id:'test',label:'本地测试模型',provider:'openai',baseURL:model.url,model:'fixture-model',contextWindow:32768,maxTokens:1024,timeoutMs:20000,vision:false});await cli(['routes','set'],{chat:'test'});
  const status=await cli(['channels','status']);await cli(['channels','configure'],{revision:status.revision,url:bot.url,token:bot.controls.token,accountId:'10001',ownerId:'20002',groups:['30003'],enabled:true,replyEnabled:true,proactiveEnabled:true});
  for(let i=0;i<40;i++){if((await cli(['channels','status'])).health.state==='online')break;await delay(100);}
- const approval=await cli(['permissions','propose'],{target:{kind:'private',id:'20002'},segments:[{type:'text',data:{text:'桌面审批测试消息'}}]});
+ const sent=await cli(['channels','send'],{target:{kind:'private',id:'20002'},segments:[{type:'text',data:{text:'直接发送测试消息'}}]});
  if(process.argv.includes('--desktop')){
-  writeFileSync('/tmp/bff-p3-smoke.json',JSON.stringify({root,approvalId:approval.id}));console.log(JSON.stringify({root,status:'ready-for-desktop',approvalId:approval.id}));
+  writeFileSync('/tmp/bff-p3-smoke.json',JSON.stringify({root,deliveryId:sent.id}));console.log(JSON.stringify({root,status:'ready-for-desktop',deliveryId:sent.id}));
   await new Promise(resolve=>{process.once('SIGTERM',resolve);process.once('SIGINT',resolve);});
  }else{
-  await cli(['permissions','decide',approval.id],{decision:'approve',digest:approval.digest});await delay(200);if((await cli(['permissions','list'])).find(a=>a.id===approval.id)?.status!=='sent')throw new Error('APPROVAL_NOT_SENT');
-  await cli(['channels','stop']);if((await cli(['channels','status'])).health.state!=='stopped')throw new Error('NOT_STOPPED');console.log('PASS: built CLI/Runtime/plugin configure, health, approval, send, stop');
+  if(sent.status!=='sent'||!(await cli(['channels','deliveries'])).some(item=>item.id===sent.id&&item.status==='sent'))throw new Error('MESSAGE_NOT_SENT');
+  await cli(['channels','stop']);if((await cli(['channels','status'])).health.state!=='stopped')throw new Error('NOT_STOPPED');console.log('PASS: built CLI/Runtime/plugin configure, health, direct send, stop');
  }
 }finally{await cli(['stop']).catch(()=>{});await bot.close();await model.close();rmSync(root,{recursive:true,force:true});}

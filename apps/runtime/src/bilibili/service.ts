@@ -67,6 +67,6 @@ export class Bilibili {
   }
   private state(id:string,status:string,result?:VideoTask['result'],error:string|null=null){this.db.prepare('UPDATE video_tasks SET status=?,result=COALESCE(?,result),error=? WHERE id=?').run(status,result?JSON.stringify(result):null,error,id);}
   cancel(id:string){this.task(id);this.operations.get(id)?.control.abort();return this.task(id);}
-  share(id:string,input:unknown){const task=this.task(id);if(!['completed','partial'].includes(task.status)||!task.result?.summary)throw new InputError('VIDEO_NOT_UNDERSTOOD',409);const b=object(input);if(!this.channels.status().config)throw new InputError('CHANNEL_NOT_CONFIGURED',409);const {evidence,summary}=task.result;return this.channels.propose({target:b.target,segments:[{type:'text',data:{text:`${evidence.title}\n${evidence.url}\n${summary}`}}]});}
+  share(id:string,input:unknown){const task=this.task(id);if(!['completed','partial'].includes(task.status)||!task.result?.summary)throw new InputError('VIDEO_NOT_UNDERSTOOD',409);const b=object(input);if(!this.channels.status().config)throw new InputError('CHANNEL_NOT_CONFIGURED',409);const {evidence,summary}=task.result;return this.channels.send({target:b.target,segments:[{type:'text',data:{text:`${evidence.title}\n${evidence.url}\n${summary}`}}]});}
   async close(){this.closing=true;await this.abort();this.qr?.dispose();}
 }

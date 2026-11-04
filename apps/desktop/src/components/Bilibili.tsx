@@ -340,10 +340,10 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
               disabled={busy || !target}
               onClick={() =>
                 void run(async () => {
-                  await api(`/v1/bilibili/tasks/${t.id}/share`, "POST", {
+                  const result=await api<{status:string}>(`/v1/bilibili/tasks/${t.id}/share`, "POST", {
                     target: { kind, id: target },
                   });
-                  setNotice("分享已提交审批，请打开右上角审批核对并批准。");
+                  setNotice(result.status==='sent'?"已分享到 QQ。":result.status==='unknown'?"发送结果未知，请在 QQ 核实，勿重复发送。":"分享未发送成功，请查看 QQ 消息记录。");
                 })
               }
             >

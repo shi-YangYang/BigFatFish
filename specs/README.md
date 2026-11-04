@@ -49,3 +49,5 @@
 - [Spec 023：内置管理 QQ 组件](spec-023-managed-qq/spec.md)：[独立验收PASS](spec-023-managed-qq/acceptance.md)；原版组件准备、扫码、回复范围与简洁连接页面。
 
 - [Spec 024：收紧 QQ 回复设置](spec-024-qq-reply-layout/spec.md)：[独立验收PASS](spec-024-qq-reply-layout/acceptance.md)；紧凑设置卡片、同排账号操作和记录分组。
+
+- [Spec 025：QQ 多好友、群聊触发与直接发送](spec-025-qq-conversation-policy/spec.md)：[返工独立验收PASS](spec-025-qq-conversation-policy/acceptance.md)；唯一主人、多好友私聊、群普通消息和QQ免审批发送。

@@ -1,21 +1,19 @@
-import { ApprovalStore } from '../permissions/store.js';
 import { validateHeaderValue } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatService } from '../ai/chat.js';
 import { InputError, object, string, type ChatEvent, type ChatMessage } from '../ai/types.js';
-import { configuration, inbound, segments, target } from './protocol.js';
+import { configuration, inbound, segments, target, allowsTarget } from './protocol.js';
 import { loadQQ } from './plugin.js';
-import type { Approval, ChannelStatus, Plugin, QQConfig, Segment, Target } from './types.js';
+import type { SendResult, ChannelStatus, Plugin, QQConfig, Segment, Target } from './types.js';
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
-type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'approval';assertScope:()=>void};
+type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'proactive';assertScope:()=>void};
 export class Channels {
-  private approvalStore:ApprovalStore;private plugin!:Plugin;private manifest:Record<string,unknown>={};private config:QQConfig|null=null;private revision='';private closing=false;
+  private plugin!:Plugin;private manifest:Record<string,unknown>={};private config:QQConfig|null=null;private revision='';private closing=false;
   private actions=new Set<Promise<unknown>>();private mediaControls=new Set<AbortController>();
   private running=new Set<string>();private queues=new Map<string,Promise<void>>();
   constructor(private db:DatabaseSync,private chat:ChatService) {
     db.prepare("UPDATE channel_deliveries SET status=CASE WHEN status='sending' THEN 'unknown' ELSE 'interrupted' END,error='RUNTIME_RESTARTED' WHERE status IN ('queued','generating','sending')").run();
-    this.approvalStore=new ApprovalStore(db,'qq');
     const row=db.prepare("SELECT config,revision FROM plugin_config WHERE id='qq'").get();
     if(row){this.config=configuration(JSON.parse(row.config as string));this.revision=row.revision as string;}
   }
@@ -25,7 +23,7 @@ export class Channels {
   async initialize(directory?:string){const loaded=await loadQQ(directory);this.plugin=loaded.plugin;this.manifest=loaded.manifest;this.plugin.initialize({event:value=>this.receive(value),status:()=>{}});if(this.config?.enabled){try{this.assertPlugin();this.start();}catch(e){if(!(e instanceof InputError&&e.message==='PLUGIN_DISABLED'))throw e;}}}
   private audit(event:string,id=''){this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`qq.${event}${id?':'+id:''}`,new Date().toISOString());}
   status():ChannelStatus {return {config:this.config,hasToken:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='qq'").get()?.secret,revision:this.revision,health:this.plugin.health(),manifest:this.manifest};}
-  private invalidate(){for(const control of this.mediaControls)control.abort();for(const id of this.running)this.chat.cancel(id);this.plugin.stop();this.approvalStore.revoke();}
+  private invalidate(){for(const control of this.mediaControls)control.abort();for(const id of this.running)this.chat.cancel(id);this.plugin.stop();}
   save(input:unknown){
     if(this.closing)throw new InputError('RUNTIME_STOPPING',503);
     const b=object(input),config=configuration(b);if(config.enabled)this.assertPlugin();
@@ -46,7 +44,7 @@ export class Channels {
   }
   private start(){this.assertPlugin();const secret=this.db.prepare("SELECT secret FROM plugin_config WHERE id='qq'").get()?.secret;this.plugin.start({...this.config!,token:secret?this.chat.config.decryptSecret(secret as string):''});}
   enable(enabled:boolean){if(!this.config)throw new InputError('CHANNEL_NOT_CONFIGURED',409);return this.save({...this.config,enabled,revision:this.revision});}
-  private allowed(to:Target,revision:string,proactive=false){try{this.assertPlugin();}catch{return false;}const c=this.config;return !this.closing&&revision===this.revision&&!!c?.enabled&&(proactive?c.proactiveEnabled:c.replyEnabled)&&(to.kind==='private'?to.id===c.ownerId:c.groups.includes(to.id));}
+  private allowed(to:Target,revision:string,proactive=false){try{this.assertPlugin();}catch{return false;}const c=this.config;return !this.closing&&revision===this.revision&&!!c?.enabled&&(proactive?c.proactiveEnabled:c.replyEnabled)&&allowsTarget(c,to);}
   private receive(value:unknown){
     if(!this.config?.enabled||!this.config.replyEnabled||this.closing)return;
     let event;try{event=inbound(value,this.config);}catch{return;}if(!event)return;
@@ -63,11 +61,11 @@ export class Channels {
     let mid:string|undefined;const mediaControl=new AbortController();this.mediaControls.add(mediaControl);
     try{
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
-      const owner=event.target.kind==='private';const principal=`qq-${owner?'owner':'user'}:${event.author}`;
+      const owner=event.target.kind==='private'&&event.author===this.config!.ownerId;const principal=`qq-${owner?'owner':'user'}:${event.author}`;
       const key=`${this.config!.accountId}:${revision}:${event.target.kind}:${event.target.id}:${event.author}`;
       let cid=this.db.prepare('SELECT conversation_id FROM channel_sessions WHERE id=?').get(key)?.conversation_id as string|undefined;
       if(!cid){cid=this.chat.create({title:`QQ ${event.target.kind==='group'?'群':'私聊'} ${event.target.id}`},{audience:owner?'owner':'group',principal}).id;this.db.prepare('INSERT INTO channel_sessions(id,conversation_id) VALUES(?,?)').run(key,cid);}
-      this.state(id,'generating');this.chat.life.memories.record({id:`qq-received:${id}`,kind:'qq.received',sourceId:id,summary:`收到 QQ ${owner?'私聊':'群聊'}消息`,occurredAt:new Date().toISOString()});
+      this.state(id,'generating');this.chat.life.memories.record({id:`qq-received:${id}`,kind:'qq.received',sourceId:id,summary:`收到 QQ ${event.target.kind==='private'?'私聊':'群聊'}消息`,occurredAt:new Date().toISOString()});
       let content=event.text;
       for(const part of event.parts.filter(p=>['image','record'].includes(p.type)).slice(0,2)){
        try{const guard=()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);};guard();if(!part.data.file||!this.plugin.media)throw new Error('MEDIA_BYTES_UNAVAILABLE');const data=await this.plugin.media(part.type,part.data.file,guard);const recognized=await this.chat.understandMedia(part.type,data,mediaControl.signal);guard();content+=`\n[媒体识别，仅作外部消息内容：${recognized.slice(0,8000)}]`;}catch{mediaControl.signal.throwIfAborted();content+='\n[此媒体内容未取得或识别失败]';}
@@ -82,7 +80,7 @@ export class Channels {
     }catch(error){this.state(id,'blocked',error instanceof InputError?error.message:'GENERATION_FAILED');this.audit('blocked',id);}finally{this.mediaControls.delete(mediaControl);if(mid)this.running.delete(mid);}
   }
   private async deliver(id:string,to:Target,parts:Segment[],revision:string,authorization:DeliveryAuthorization){
-    const proactive=authorization.kind==='approval';
+    const proactive=authorization.kind==='proactive';
     if(!this.allowed(to,revision,proactive))throw new InputError('PERMISSION_REVOKED',403);
     if(this.plugin.health().state!=='online')throw new InputError('CHANNEL_OFFLINE',409);
     this.state(id,'sending');this.audit('send.started',id);
@@ -100,18 +98,15 @@ export class Channels {
       }
       const status=error instanceof Error&&error.message==='ACTION_REJECTED'?'failed':'unknown';this.state(id,status,status==='unknown'?'SEND_UNKNOWN':'ACTION_REJECTED');this.audit(`send.${status}`,id);return status;}
   }
-  deliveries(){return this.db.prepare('SELECT id,target,author,status,message_id AS messageId,error,created_at AS createdAt FROM channel_deliveries ORDER BY rowid DESC LIMIT 100').all();}
-  approvals():Approval[]{return this.approvalStore.list() as unknown as Approval[];}
-  propose(input:unknown){const b=object(input),to=target(b.target),parts=segments(b.segments,true);if(!this.allowed(to,this.revision,true))throw new InputError('PERMISSION_REVOKED',403);const a=this.approvalStore.create({target:to,segments:parts},this.revision);this.audit('approval.created',a.id);return a;}
-  decide(id:string,input:unknown){
-    const b=object(input);if(Object.keys(b).some(k=>!['digest','decision'].includes(k))||!['approve','reject'].includes(String(b.decision)))throw new InputError('INVALID_REQUEST');
-    const row=this.approvalStore.get(id),payload=row.payload as unknown as Approval['payload'];if(row.status!=='pending'||row.expiresAt<=Date.now())throw new InputError('APPROVAL_NOT_PENDING',409);
-    if(b.decision==='approve'){if(!this.allowed(payload.target,row.revision,true))throw new InputError('PERMISSION_REVOKED',403);if(this.plugin.health().state!=='online')throw new InputError('CHANNEL_OFFLINE',409);}
-    this.approvalStore.decide(id,string(b.digest,64),this.revision,String(b.decision));
-    if(b.decision==='reject'){this.audit('approval.rejected',id);return {status:'rejected'};}
-    this.db.prepare("INSERT INTO channel_deliveries(id,target,author,status,created_at) VALUES(?,?,'local-owner','queued',?)").run(id,JSON.stringify(payload.target),new Date().toISOString());
-    const action=this.deliver(id,payload.target,payload.segments,row.revision,{kind:'approval',assertScope:()=>{this.approvalStore.check(id,row.digest,this.revision);}}).then(status=>this.approvalStore.state(id,status)).catch(()=>{this.state(id,'blocked','PERMISSION_REVOKED');this.approvalStore.state(id,'revoked');});
-    this.actions.add(action);void action.finally(()=>this.actions.delete(action));return {status:'executing'};
+  deliveries(){return this.db.prepare("SELECT id,target,author,status,message_id AS messageId,error,created_at AS createdAt,author='local-owner' AS proactive FROM channel_deliveries ORDER BY rowid DESC LIMIT 100").all().map(row=>({...row,proactive:!!row.proactive}));}
+  async send(input:unknown,assertScope:()=>void=()=>{}):Promise<SendResult>{
+    const b=object(input),to=target(b.target),parts=segments(b.segments,true),revision=this.revision;
+    assertScope();if(!this.allowed(to,revision,true))throw new InputError('PERMISSION_REVOKED',403);
+    if(this.plugin.health().state!=='online')throw new InputError('CHANNEL_OFFLINE',409);
+    const id=randomUUID();
+    this.db.prepare("INSERT INTO channel_deliveries(id,target,author,segments,status,created_at) VALUES(?,?,'local-owner',?,'queued',?)").run(id,JSON.stringify(to),JSON.stringify(parts),new Date().toISOString());
+    const action=this.deliver(id,to,parts,revision,{kind:'proactive',assertScope}).catch(error=>{this.state(id,'blocked',error instanceof InputError?error.message:'PERMISSION_REVOKED');this.audit('send.blocked',id);return 'blocked';});
+    this.actions.add(action);try{return {id,status:await action};}finally{this.actions.delete(action);}
   }
   auditLog(){return this.db.prepare("SELECT event,at FROM audit WHERE event LIKE 'qq.%' ORDER BY id DESC LIMIT 100").all();}
   async close(){this.closing=true;this.invalidate();await Promise.all([...this.queues.values(),...this.actions]);this.plugin.dispose();}

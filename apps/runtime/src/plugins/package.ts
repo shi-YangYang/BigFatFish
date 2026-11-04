@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { InputError, object, string } from '../ai/types.js';
-export const permissions=['tools.execute','storage.read','storage.write','events.emit','events.subscribe','memory.search','memory.propose','personality.read','channel.propose','media.transcribe','media.synthesize','channel.qq','activity.bilibili','activity.douyin'] as const;
+export const permissions=['tools.execute','storage.read','storage.write','events.emit','events.subscribe','memory.search','memory.propose','personality.read','channel.propose','channel.send','media.transcribe','media.synthesize','channel.qq','activity.bilibili','activity.douyin'] as const;
 export interface Manifest {protocol:1;id:string;name:string;version:string;author:string;license:string;source:string;runtime:string;platforms:string[];kind:'extension'|'platform';permissions:string[];entry:string;dependencies:string[];extensions:string[];configSchema:{type:'object';properties:Record<string,{type:'string'|'number'|'boolean'}>;required?:string[]};tools:{name:string;description:string;parameters:Record<string,unknown>}[]}
 export interface Bundle {format:'bigfatfish-plugin';manifest:Manifest;files:{path:string;sha256:string;data:string}[]}
 export const hash=(data:Buffer|string)=>createHash('sha256').update(data).digest('hex');

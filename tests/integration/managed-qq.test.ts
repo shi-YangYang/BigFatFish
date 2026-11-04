@@ -45,10 +45,10 @@ it('managed preparation, QR, verified identity, explicit permissions, revision c
   expect((await status()).phase).toBe('missing');await call(base+'/install','POST');await until(status,s=>s.phase==='ready'&&!s.busy);
   await call(base+'/start','POST');const qr=await until(status,s=>s.phase==='login'&&!s.busy);expect(qr.qr).toMatch(/^data:image\/png;base64,/);expect(JSON.stringify(qr)).not.toContain(state!.webToken);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();
   account='10001';await until(status,s=>s.phase==='online');const list=await call<{friends:unknown[];groups:unknown[]}>(base+'/contacts');expect(list.friends).toHaveLength(1);expect(list.groups).toHaveLength(1);
-  const settings={accountId:account,ownerId:'20002',groups:['30003'],replyEnabled:true,proactiveEnabled:false,revision:''};
+  const settings={accountId:account,ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],replyEnabled:true,proactiveEnabled:false,revision:''};
   await expect(call(base+'/settings','PUT',{...settings,accountId:'99999'})).rejects.toThrow('QQ_ACCOUNT_CHANGED');
   await expect(call(base+'/settings','PUT',{...settings,ownerId:account})).rejects.toThrow('QQ_OWNER_IS_BOT');
-  await call(base+'/settings','PUT',settings);await until(status,s=>!s.busy);const channel=await call<ChannelStatus>('/v1/channels/qq');expect(channel.config).toMatchObject({mode:'managed',accountId:'10001',ownerId:'20002',groups:['30003'],enabled:true});expect(JSON.stringify(channel)).not.toContain(state!.botToken);
+  await call(base+'/settings','PUT',settings);await until(status,s=>!s.busy);const channel=await call<ChannelStatus>('/v1/channels/qq');expect(channel.config).toMatchObject({mode:'managed',accountId:'10001',ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],enabled:true});expect(JSON.stringify(channel)).not.toContain(state!.botToken);
   await expect(call(base+'/settings','PUT',settings)).rejects.toThrow('CHANNEL_VERSION_CONFLICT');
   await expect(call('/v1/channels/qq','PUT',{...channel.config,revision:channel.revision})).rejects.toThrow('QQ_MANAGED_CONFIGURATION_REQUIRED');
   account='40004';await until(status,s=>s.account?.id==='40004');expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(false);

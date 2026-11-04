@@ -1028,3 +1028,7 @@ audio {
 .qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .qq-history time { color: var(--muted); font-size: 12px; }
 @media (max-width: 480px) { .qq-account-heading { align-items: flex-start; flex-wrap: wrap; } }
+
+.qq-reply-card .qq-owner-hint { margin: -8px 0 0; font-size: 12px; }
+.qq-reply-options > .ui-disclosure + .ui-disclosure { border-top: 1px solid var(--border); }
+.qq-group-disclosure .qq-friends-manual-toggle { align-self: flex-start; width: fit-content; }

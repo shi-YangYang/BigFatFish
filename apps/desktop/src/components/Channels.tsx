@@ -1,56 +1,14 @@
-import { Card, Disclosure, Alert } from "./Surfaces";
-import {
-  Field,
-  Input,
-  Checkbox,
-  Button,
-  Select,
-  Textarea,
-  ActionRow,
-} from "./Controls";
+import { Disclosure, Alert } from "./Surfaces";
+import { Field, Input, Button, Select, Textarea } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import type {
-  Approval,
-  Segment,
-} from "../../../runtime/src/channels/types";
-const labels: Record<string, string> = {
-  stopped: "已停用",
-  connecting: "连接中",
-  reconnecting: "正在重连",
-  online: "已登录并在线",
-  not_logged_in: "未登录，请在 NapCat 完成扫码",
-  error: "连接错误",
-  pending: "待审批",
-  sent: "协议已确认发送",
-  unknown: "发送结果未知，请勿重复发送",
-  failed: "发送失败",
-  expired: "已过期",
-  rejected: "已拒绝",
-  revoked: "授权已撤销",
-  executing: "正在发送",
-  queued: "等待处理",
-  generating: "正在回复",
-  blocked: "已阻止",
-  interrupted: "已中断",
-};
+import type { ChannelStatus, Segment, SendResult } from "../../../runtime/src/channels/types";
 export { QQConnection as Channels } from "./QQConnection";
-export function Permissions({
-  fail,
-  approvalsOnly = false,
-}: {
-  fail: (e: unknown) => void;
-  approvalsOnly?: boolean;
-}) {
-  const [items, setItems] = useState<Approval[]>([]),
-    [audit, setAudit] = useState<{ event: string; at: string }[]>([]),
-    [kind, setKind] = useState("private"),
-    [target, setTarget] = useState(""),
-    [text, setText] = useState(""),
-    [media, setMedia] = useState<Segment>(),
-    [mediaName, setMediaName] = useState(""),
-    [busy, setBusy] = useState(false);
-  const acting = useRef(false);
+const labels:Record<string,string>={sent:'已发送',sending:'正在发送',queued:'等待发送',unknown:'发送结果未知，请在 QQ 核实，勿重复发送',failed:'发送失败',blocked:'发送已阻止',revoked:'发送权限已撤销',interrupted:'已中断'};
+interface Delivery {id:string;target:string;status:string;createdAt:string;proactive:boolean}
+export function QQMessages({fail}:{fail:(e:unknown)=>void}){
+  const [items,setItems]=useState<Delivery[]>([]),[audit,setAudit]=useState<{event:string;at:string}[]>([]),[channel,setChannel]=useState<ChannelStatus>(),[target,setTarget]=useState(''),[text,setText]=useState(''),[media,setMedia]=useState<Segment>(),[mediaName,setMediaName]=useState(''),[busy,setBusy]=useState(false),[result,setResult]=useState('');
+  const acting=useRef(false),file=useRef<HTMLInputElement>(null);
   const selectMedia = async (file: File | undefined) => {
     setMedia(undefined);
     setMediaName("");
@@ -77,169 +35,41 @@ export function Permissions({
     setMediaName(file.name);
     if (type === "file") setText("");
   };
-  const refresh = useCallback(async () => {
-    setItems(await api("/v1/permissions/approvals"));
-    setAudit(await api("/v1/permissions/audit"));
-  }, []);
-  useEffect(() => {
-    void refresh().catch(fail);
-    const t = setInterval(() => void refresh().catch(fail), 3000);
-    return () => clearInterval(t);
-  }, [refresh, fail]);
-  const act = async (run: () => Promise<unknown>) => {
-    if (acting.current) return;
-    acting.current = true;
-    setBusy(true);
-    try {
-      await run();
+  const refresh=useCallback(async()=>{
+    const [c,d,a]=await Promise.all([api<ChannelStatus>('/v1/channels/qq'),api<Delivery[]>('/v1/channels/qq/deliveries'),api<{event:string;at:string}[]>('/v1/channels/qq/audit')]);
+    setChannel(c);setItems(d.filter(item=>item.proactive));setAudit(a);
+  },[]);
+  useEffect(()=>{void refresh().catch(fail);const timer=setInterval(()=>void refresh().catch(fail),3000);return()=>clearInterval(timer);},[refresh,fail]);
+  const config=channel?.config;
+  const targets=config?[{value:`private:${config.ownerId}`,label:`主人 · ${config.ownerId}`},...(config.friendIds??[]).filter(id=>id!==config.ownerId).map(id=>({value:`private:${id}`,label:`好友 · ${id}`})),...config.groups.map(id=>({value:`group:${id}`,label:`群 · ${id}`}))]:[];
+  const selected=targets.some(item=>item.value===target)?target:targets[0]?.value??'';
+  const submit=async()=>{
+    if(acting.current)return;acting.current=true;setBusy(true);setResult('正在发送…');
+    try{
+      const [kind,id]=selected.split(':');
+      const sent=await api<SendResult>('/v1/channels/qq/send','POST',{target:{kind,id},segments:[...(text?[{type:'text',data:{text}}]:[]),...(media?[media]:[])]});
+      setResult(labels[sent.status]??'请查看发送记录');
+      if(sent.status==='sent'){setText('');setMedia(undefined);setMediaName('');if(file.current)file.current.value='';}
       await refresh();
-    } catch (e) {
-      fail(e);
-    } finally {
-      acting.current = false;
-      setBusy(false);
-    }
+    }catch(error){setResult('未取得发送结果，请先查看记录或在 QQ 核实，勿重复发送。');fail(error);}
+    finally{acting.current=false;setBusy(false);}
   };
-  return (
-    <section>
-      <h2>QQ 消息</h2>
-      <p>主动消息必须逐条批准，有效期 5 分钟。仅可发给主人或已授权群。</p>
-      {!approvalsOnly && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act(() =>
-              api("/v1/permissions/approvals", "POST", {
-                target: { kind, id: target },
-                segments: [
-                  ...(text ? [{ type: "text", data: { text } }] : []),
-                  ...(media ? [media] : []),
-                ],
-              }),
-            );
-          }}
-        >
-          <fieldset disabled={busy}>
-            <Field>
-              对象
-              <Select value={kind} onValueChange={(value) => setKind(value)}>
-                <option value="private">主人私聊</option>
-                <option value="group">已授权群</option>
-              </Select>
-            </Field>
-            <Field>
-              QQ 号或群号
-              <Input
-                required
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              />
-            </Field>
-            <Field>
-              消息内容
-              <Textarea
-                disabled={media?.type === "file"}
-                required={!media}
-                maxLength={4000}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            </Field>
-            <Field>
-              图片、语音或文件（PNG、JPEG、WAV、TXT、PDF，最多 2 MB）
-              <Input
-                type="file"
-                accept="image/png,image/jpeg,audio/wav,.wav,.txt,.pdf"
-                onChange={(e) =>
-                  void selectMedia(e.target.files?.[0]).catch(fail)
-                }
-              />
-            </Field>
-            {mediaName && <p>{mediaName}</p>}
-            <Button type="submit" variant="primary" disabled={!text && !media}>
-              创建审批
-            </Button>
-          </fieldset>
-        </form>
-      )}
-      {!items.length && <p className="muted">暂无审批记录</p>}
-      {items.map((item) => (
-        <Card key={item.id}>
-          <h3>
-            {item.payload.target.kind === "group" ? "群" : "私聊"}{" "}
-            {item.payload.target.id}
-          </h3>
-          <p className="prewrap">
-            {item.payload.segments
-              .map((s) =>
-                s.type === "text"
-                  ? s.data.text
-                  : `[${s.type === "image" ? "图片" : s.type === "record" ? "语音" : s.type === "file" ? `文件 ${s.data.name}` : "引用"}]`,
-              )
-              .join("\n")}
-          </p>
-          {item.payload.segments.map((s, i) =>
-            s.type === "image" ? (
-              <img
-                key={i}
-                className="media-preview"
-                alt="待发送图片"
-                src={`data:image/${s.data.file?.startsWith("base64:///9j/") ? "jpeg" : "png"};base64,${s.data.file?.slice(9)}`}
-              />
-            ) : s.type === "record" ? (
-              <audio
-                key={i}
-                controls
-                src={`data:audio/wav;base64,${s.data.file?.slice(9)}`}
-              />
-            ) : null,
-          )}
-          <p>
-            {labels[item.status] ?? item.status} · 有效至{" "}
-            {new Date(item.expiresAt).toLocaleString()}
-          </p>
-          {item.status === "pending" && (
-            <ActionRow>
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void act(() =>
-                    api("/v1/permissions/approvals/" + item.id, "POST", {
-                      digest: item.digest,
-                      decision: "approve",
-                    }),
-                  )
-                }
-              >
-                批准发送
-              </Button>
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void act(() =>
-                    api("/v1/permissions/approvals/" + item.id, "POST", {
-                      digest: item.digest,
-                      decision: "reject",
-                    }),
-                  )
-                }
-              >
-                拒绝
-              </Button>
-            </ActionRow>
-          )}
-        </Card>
-      ))}
-      <Disclosure  title={<>操作记录</>}>
-
-        {audit.map((a, i) => (
-          <p key={i}>
-            {a.at} · {a.event}
-          </p>
-        ))}
-      </Disclosure>
-    </section>
-  );
+  return <section>
+    {!config?.proactiveEnabled&&<p className="muted">开启「允许主动消息」后可发送。</p>}
+    <form onSubmit={event=>{event.preventDefault();void submit();}}>
+      <fieldset disabled={busy||!config?.enabled||!config.proactiveEnabled}>
+        <Field>发送对象<Select required value={selected} onValueChange={setTarget}>{targets.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</Select></Field>
+        <Field>消息内容<Textarea disabled={media?.type==='file'} required={!media} maxLength={4000} value={text} onChange={event=>setText(event.target.value)}/></Field>
+        <Field>图片、语音或文件（最多 2 MB）<Input ref={file} type="file" accept="image/png,image/jpeg,audio/wav,.wav,.txt,.pdf" onChange={event=>void selectMedia(event.target.files?.[0]).catch(fail)}/></Field>
+        {mediaName&&<p className="muted">{mediaName}</p>}
+        <Button type="submit" variant="primary" disabled={!selected||!text&&!media}>{busy?'正在发送…':'直接发送'}</Button>
+      </fieldset>
+    </form>
+    {result&&<Alert role="status">{result}</Alert>}
+    <Disclosure title="发送记录">
+      {!items.length&&<p className="muted">暂无主动消息</p>}
+      <div className="qq-history">{items.map(item=>{const to=JSON.parse(item.target) as {kind:string;id:string};return <div key={item.id}><span>{to.kind==='group'?'群':'私聊'} {to.id} · {labels[item.status]??item.status}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div>;})}</div>
+    </Disclosure>
+    <Disclosure title="操作记录">{audit.map((item,index)=><p key={index}>{item.at} · {item.event}</p>)}</Disclosure>
+  </section>;
 }

@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec025 QQ多好友、群聊触发与直接发送已完成
+
+EXISTING，dev基线1408455，开始干净。用户明确多好友可私聊但主人只有一个QQ；群聊普通消息也可回复，删除QQ主动审批。Spec025 Done、Decision015。实施/root/implement_qq_conversation_policy完成身份/配置/直接发送与UI/API/CLI/B站/插件迁移；首轮独立/root/accept_qq_conversation_policy仅FAIL好友草稿双表示不同步。新实施/root/rework_qq_friend_draft在单组件changeFriends统一三个编辑入口；新独立/root/accept_qq_policy_r1 PASS。所有完整报告已读取处理，无待返工。
+
+S3相关14tests、Node构建、apps-only类型、Rust检查、CLI隔离smoke通过；全tsconfig仍有两个未改测试文件3处既有错误，旧完整B站观看无ffmpeg配置skip，独立直接分享测试通过。root CUA桌面/380px检查多好友/群模式/直接sent与unknown；R1 S1仅diff+一次具体双向模式切换/联系人回退/连续输入验证，未重复后端检查。截图build/qq-conversation-policy/01–08与Plan/Rework为证。临时fixture8504/44827及tab7/8均关闭，viewport恢复。真实用户QQ/Runtime未改动，新后端需要退出开发进程并重新运行npm run desktop:dev；没有新真实账号收发或Windows/发行包验证。其他平台审批保持，旧QQ审批不重放，旧插件propose不自动升级send，好友没有主人记忆。按持续每阶段授权本地commit，hash见git log；无push/PR/merge，远端未刷新。满足停止条件。下方历史。
+
 ## 当前任务：Spec024收紧QQ回复设置已完成
 
 EXISTING，dev基线2446d47，开始干净。用户已扫描并登录QQ，后续明确报告「能回复，没啥问题」，这是用户实测反馈，不冒充Agent现场收发证据；截图指出回复设置凌乱。Spec024 Done，实施/root/implement_qq_reply_layout和新独立验收/root/accept_qq_reply_layout完整报告已读取处理，PASS无返工。仅QQConnection/Workspaces/局部CSS展示分组：beUI浅海蓝设置卡片、同行账号操作、直接主动权限行、底部动作及独立记录区；所有状态/API/保存/轮询/权限边界保持。

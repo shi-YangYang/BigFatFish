@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { paths } from '../../apps/runtime/src/paths.js';
 import { startRuntime } from '../../apps/runtime/src/lifecycle.js';
 import { requestRuntime } from '../../apps/runtime/src/connection.js';
-import type { VideoTask } from '../../apps/runtime/src/bilibili/service.js';
+import { Bilibili, type VideoTask } from '../../apps/runtime/src/bilibili/service.js';
 import { onebotFixture } from '../fixtures/onebot.js';
 import { fixtureModel } from '../fixtures/model.mjs';
 const ffmpeg=process.env.BFF_TEST_FFMPEG;
@@ -46,12 +46,9 @@ it.skipIf(!ffmpeg)('real upstream → DSH image request → candidate/activity/d
   await expect(call(`/v1/bilibili/tasks/${task.id}/share`,'POST',{target:{kind:'private',id:'100'}})).rejects.toThrow('CHANNEL_NOT_CONFIGURED');
   await call('/v1/channels/qq','PUT',{revision:'',url:bot.url,token:bot.controls.token,accountId:'10001',ownerId:'20002',groups:['30003'],enabled:true,replyEnabled:true,proactiveEnabled:true});
   for(let i=0;i<60;i++){if((await call<{health:{state:string}}>('/v1/channels/qq')).health.state==='online')break;await delay(50);}
-  const approval=await call<{id:string;digest:string;payload:{segments:{data:{text:string}}[]}}>(`/v1/bilibili/tasks/${task.id}/share`,'POST',{target:{kind:'private',id:'20002'}});
-  expect(JSON.stringify(approval.payload)).toContain(task.result!.evidence.url);expect(JSON.stringify(approval.payload)).toContain(task.result!.evidence.title);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(0);
-  await call('/v1/permissions/approvals/'+approval.id,'POST',{digest:approval.digest,decision:'approve'});
-  for(let i=0;i<60&&!bot.requests.some(r=>r.action.startsWith('send_'));i++)await delay(50);
-  expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(1);
-  const rejected=await call<{id:string;digest:string}>(`/v1/bilibili/tasks/${task.id}/share`,'POST',{target:{kind:'group',id:'30003'}});await call('/v1/permissions/approvals/'+rejected.id,'POST',{digest:rejected.digest,decision:'reject'});expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(1);
+  const sent=await call<{id:string;status:string}>(`/v1/bilibili/tasks/${task.id}/share`,'POST',{target:{kind:'private',id:'20002'}});
+  expect(sent.status).toBe('sent');const outbound=bot.requests.filter(r=>r.action.startsWith('send_'));expect(outbound).toHaveLength(1);expect(JSON.stringify(outbound[0]!.params)).toContain(task.result!.evidence.url);expect(JSON.stringify(outbound[0]!.params)).toContain(task.result!.evidence.title);
+  const group=await call<{id:string;status:string}>(`/v1/bilibili/tasks/${task.id}/share`,'POST',{target:{kind:'group',id:'30003'}});expect(group.status).toBe('sent');expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(2);
   await expect(call('/v1/bilibili/tasks','POST',{bvid:'BV1234567899',requestId:'again'})).rejects.toThrow('IDEMPOTENCY_CONFLICT');
   const diary=await call<{id:string}>('/v1/memory-tasks/diary','POST',{day:new Date().toISOString().slice(0,10),timezone:'UTC',requestId:'diary'});
   let diaryTask:{status:string;error?:string}={status:'queued'};for(let i=0;i<150&&['queued','running'].includes(diaryTask.status);i++){await delay(100);diaryTask=await call('/v1/memory-tasks/'+diary.id);}expect(diaryTask.status,diaryTask.error).toBe('completed');expect(JSON.stringify(await call('/v1/diaries'))).toContain('bilibili:');
@@ -61,3 +58,18 @@ it.skipIf(!ffmpeg)('real upstream → DSH image request → candidate/activity/d
   await runtime.stop();const db=new DatabaseSync(p.database);db.prepare("INSERT INTO video_tasks(id,request_id,bvid,status,created_at) VALUES('restart','restart','BV1234567899','running','2026-11-03')").run();db.close();runtime=await startRuntime(p,0,adapters);expect((await call<VideoTask>('/v1/bilibili/tasks/restart')).status).toBe('interrupted');expect((await cli(['tasks'])).find((t:VideoTask)=>t.id===task.id).status).toBe('completed');
  }finally{await runtime.stop();vi.unstubAllGlobals();process.env.PATH=originalPath;await fixture.close();await bot.close();rmSync(root,{recursive:true,force:true});}
 },150000);
+
+it('shares a completed video directly through QQ without creating approval',async()=>{
+ const root=mkdtempSync(join(tmpdir(),'bff-bili-share-')),p=paths(root),bot=await onebotFixture(),runtime=await startRuntime(p);
+ const task={id:'share-fixture',bvid:'BV1234567890',status:'completed',result:{evidence:{title:'Video title',url:'https://www.bilibili.com/video/BV1234567890'},summary:'Video summary'},error:null,createdAt:new Date().toISOString()} as VideoTask;
+ const lookup=vi.spyOn(Bilibili.prototype,'task').mockReturnValue(task);
+ try{
+  const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body);
+  await call('/v1/channels/qq','PUT',{revision:'',url:bot.url,token:bot.controls.token,accountId:'10001',ownerId:'20002',friendIds:['20003'],groups:['30003'],enabled:true,replyEnabled:true,proactiveEnabled:true});
+  for(let i=0;i<100&&(await call<{health:{state:string}}>('/v1/channels/qq')).health.state!=='online';i++)await delay(20);
+  expect(await call('/v1/bilibili/tasks/share-fixture/share','POST',{target:{kind:'private',id:'20003'}})).toMatchObject({status:'sent'});
+  const sends=bot.requests.filter(r=>r.action.startsWith('send_'));expect(sends).toHaveLength(1);expect(JSON.stringify(sends[0]!.params)).toContain('Video summary');expect(JSON.stringify(sends[0]!.params)).toContain(task.result!.evidence.url);
+  await expect(call('/v1/bilibili/tasks/share-fixture/share','POST',{target:{kind:'group',id:'99999'}})).rejects.toThrow('PERMISSION_REVOKED');
+  const db=new DatabaseSync(p.database);expect(db.prepare("SELECT count(*) AS n FROM approvals WHERE plugin='qq'").get()!.n).toBe(0);db.close();
+ }finally{lookup.mockRestore();await runtime.stop();await bot.close();rmSync(root,{recursive:true,force:true});}
+});

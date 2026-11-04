@@ -6,7 +6,7 @@ import { Home, Life } from "./Life";
 import { Memories } from "./Memories";
 import { Personality } from "./Personality";
 import { Activities, Douyin } from "./Douyin";
-import { Channels, Permissions } from "./Channels";
+import { Channels, QQMessages } from "./Channels";
 import { Bilibili } from "./Bilibili";
 import { Models } from "./Models";
 import { Plugins } from "./Plugins";
@@ -122,7 +122,7 @@ export function Connections({ fail }: Fail) {
           <div className="qq-workspace">
             <Channels fail={fail}>
               <Disclosure title="主动发送与操作记录">
-                <Permissions fail={fail} />
+                <QQMessages fail={fail} />
               </Disclosure>
             </Channels>
           </div>

@@ -10,7 +10,7 @@ import type { ChatMessage } from '../../apps/runtime/src/ai/types.js';
 import { startRuntime } from '../../apps/runtime/src/lifecycle.js';
 import { paths } from '../../apps/runtime/src/paths.js';
 import { requestRuntime } from '../../apps/runtime/src/connection.js';
-import type { Approval, ChannelStatus } from '../../apps/runtime/src/channels/types.js';
+import type { SendResult, ChannelStatus } from '../../apps/runtime/src/channels/types.js';
 import type { Memory } from '../../apps/runtime/src/memory/types.js';
 import { onebotFixture } from '../fixtures/onebot.js';
 
@@ -64,10 +64,9 @@ it('binds the actual generated memory scope through the final asynchronous healt
     // Owner access is independent of sharing with a group.
     await visibility('shared');const owner=await pending('4','private');await visibility('private');owner.release();
     expect((await terminal('4')).status).toBe('sent');expect(JSON.stringify(sends().at(-1)!.params.message)).toContain(marker);
-    // Explicitly approved text has its own authority; it is not model-generated.
-    const approval=await call<Approval>('/v1/permissions/approvals','POST',{target:{kind:'group',id:'30003'},segments:[{type:'text',data:{text:marker}}]});
-    const proactive=bot.pauseNextLogin();await call('/v1/permissions/approvals/'+approval.id,'POST',{decision:'approve',digest:approval.digest});await proactive.reached;
-    await visibility('shared');proactive.release();expect((await terminal(approval.id)).status).toBe('sent');
+    // Explicit direct text has its own authority; it is not model-generated.
+    const proactive=bot.pauseNextLogin();const sending=call<SendResult>('/v1/channels/qq/send','POST',{target:{kind:'group',id:'30003'},segments:[{type:'text',data:{text:marker}}]});await proactive.reached;
+    await visibility('shared');proactive.release();const sent=await sending;expect(sent.status).toBe('sent');expect((await terminal(sent.id)).status).toBe('sent');
     expect(sends()).toHaveLength(4);
   } finally {await runtime.stop();await bot.close();engine.mockRestore();rmSync(p.root,{recursive:true,force:true});}
 });

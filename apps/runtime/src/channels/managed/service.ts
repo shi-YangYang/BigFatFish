@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { InputError,object } from '../../ai/types.js';
 import { assertRegular,type DataPaths } from '../../paths.js';
 import { Channels } from '../service.js';
-import { stableId } from '../protocol.js';
+import { configuration, stableId } from '../protocol.js';
 import { NapCatClient,onebotRead,contacts } from './client.js';
 import { ComponentPlatform,VERSION,privateDirectory,writePrivate } from './platform.js';
 import type { ManagedState,ManagedQQStatus,QQContact } from './types.js';
@@ -97,11 +97,12 @@ export class ManagedQQ {
   const owner=stableId(body.ownerId);if(owner===id)throw new InputError('QQ_OWNER_IS_BOT');
   if(!Array.isArray(body.groups)||body.groups.length>100||typeof body.replyEnabled!=='boolean'||typeof body.proactiveEnabled!=='boolean')throw new InputError('INVALID_REQUEST');
   const groups=body.groups.map(stableId);
+  configuration({...body,url:`ws://127.0.0.1:${this.state.botPort}`,enabled:true});
   return this.launch('online',async(_signal,generation)=>{
    const login=await onebotRead(this.state.botPort,this.state.botToken,'get_login_info') as {user_id:unknown};const status=await onebotRead(this.state.botPort,this.state.botToken,'get_status') as {online:boolean};
    if(generation!==this.generation)throw new InputError('CANCELLED');
    if(stableId(login.user_id)!==id||status.online!==true)throw new InputError('QQ_ACCOUNT_CHANGED',409);
-   this.channels.save({mode:'managed',url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken,accountId:id,ownerId:owner,groups,enabled:true,replyEnabled:body.replyEnabled,proactiveEnabled:body.proactiveEnabled,revision:body.revision});
+   this.channels.save({mode:'managed',url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken,accountId:id,ownerId:owner,friendIds:body.friendIds,groupReplyMode:body.groupReplyMode,groups,enabled:true,replyEnabled:body.replyEnabled,proactiveEnabled:body.proactiveEnabled,revision:body.revision});
   });
  }
  resume(){const config=this.channels.status();if(!config.config||config.config.mode!=='managed')throw new InputError('CHANNEL_NOT_CONFIGURED',409);if(this.running)return this.configure({...config.config,revision:config.revision});this.resumeOnLogin=true;try{return this.action('start');}catch(error){this.resumeOnLogin=false;throw error;}}

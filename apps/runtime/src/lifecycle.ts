@@ -1,5 +1,5 @@
 import {transcribe,synthesize} from './ai/media.js';
-import {object,string} from './ai/types.js';
+import {InputError,object,string} from './ai/types.js';
 import {Plugins,registerPlugins,readBundle} from './plugins/service.js';
 import {fileURLToPath} from 'node:url';
 import { join } from 'node:path';
@@ -120,7 +120,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       channels.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='qq'))plugins!.check('qq');};
       bilibili.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='bilibili'))plugins!.check('bilibili');};
       douyin.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='douyin'))plugins!.check('douyin');};
-      plugins.capability=async(method,args,signal)=>{const b=object(args);if(method==='personality.read')return chat!.config.persona();if(method==='memory.search')return chat!.life.memories.list(b);if(method==='memory.propose')return chat!.life.memories.insert({...b,status:'candidate'});if(method==='channel.propose')return channels!.propose(b);if(method==='media.transcribe')return transcribe(chat!.config,{data:string(b.data,3000000),mimeType:string(b.mimeType,100)},signal);if(method==='media.synthesize')return synthesize(chat!.config,b,signal);throw new Error('PLUGIN_HOST_DENIED');};
+      plugins.capability=async(method,args,signal,guard)=>{const b=object(args);if(method==='personality.read')return chat!.config.persona();if(method==='memory.search')return chat!.life.memories.list(b);if(method==='memory.propose')return chat!.life.memories.insert({...b,status:'candidate'});if(method==='channel.propose')throw new InputError('QQ_APPROVAL_REMOVED',410);if(method==='channel.send')return channels!.send(b,guard);if(method==='media.transcribe')return transcribe(chat!.config,{data:string(b.data,3000000),mimeType:string(b.mimeType,100)},signal);if(method==='media.synthesize')return synthesize(chat!.config,b,signal);throw new Error('PLUGIN_HOST_DENIED');};
       chat.events.on('message',event=>void plugins!.event('message',event));
       await plugins.initialize();
 

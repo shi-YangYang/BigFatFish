@@ -10,6 +10,8 @@ import {requestRuntime} from '../../apps/runtime/src/connection.js';
 import {hash,type Bundle} from '../../apps/runtime/src/plugins/package.js';
 import {exportArchive,restoreArchive} from '../../apps/runtime/src/maintenance/archive.js';
 import {fixtureModel} from '../fixtures/model.mjs';
+import {onebotFixture} from '../fixtures/onebot.js';
+import type {ChannelStatus} from '../../apps/runtime/src/channels/types.js';
 import type {ChatMessage} from '../../apps/runtime/src/ai/types.js';
 it('independent directory SDK lifecycle, real DSH tool result, revocation, update rollback, backup safe restore',async()=>{
  const external=mkdtempSync(join(tmpdir(),'external-plugin-')),p=paths(mkdtempSync(join(tmpdir(),'bff-p7-'))),model=await fixtureModel();let runtime=await startRuntime(p);
@@ -34,3 +36,27 @@ it('independent directory SDK lifecycle, real DSH tool result, revocation, updat
   await runtime.stop();const archive=join(external,'fish.bff');await exportArchive(p,archive);restoreArchive(p,archive);runtime=await startRuntime(p);const restored=await call<{installed:boolean;enabled:boolean;granted:string[]}[]>('/v1/plugins');expect(restored[0]).toMatchObject({installed:false,enabled:false,granted:[]});await call('/v1/plugins/install','POST',bundle);await call('/v1/plugins/hello-fish/enable','POST',{granted:bundle.manifest.permissions,config:{}});await call('/v1/plugins/hello-fish','DELETE');expect((await call<{installed:boolean}[]>('/v1/plugins'))[0]!.installed).toBe(false);
  }finally{await runtime.stop();await model.close();rmSync(external,{recursive:true,force:true});rmSync(p.root,{recursive:true,force:true});}
 },90000);
+
+it('QQ plugin direct send requires new capability and honors final generation and cancellation guards',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-qq-plugin-'))),bot=await onebotFixture(),runtime=await startRuntime(p);
+ try{
+  const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body);
+  await call('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:'20002',friendIds:['20003'],groups:[],enabled:true,replyEnabled:true,proactiveEnabled:true,revision:'',token:bot.controls.token});
+  for(let i=0;i<100&&(await call<ChannelStatus>('/v1/channels/qq')).health.state!=='online';i++)await delay(20);
+  const make=(permission:string,version:string):Bundle=>{
+   const source=`import {servePlugin} from './host.mjs'; servePlugin({tools:{send:async(args,ctx)=>ctx.host(args.method,{target:{kind:'private',id:'20003'},segments:[{type:'text',data:{text:'插件直接消息'}}]})}});`;
+   const files=[{path:'index.mjs',text:source},{path:'host.mjs',text:readFileSync('plugins/sdk/host.mjs','utf8')}];
+   const manifest=JSON.parse(readFileSync('examples/hello-fish/manifest.json','utf8'));Object.assign(manifest,{id:'qq-direct-test',version,permissions:['tools.execute',permission],tools:[{name:'send',description:'QQ发送',parameters:{type:'object',properties:{method:{type:'string'}},required:['method'],additionalProperties:false}}]});
+   return {format:'bigfatfish-plugin',manifest,files:files.map(f=>({path:f.path,data:Buffer.from(f.text).toString('base64'),sha256:hash(f.text)}))};
+  };
+  const old=make('channel.propose','1.0.0');await call('/v1/plugins/install','POST',old);await call('/v1/plugins/qq-direct-test/enable','POST',{granted:old.manifest.permissions,config:{}});
+  await expect(call('/v1/plugins/qq-direct-test/call','POST',{name:'send',args:{method:'channel.propose'}})).rejects.toThrow('QQ_APPROVAL_REMOVED');
+  await expect(call('/v1/plugins/qq-direct-test/call','POST',{name:'send',args:{method:'channel.send'}})).rejects.toThrow();expect(bot.requests.some(r=>r.action.startsWith('send_'))).toBe(false);
+  const next=make('channel.send','1.0.1');await call('/v1/plugins/update','POST',next);expect((await call<{id:string;enabled:boolean;granted:string[]}[]>('/v1/plugins')).find(p=>p.id==='qq-direct-test')).toMatchObject({enabled:false,granted:[]});
+  await call('/v1/plugins/qq-direct-test/enable','POST',{granted:next.manifest.permissions,config:{}});
+  expect(await call('/v1/plugins/qq-direct-test/call','POST',{name:'send',args:{method:'channel.send'}})).toMatchObject({status:'sent'});
+  const gate=bot.pauseNextLogin();const pending=call('/v1/plugins/qq-direct-test/call','POST',{name:'send',args:{method:'channel.send'}}).catch(error=>error);await gate.reached;
+  const disabled=call('/v1/plugins/qq-direct-test/disable','POST');await disabled;gate.release();await pending;
+  expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(1);
+ }finally{await runtime.stop();await bot.close();rmSync(p.root,{recursive:true,force:true});}
+},30000);

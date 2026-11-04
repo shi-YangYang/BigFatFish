@@ -6,8 +6,13 @@ export function configuration(input:unknown):QQConfig {
   if(url.username||url.password||url.search||url.hash||!(url.protocol==='wss:'||url.protocol==='ws:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw new InputError('INVALID_CHANNEL_URL');
   if(!Array.isArray(b.groups)||b.groups.length>100||['enabled','replyEnabled','proactiveEnabled'].some(k=>typeof b[k]!=='boolean'))throw new InputError('INVALID_REQUEST');
   if(b.mode!==undefined && !['managed','external'].includes(String(b.mode)))throw new InputError('INVALID_REQUEST');
-  return {...(b.mode?{mode:b.mode as QQConfig['mode']}:{}),url:url.href,accountId:stableId(b.accountId),ownerId:stableId(b.ownerId),groups:[...new Set(b.groups.map(stableId))],enabled:b.enabled as boolean,replyEnabled:b.replyEnabled as boolean,proactiveEnabled:b.proactiveEnabled as boolean};
+  const accountId=stableId(b.accountId),ownerId=stableId(b.ownerId);
+  if(ownerId===accountId)throw new InputError('QQ_OWNER_IS_BOT');
+  const friends=b.friendIds??[];if(!Array.isArray(friends)||friends.length>100||b.groupReplyMode!==undefined&&!['all','mention'].includes(String(b.groupReplyMode)))throw new InputError('INVALID_REQUEST');
+  const friendIds=[...new Set(friends.map(stableId))].filter(id=>id!==ownerId);if(friendIds.includes(accountId))throw new InputError('QQ_FRIEND_IS_BOT');
+  return {...(b.mode?{mode:b.mode as QQConfig['mode']}:{}),url:url.href,accountId,ownerId,friendIds,groupReplyMode:(b.groupReplyMode??'all') as QQConfig['groupReplyMode'],groups:[...new Set(b.groups.map(stableId))],enabled:b.enabled as boolean,replyEnabled:b.replyEnabled as boolean,proactiveEnabled:b.proactiveEnabled as boolean};
 }
+export function allowsTarget(config:QQConfig,to:Target){return to.kind==='private'?to.id===config.ownerId||(config.friendIds??[]).includes(to.id):config.groups.includes(to.id);}
 export function target(input:unknown):Target {const b=object(input);if(!['private','group'].includes(String(b.kind)))throw new InputError('INVALID_TARGET');return {kind:b.kind as Target['kind'],id:stableId(b.id)};}
 export function segments(input:unknown,outbound=false):Segment[] {
   if(!Array.isArray(input)||!input.length||input.length>64)throw new InputError('INVALID_SEGMENTS');
@@ -43,10 +48,10 @@ export function inbound(input:unknown,config:QQConfig) {
   if(stableId(b.self_id)!==config.accountId)return null;
   const author=stableId(b.user_id);if(author===config.accountId)return null;
   const to:Target={kind:b.message_type as Target['kind'],id:b.message_type==='group'?stableId(b.group_id):author};
-  if(to.kind==='private'?author!==config.ownerId:!config.groups.includes(to.id))return null;
+  if(!allowsTarget(config,to))return null;
   // CQ strings are treated as plain text; only structured arrays carry mentions/media.
   const parts=segments(typeof b.message==='string'?[{type:'text',data:{text:b.message}}]:b.message);
-  if(to.kind==='group'&&!parts.some(s=>s.type==='at'&&s.data.qq===config.accountId))return null;
+  if(to.kind==='group'&&config.groupReplyMode==='mention'&&!parts.some(s=>s.type==='at'&&s.data.qq===config.accountId))return null;
   const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片]':s.type==='record'?'[语音]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
   if(!text)return null;
   return {id:messageId(b.message_id),author,target:to,parts,text};

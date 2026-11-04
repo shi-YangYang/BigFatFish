@@ -19,7 +19,7 @@ export function readConnection(p: DataPaths): Connection {
 export async function requestRuntime<T>(connection: Connection, route: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(`http://127.0.0.1:${connection.port}${route}`, {
     method, headers: { authorization: `Bearer ${connection.token}`, ...(['POST','PUT'].includes(method) ? { 'content-type': 'application/json' } : {}) },
-    ...(['POST','PUT'].includes(method) ? { body: JSON.stringify(body ?? {}) } : {}), signal: AbortSignal.timeout((route.startsWith('/v1/media')||route.startsWith('/v1/plugins')||route.startsWith('/v1/bilibili')) ? 190000 : (route==='/v1/douyin'||route==='/v1/douyin/close'||route==='/v1/activities/pause')?30000:2500), redirect: 'error',
+    ...(['POST','PUT'].includes(method) ? { body: JSON.stringify(body ?? {}) } : {}), signal: AbortSignal.timeout(route==='/v1/channels/qq/send'?50000:(route.startsWith('/v1/media')||route.startsWith('/v1/plugins')||route.startsWith('/v1/bilibili')) ? 190000 : (route==='/v1/douyin'||route==='/v1/douyin/close'||route==='/v1/activities/pause')?30000:2500), redirect: 'error',
   });
   if (!response.ok) { const value = await response.json().catch(() => ({})) as { error?: string }; throw new Error(value.error && /^[A-Z][A-Z0-9_]+$/.test(value.error) ? value.error : `RUNTIME_HTTP_${response.status}`); }
   return await response.json() as T;

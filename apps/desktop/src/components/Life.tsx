@@ -60,7 +60,7 @@ function CurrentActivities() {
     [error, setError] = useState("");
   const load = useCallback(async () => {
     try {
-      const [a, d, b, q, approvals, qqApprovals] = await Promise.all([
+      const [a, d, b, q, approvals] = await Promise.all([
         api<ActivityOverview>("/v1/activities"),
         api<{ config: { enabled: boolean }; accountState: string }>(
           "/v1/douyin",
@@ -68,11 +68,10 @@ function CurrentActivities() {
         api<{ enabled: boolean; accountState: string }>("/v1/bilibili"),
         api<{ health: { state: string } }>("/v1/channels/qq"),
         api<unknown[]>("/v1/douyin/approvals"),
-        api<unknown[]>("/v1/permissions/approvals"),
       ]);
       setData(a);
       setConnections(
-        `抖音${d.config.enabled ? (d.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · B站${b.enabled ? (b.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · QQ ${q.health.state === "online" ? "在线" : "未连接"} · 待审批 ${[...approvals, ...qqApprovals].filter((v) => (v as { status: string }).status === "pending").length}`,
+        `抖音${d.config.enabled ? (d.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · B站${b.enabled ? (b.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · QQ ${q.health.state === "online" ? "在线" : "未连接"} · 待审批 ${approvals.filter((v) => (v as { status: string }).status === "pending").length}`,
       );
       setError("");
     } catch (e) {

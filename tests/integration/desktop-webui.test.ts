@@ -45,7 +45,6 @@ it.skipIf(!existsSync(executable))(
     let online = true,
       unknown = false,
       hold = false,
-      approvalError = "",
       release = () => {};
     let onHold: (() => void) | undefined;
     const requests: { route: string; body: Record<string, unknown> }[] = [];
@@ -202,7 +201,6 @@ it.skipIf(!existsSync(executable))(
             return item;
           }
           if (route === "/v1/permissions/approvals/approval") {
-            if (approvalError) throw new Error(approvalError);
             pending = false;
             return {};
           }
@@ -483,27 +481,9 @@ it.skipIf(!existsSync(executable))(
         },
       ];
       await page.getByRole("button", { name: /待审批/ }).click();
-      await page.getByText("一起看这段视频吧", { exact: true }).waitFor();
-      await page.screenshot({ path: "build/beui-interface/regression-approval-1100.png" });
       const dialog = page.getByRole("dialog", { name: "审批与记录" });
-      approvalError = "CHANNEL_OFFLINE";
-      await dialog
-        .getByRole("button", { name: "批准发送", exact: true })
-        .click();
-      await dialog
-        .getByRole("alert")
-        .getByText("QQ 尚未在线，请检查连接和登录状态。", { exact: true })
-        .waitFor();
-      expect(await dialog.isVisible()).toBe(true);
-      await dialog
-        .getByRole("button", { name: "关闭提示", exact: true })
-        .click();
-      approvalError = "";
-      await page.getByRole("button", { name: "批准发送", exact: true }).click();
-      expect(requests.at(-1)!.body).toEqual({
-        digest: "fixture-digest",
-        decision: "approve",
-      });
+      await dialog.getByText("一条待审批评论",{exact:true}).waitFor();
+      expect(await dialog.getByRole("button",{name:"批准发送",exact:true}).count()).toBe(0);
       await dialog
         .getByRole("button", { name: "批准这次操作", exact: true })
         .click();

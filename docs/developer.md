@@ -62,7 +62,7 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | `/v1/conversations`、`/:id/messages`、`/:id/tools` | 会话、消息与实际工具活动 |
 | `/v1/messages/:id/cancel` | 取消实际模型回合 |
 | `/v1/memories`、`/v1/memory-tasks`、`/v1/life` | 长期记忆、整理任务和养成；具体子路由见 ai-core.md |
-| `/v1/channels/qq`、`/v1/permissions/approvals` | 账户连接、发送提案及主人审批 |
+| `/v1/channels/qq`、`/v1/channels/qq/send` | 账户/唯一主人/好友/群配置及直接发送 |
 | `/v1/bilibili`、`/v1/douyin`、`/v1/activities`、`/v1/schedules` | 平台活动及共用队列 |
 | `/v1/plugins` | 安装目录、生命周期和工具 |
 | `/v1/media/transcribe`、`/v1/media/synthesize` | 有界音频消费者 |
@@ -114,19 +114,20 @@ QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版�
 | memory.search | 使用统一MemoryStore查询，不返回模型密钥 |
 | memory.propose | 生成有来源的候选记忆，不自动确认 |
 | personality.read | 读取当前版本化人格；修改仍由主人界面执行 |
-| channel.propose | 创建QQ发送提案，沿同一账户/目标/审批门，插件不能自批 |
+| channel.send | 向QQ允许目标直接发送，遵守账户/开关/目标/取消检查；需独立授权 |
+| channel.propose | 已废弃，拒绝执行；旧授权不会升级为直接发送 |
 | media.transcribe / media.synthesize | 调用统一ASR/TTS路由，继承调用取消 |
 | channel.qq / activity.bilibili / activity.douyin | 对应受信任随包平台组件的加载许可，不等于账号发送授权 |
 
-扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度审批；Channel的受信任平台契约位于 channels/types.ts，第三方RPC渠道只能提出受审批动作，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
+扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度审批；Channel的受信任平台契约位于 channels/types.ts，第三方RPC渠道需获channel.send权限才可向QQ直接发送，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
 
 MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥有的CDP实例，工具白名单、实际请求审批和最终提交门不能省略。固定依赖安装步骤见 [抖音](douyin.md)，平台来源与许可见 [上游记录](upstreams.md)。
 
 ## QQ 媒体与实际协议
 
-入站仅处理已授权账号/目标/消息结构中的不透明媒体标识，先核对当前账号并重新检查授权。图片通过NapCat get_file，只消费其base64字段；不读取NapCat返回的本机file路径或URL。NapCat需明确开启提供base64的配置，否则用户看到媒体未取得。语音通过get_record(out_format=wav)，可能需要NapCat主机安装ffmpeg。一次最多处理2个媒体，每个最多2MB，接收器每帧最多3MB，发送审批列表单次总量8MB，取消/停用传播到模型和实际连接。
+入站仅处理已授权账号/目标/消息结构中的不透明媒体标识，先核对当前账号并重新检查授权。图片通过NapCat get_file，只消费其base64字段；不读取NapCat返回的本机file路径或URL。NapCat需明确开启提供base64的配置，否则用户看到媒体未取得。语音通过get_record(out_format=wav)，可能需要NapCat主机安装ffmpeg。一次最多处理2个媒体，每个最多2MB，接收器每帧最多3MB，取消/停用传播到模型和实际连接。
 
-发文件只允许有界base64与干净的TXT/PDF/PNG/JPG/WAV文件名。文件是单独一个审批消息，不混入文本再发送一次。`upload_private_file` / `upload_group_file` 本身就是发送，真实调用紧跟最终同步授权门；返回有效file_id才记为确认，结果未知不自动重发。图片/语音仍走OneBot标准消息段；自动聊天回复仍是文本并引用原消息。真实QQ账号尚未验证，协议夹具成功不代表平台账号可用。
+发文件只允许有界base64与干净的TXT/PDF/PNG/JPG/WAV文件名。文件是单独一条发送消息，不混入文本再发送一次。`upload_private_file` / `upload_group_file` 本身就是发送，真实调用紧跟最终同步授权门；返回有效file_id才记为确认，结果未知不自动重发。图片/语音仍走OneBot标准消息段；自动聊天回复仍是文本并引用原消息。真实QQ账号尚未验证，协议夹具成功不代表平台账号可用。
 
 ## 验证与诊断
 

@@ -8,7 +8,6 @@ import { api, isWeb, webRequest } from "./api";
 import { Chat } from "./components/Chat";
 import { Setup } from "./components/Setup";
 import { MyFish, Connections, Settings } from "./components/Workspaces";
-import { Permissions } from "./components/Channels";
 import { DouyinApprovals, type ActivityOverview } from "./components/Douyin";
 import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
@@ -102,16 +101,15 @@ export default function App() {
         return;
       }
       try {
-        const [a, q, d] = await Promise.all([
+        const [a, d] = await Promise.all([
           api<ActivityOverview>("/v1/activities"),
-          api<{ status: string }[]>("/v1/permissions/approvals"),
           api<{ status: string }[]>("/v1/douyin/approvals"),
         ]);
         if (active) {
           lastFailure = "";
           setActivity(a);
           setApprovalCount(
-            [...q, ...d].filter((v) => v.status === "pending").length,
+            d.filter((v) => v.status === "pending").length,
           );
         }
       } catch (e) {
@@ -343,7 +341,6 @@ function ApprovalContents() {
   const fail = notifyError;
   return (
     <>
-      <Permissions fail={fail} approvalsOnly />
       <DouyinApprovals fail={fail} />
     </>
   );
