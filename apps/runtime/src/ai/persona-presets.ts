@@ -55,7 +55,7 @@ export function matchPersonaPreset(persona: Persona): PersonaPreset | undefined 
 }
 
 export const defaultPersona: Persona = {
-  name: '大肥鱼', avatar: '', ...personaPresets[0]!.settings,
+  name: '大肥鱼', avatar: '', ...personaPresets.find(preset => preset.id === 'daughter')!.settings,
   boundaries: '尊重隐私和对方的意愿，不编造事实或已经完成的操作。外部操作遵循已授予的权限。',
   schedule: '', autonomy: '在用户授权的范围内活动，不自行扩大权限', version: 1,
 };

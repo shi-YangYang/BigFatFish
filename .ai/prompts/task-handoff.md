@@ -1,8 +1,8 @@
 # Task Handoff
 
-## 当前任务：Spec027 大肥鱼人设已完成
+## 当前任务：Spec027 大肥鱼人设与默认偏好已完成
 
-EXISTING，dev 基线 e9439ac，开始干净。用户要求联网解决人设平淡；研究见 Decision016，原创嘴欠黏人/女儿感/乖巧黏人预设、简洁beUI选择与统一提示。默认偏好未回复，按推荐嘴欠黏人为新安装默认；既有配置不改写，需选择保存，旧Runtime需重新运行desktop:dev。Spec027 Done。
+EXISTING，dev 基线 e9439ac，开始干净。用户要求联网解决人设平淡；研究见 Decision016，原创嘴欠黏人/女儿感/乖巧黏人预设、简洁beUI选择与统一提示。用户现已回复默认女儿感；基线1d3e06f的S0补充由/root/implement_fish_persona完成，新独立/root/accept_daughter_default已PASS，完整报告已读取。新安装默认、文档、原续聊测试样本已同步，仅diff，没有运行测试/build/typecheck/UI。按持续授权本地commit；既有配置不改写，需选择保存，旧Runtime需重新运行desktop:dev。Spec027 与默认偏好补充均 Done。
 
 实施/root/implement_fish_persona完成；首轮独立/root/accept_fish_persona仅FAIL活动chooseActivity通过overview重新注入persona。新实施/root/rework_fish_persona非破坏性分离persona/state；新独立/root/accept_fish_persona_r1 PASS，所有完整报告已读取处理，无剩余返工。S2原Node build、apps-only tsc、7项定向测试通过；R1 S1单个真实DSH活动请求回归最终PASS（首次测试任务消息定位错误修正后通过），未重复原检查。root隔离UI桌面/380px保存/自定义/历史/冲突/布局检查通过，截图build/fish-persona/01–03；fixture97444与tab9关闭，viewport恢复。未改真实Runtime/用户数据、未调用云模型或QQ，真实口吻未实测，未重打安装包。按持续每阶段授权本地commit，hash见git log；无push/PR/merge，远端未刷新。满足停止条件。下方历史。
 

@@ -1,6 +1,35 @@
 # Acceptance
 
 ## Result
+PASS — 2026-11-04，默认偏好补充，新独立验收 Agent `/root/accept_daughter_default`。用户确认的女儿感已设为新安装默认。
+
+## Spec Coverage
+- `defaultPersona` 按 `daughter` ID 选用现有女儿感预设；该 ID 存在，三套预设内容、顺序及其他默认字段均未改变。没有修改已有配置读取、保存或迁移行为。
+- 真实 DSH 续聊用例的目标从女儿感改为 `cheeky`，与新默认保持不同；变量、版本及人格/后台排除断言同步，原会话历史保留、新人格进入、旧人格退出的验证意义没有削弱。
+- Spec、Plan、Decision016、handoff 与使用文档均已记录默认女儿感及既有用户需显式选择保存的边界，无本次差异内遗漏的人格变量引用。
+
+## Validation
+- Risk Level: S0（现有默认配置选择及对应文档、测试样本同步）。
+- Evidence Reviewed / Checks Performed:
+  - 阅读 AGENTS、constitution、全部 `.ai/rules`、当前 Spec/Plan/Decision016/handoff、补充实施报告与既有验收记录。
+  - 独立审阅当前 `git diff HEAD` 中七个变更文件，以及相关预设定义和续聊用例上下文；当前分支为 `dev`。
+  - 按本轮 S0 范围仅作差异审查，未执行测试、build、lint、typecheck、UI 或真实模型调用；原检查结果仅作为历史记录，不声称本轮重新通过。
+  - 仅更新本验收文件，未修改业务代码、操作用户数据、切换分支或执行 Git 写操作。
+
+## Issues
+无。
+
+## Regression Risks
+既有配置不会自动改成女儿感；本次未重打安装包，也未实测真实云模型口吻。原功能 R1 已通过的行为边界保持。
+
+## Required Rework
+无。满足本轮停止条件。
+
+---
+
+# R1 验收历史（PASS）
+
+## Result
 PASS — 2026-11-04，R1 新独立验收 Agent `/root/accept_fish_persona_r1`。首轮唯一 P2 已关闭，无需继续返工。
 
 ## Spec Coverage

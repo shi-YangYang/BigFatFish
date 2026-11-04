@@ -54,12 +54,12 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
     expect(lastSystem()).toContain(defaultPersona.traits);
     expect(lastSystem()).toContain('已确认的主人会话');
 
-    const daughter = chat.config.savePersona(applyPersonaPreset({ ...chat.config.persona(), name: '小蓝' }, personaPresets[1]!));
+    const cheeky = chat.config.savePersona(applyPersonaPreset({ ...chat.config.persona(), name: '小蓝' }, personaPresets.find(preset => preset.id === 'cheeky')!));
     const next = chat.send(conversation.id, { requestId: 'next', content: '继续聊蓝色标记' });
     const reply = await settled(() => chat.message(next.id));
     expect(reply.status, reply.error ?? '').toBe('completed');
-    expect(reply.personaVersion).toBe(daughter.version);
-    expect(lastSystem()).toContain(daughter.traits);
+    expect(reply.personaVersion).toBe(cheeky.version);
+    expect(lastSystem()).toContain(cheeky.traits);
     expect(lastSystem()).not.toContain(defaultPersona.traits);
     const wire = JSON.stringify(fixture.requests.at(-1)?.body.messages);
     expect(wire).toContain('你好，我喜欢茉莉花茶，记住蓝色标记');
@@ -76,7 +76,7 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
     expect(result.status, JSON.stringify(result)).toBe('completed');
     expect(lastSystem()).toContain('当前是后台任务');
     expect(lastSystem()).not.toContain('口吻示例');
-    expect(lastSystem()).not.toContain(daughter.style);
+    expect(lastSystem()).not.toContain(cheeky.style);
   } finally { await chat.close(); await fixture.close(); db.close(); rmSync(p.root, { recursive: true, force: true }); }
 }, 60000);
 
