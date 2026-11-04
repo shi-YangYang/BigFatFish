@@ -1,17 +1,15 @@
 import { useModelConnection } from "./useModelConnection";
 import { reasoningEfforts } from "../../../runtime/src/ai/model-options";
 import type { ReasoningEffort } from "../../../runtime/src/ai/types";
-import { Alert, Disclosure } from "./Surfaces";
+import { Disclosure } from "./Surfaces";
 import {
   Button,
   Field,
   Select,
   Input,
-  Checkbox,
-  FormGrid,
   ActionRow,
 } from "./Controls";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ModelConfig, ModelPurpose } from "../../../runtime/src/ai/types";
 import { api } from "../api";
 type PublicModel = ModelConfig & { hasKey: boolean };
@@ -21,10 +19,6 @@ const blank: ModelConfig = {
   provider: "openai",
   baseURL: "",
   model: "",
-  contextWindow: 32768,
-  maxTokens: 4096,
-  timeoutMs: 120000,
-  vision: false,
 };
 export function Models({
   models,
@@ -40,7 +34,10 @@ export function Models({
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
     [purpose, setPurpose] = useState<ModelPurpose>("chat");
-  const connection = useModelConnection(form, key);
+  const connection = useModelConnection(form, key, fail, purpose);
+  const [routes, setRoutes] = useState<Partial<Record<ModelPurpose, string>>>({});
+  useEffect(() => { let live = true; void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes").then(value => { if (live) setRoutes(value); }).catch(fail); return () => { live = false; }; }, [models, fail]);
+  const purposes = { chat: "聊天模型", asr: "语音输入模型", tts: "朗读模型" };
   const waiting = busy || !!connection.pending;
   const effortLabels: Record<ReasoningEffort, string> = { none: "关闭", minimal: "极低", low: "低", medium: "中", high: "高", xhigh: "极高", max: "最高" };
   async function save(e: React.FormEvent) {
@@ -51,16 +48,15 @@ export function Models({
       const value = {
         ...form,
         id: form.id || crypto.randomUUID(),
-        label: form.label.trim() || form.model,
+        label: form.model,
       };
       await api("/v1/models", "POST", {
         ...value,
         ...(key ? { apiKey: key } : {}),
       });
       setForm(value);
-      const routes = await api<Record<string, string>>("/v1/model-routes");
-      if (!routes.chat)
-        await api("/v1/model-routes", "PUT", { ...routes, chat: value.id });
+      const current = await api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes");
+      setRoutes(await api("/v1/model-routes", "PUT", { ...current, [purpose]: value.id }));
       setKey("");
       await reload();
       setSaved("配置已保存");
@@ -93,7 +89,8 @@ export function Models({
                 type="button"
                 className="model-name"
                 onClick={() => {
-                  setForm(m);
+                  setForm({ id: m.id, label: m.model, provider: m.provider, baseURL: m.baseURL, model: m.model, reasoningEffort: m.reasoningEffort });
+                  setPurpose((Object.keys(purposes) as ModelPurpose[]).find(p => routes[p] === m.id) ?? "chat");
                   setKey("");
                   setSaved("");
                 }}
@@ -118,6 +115,10 @@ export function Models({
       )}
       <form onSubmit={save} className="model-form">
         <div className="form-section">
+          <Field>模型用途<Select value={purpose} onValueChange={value => {
+            setPurpose(value as ModelPurpose);
+            if (value !== "chat" && form.provider === "deepseek") setForm(current => ({ ...current, provider: "openai", baseURL: "", reasoningEffort: undefined }));
+          }}>{Object.entries(purposes).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</Select></Field>
           <Field>
             提供商
             <Select
@@ -135,7 +136,7 @@ export function Models({
               }
             >
               <option value="openai">OpenAI 兼容 / 本地模型</option>
-              <option value="deepseek">DeepSeek</option>
+              {purpose === "chat" && <option value="deepseek">DeepSeek</option>}
             </Select>
           </Field>
           <Field>
@@ -176,14 +177,12 @@ export function Models({
               <Button disabled={waiting || !form.baseURL.trim()} onClick={() => void connection.run("discover")}>
                 {connection.pending === "discover" ? "正在获取…" : "获取模型列表"}
               </Button>
-              <Button disabled={waiting || !form.baseURL.trim() || !form.model.trim()} onClick={() => void connection.run("test")}>
+              {purpose === "chat" && <Button disabled={waiting || !form.baseURL.trim() || !form.model.trim()} onClick={() => void connection.run("test")}>
                 {connection.pending === "test" ? "正在测试…" : "测试连接"}
-              </Button>
+              </Button>}
             </ActionRow>
-            <p className="muted">测试会调用所选模型，消耗少量 token。</p>
-            {connection.result && (connection.result.error
-              ? <Alert>{connection.result.message}</Alert>
-              : <p role="status">{connection.result.message}</p>)}
+            {purpose === "chat" && <p className="muted">测试会调用所选模型，消耗少量 token。</p>}
+            {connection.result && <p role="status">{connection.result.message}</p>}
           </div>
           {connection.models.length > 0 && <Field>
             可用模型
@@ -193,7 +192,7 @@ export function Models({
             </Select>
           </Field>}
         </div>
-        <div className="field-with-help">
+        {purpose === "chat" && <div className="field-with-help">
           <Field>
             推理强度
             <Select value={form.reasoningEffort ?? ""} onValueChange={value => setForm({ ...form, reasoningEffort: value ? value as ReasoningEffort : undefined })}>
@@ -202,47 +201,7 @@ export function Models({
             </Select>
           </Field>
           <p className="muted">具体强度由模型支持；不支持时请选择默认。保存后用于后续请求。</p>
-        </div>
-        <Disclosure className="advanced-fields" title={<>高级配置</>}>
-
-          <FormGrid className="field-grid">
-            <Field>
-              显示名称
-              <Input
-                value={form.label}
-                placeholder="默认使用模型名称"
-                onChange={(e) => setForm({ ...form, label: e.target.value })}
-              />
-            </Field>
-            <Field>
-              配置标识
-              <Input readOnly value={form.id} placeholder="保存时自动生成" />
-            </Field>
-            {(["contextWindow", "maxTokens", "timeoutMs"] as const).map(
-              (field, i) => (
-                <Field key={field}>
-                  {["上下文容量", "单次输出上限", "超时（毫秒）"][i]}
-                  <Input
-                    required
-                    type="number"
-                    value={form[field]}
-                    onChange={(e) =>
-                      setForm({ ...form, [field]: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-              ),
-            )}
-            <Field className="check">
-              <Checkbox
-
-                checked={form.vision}
-                onCheckedChange={(value) => setForm({ ...form, vision: value })}
-              />
-              支持图片输入
-            </Field>
-          </FormGrid>
-        </Disclosure>
+        </div>}
         <ActionRow className="form-actions">
           <Button variant="primary" type="submit" disabled={waiting}>
             保存模型
@@ -250,52 +209,14 @@ export function Models({
           <span role="status">{saved}</span>
         </ActionRow>
       </form>
-      {models.length > 0 && (
-        <Disclosure  title={<>默认模型与用途</>}>
-
-          <Field>
-            用途
-            <Select
-              value={purpose}
-              onValueChange={(value) => setPurpose(value as ModelPurpose)}
-            >
-              {Object.entries({
-                chat: "聊天",
-                reasoning: "推理",
-                vision: "图片理解",
-                memory: "记忆整理",
-                asr: "音频转写",
-                tts: "语音合成",
-              }).map(([v, label]) => (
-                <option key={v} value={v}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <ActionRow className="actions">
-            {models.map((m) => (
-              <Button
-                type="button"
-                key={m.id}
-                onClick={() =>
-                  void api<Record<string, string>>("/v1/model-routes")
-                    .then((routes) =>
-                      api("/v1/model-routes", "PUT", {
-                        ...routes,
-                        [purpose]: m.id,
-                      }),
-                    )
-                    .then(() => setSaved("默认模型已更新"))
-                    .catch(fail)
-                }
-              >
-                使用 {m.label}
-              </Button>
-            ))}
-          </ActionRow>
-        </Disclosure>
-      )}
+      {models.length > 0 && <Disclosure title={<>默认模型</>}>
+        <div className="model-defaults">
+          {(Object.keys(purposes) as ModelPurpose[]).map(p => <Field key={p}>{purposes[p]}<Select disabled={waiting} value={routes[p] ?? ""} onValueChange={id => {
+            setBusy(true); const next = { ...routes }; if (id) next[p] = id; else delete next[p];
+            void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes", "PUT", next).then(value => { setRoutes(value); setSaved("默认模型已更新"); return reload(); }).catch(fail).finally(() => setBusy(false));
+          }}><option value="">未设置</option>{models.filter(m => p === "chat" || m.provider === "openai").map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</Select></Field>)}
+        </div>
+      </Disclosure>}
     </section>
   );
 }

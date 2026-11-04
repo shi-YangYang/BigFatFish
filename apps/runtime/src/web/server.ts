@@ -45,8 +45,8 @@ export async function createWeb(p:DataPaths,c:WebConfig,processes:{stop:()=>Prom
  await app.register(websocket,{options:{maxPayload:1024}});
  app.get<{Querystring:{conversationId?:string}}>('/events',{websocket:true},(socket,req)=>{
   const s=sessions.get(cookie(req.headers)!)!;if(req.headers.origin!==c.origin||!req.query.conversationId||req.query.conversationId.length>100){socket.close(1008);return;}
-  s.sockets.add(socket);const connection=readConnection(p),upstream=new WebSocket(`ws://127.0.0.1:${connection.port}/v1/events?conversationId=${encodeURIComponent(req.query.conversationId)}`,{headers:{authorization:`Bearer ${connection.token}`},maxPayload:1048576});
-  upstream.on('message',data=>{if(socket.bufferedAmount>1048576){socket.close(1013);return;}if(socket.readyState===WebSocket.OPEN)socket.send(data.toString());});upstream.on('error',()=>socket.close(1011));upstream.on('close',()=>socket.close(1012));socket.on('close',()=>{s.sockets.delete(socket);upstream.terminate();});socket.on('error',()=>upstream.terminate());
+  s.sockets.add(socket);const connection=readConnection(p),upstream=new WebSocket(`ws://127.0.0.1:${connection.port}/v1/events?conversationId=${encodeURIComponent(req.query.conversationId)}`,{headers:{authorization:`Bearer ${connection.token}`},maxPayload:8388608});
+  upstream.on('message',data=>{if(socket.bufferedAmount>8388608){socket.close(1013);return;}if(socket.readyState===WebSocket.OPEN)socket.send(data.toString());});upstream.on('error',()=>socket.close(1011));upstream.on('close',()=>socket.close(1012));socket.on('close',()=>{s.sockets.delete(socket);upstream.terminate();});socket.on('error',()=>upstream.terminate());
  });
  let busy=false;const directory=join(p.runtime,'web-transfer');mkdirSync(directory,{recursive:true,mode:0o700});
  app.post('/maintenance/:action',async(req,reply)=>{

@@ -1,9 +1,10 @@
+import { Notifications, notifyError, clearNotifications } from './components/Notifications';
 import { Alert, Loading, Menu, Badge } from "./components/Surfaces";
 import { BounceSidebar } from "./components/beui/bounce-sidebar";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { api, errorText, isWeb, webRequest } from "./api";
+import { api, isWeb, webRequest } from "./api";
 import { Chat } from "./components/Chat";
 import { Setup } from "./components/Setup";
 import { MyFish, Connections, Settings } from "./components/Workspaces";
@@ -13,8 +14,7 @@ import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
 export default function App() {
   const [page, setPage] = useState("聊天"),
-    [settingsTab, setSettingsTab] = useState("模型"),
-    [error, setError] = useState("");
+    [settingsTab, setSettingsTab] = useState("模型");
   const [connected, setConnected] = useState(false),
     [initialized, setInitialized] = useState(false),
     [firstRun, setFirstRun] = useState(false),
@@ -27,24 +27,24 @@ export default function App() {
     [approvalCount, setApprovalCount] = useState(0),
     [activity, setActivity] = useState<ActivityOverview>();
   const live = useRef(false);
-  const fail = useCallback((e: unknown) => setError(errorText(e)), []);
+  const fail = notifyError;
   const reload = useCallback(async () => {
     setModels(await api("/v1/models"));
   }, []);
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (silent = false) => {
     try {
       await (isWeb ? api("/v1/status") : invoke("runtime_status"));
       if (live.current) {
         setConnected(true);
         setInitialized(true);
-        setError("");
+        clearNotifications();
       }
       await reload().catch(fail);
       return true;
     } catch (e) {
       if (live.current) {
         setConnected(false);
-        fail(e);
+        if (!silent) fail(e);
       }
       return false;
     }
@@ -62,7 +62,7 @@ export default function App() {
     live.current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const attempt = async (count: number) => {
-      const ready = await connect();
+      const ready = await connect(count > 0);
       if (live.current && !ready && count < 20)
         timer = setTimeout(() => void attempt(count + 1), 500);
     };
@@ -90,7 +90,7 @@ export default function App() {
   }, [connect, fail]);
   useEffect(() => {
     if (!initialized) return;
-    let active = true;
+    let active = true, lastFailure = "";
     const poll = async () => {
       try {
         await api("/v1/status");
@@ -106,13 +106,14 @@ export default function App() {
           api<{ status: string }[]>("/v1/douyin/approvals"),
         ]);
         if (active) {
+          lastFailure = "";
           setActivity(a);
           setApprovalCount(
             [...q, ...d].filter((v) => v.status === "pending").length,
           );
         }
       } catch (e) {
-        if (active) fail(e);
+        if (active && lastFailure !== String(e)) { lastFailure = String(e); fail(e); }
       }
     };
     void poll();
@@ -125,7 +126,7 @@ export default function App() {
   function navigate(next: string) {
     setPage(next);
     setMenu(false);
-    setError("");
+    clearNotifications();
   }
   const addModel = () => {
     setSettingsTab("模型");
@@ -236,14 +237,7 @@ export default function App() {
       <aside className="app-sidebar">{menuContents}</aside>
       <div className="app-workspace">
         {!chatVisible && renderHeader(<h1 className="page-title">{page}</h1>)}
-        {error && (
-          <Alert className="app-error">
-            <span>{error}</span>
-            <Button type="button" size="compact" onClick={() => setError("")}>
-              关闭
-            </Button>
-          </Alert>
-        )}
+        <Notifications />
         {initialized && !connected && (
           <Alert variant="warning" className="connection-banner" role="status">
             连接已断开，当前内容与草稿已保留。
@@ -339,18 +333,9 @@ export default function App() {
 }
 
 function ApprovalContents() {
-  const [error, setError] = useState("");
-  const fail = useCallback((e: unknown) => setError(errorText(e)), []);
+  const fail = notifyError;
   return (
     <>
-      {error && (
-        <Alert className="approval-error">
-          <span>{error}</span>
-          <Button type="button" size="compact" onClick={() => setError("")}>
-            关闭提示
-          </Button>
-        </Alert>
-      )}
       <Permissions fail={fail} approvalsOnly />
       <DouyinApprovals fail={fail} />
     </>

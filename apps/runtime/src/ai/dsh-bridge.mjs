@@ -13,6 +13,9 @@ export async function apply(ctx) {
     // A broken observer must stop the owned turn instead of silently losing events.
     pending.catch(() => { for (const agent of ctx.agents.list()) agent.cancel({ kind: 'user' }); });
   }
+  // Fixed SDK compatibility: resumed pre-Spec019 headers carry an explicit cap.
+  // Public waterfall clears only that override; adapter defaults remain logged.
+  ctx.on('agent/request', async (_event, next) => { const config = { ...await next() }; delete config.maxTokens; return config; });
   const tools=JSON.parse(process.env.BFF_TOOLS||'[]');
   ctx.tools.guard(exec => tools.some(t=>t.name===exec.name) ? undefined : 'denied');
   function fields(schema){return Object.fromEntries(Object.entries(schema.properties??{}).map(([name,value])=>[name,{...node(value),...(schema.required?.includes(name)?{required:true}:{})}]));}function node(schema){const value={...schema};if(schema.type==='object'){delete value.required;value.properties=fields(schema);value.additionalProperties=false;}if(schema.type==='array')value.items=node(schema.items);return value;}

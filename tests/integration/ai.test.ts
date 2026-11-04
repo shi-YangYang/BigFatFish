@@ -42,7 +42,7 @@ it('runs real DSH through Runtime/CLI: streams, isolates sessions, resumes acros
   expect((await call<ChatMessage[]>(`/v1/conversations/${conversation.id}/messages`)).filter(m=>m.role==='assistant')).toHaveLength(2);
  }finally{socket?.close();await cli(root,['stop']);await fixture.close();rmSync(root,{recursive:true,force:true});}
 },60000);
-it('handles queued cancellation, deadlines and authenticated event isolation with the real engine',async()=>{
+it('ignores legacy deadlines and handles queued cancellation and authenticated event isolation with the real engine',async()=>{
  const root=mkdtempSync(join(tmpdir(),'bff ai boundaries ')),p=paths(root),fixture=await fixtureModel();let socket:WebSocket|undefined;
  try{
   expect((await cli(root,['start'])).code).toBe(0);const c=readConnection(p);const call=<T>(url:string,method='GET',body?:unknown)=>requestRuntime<T>(c,url,method,body);
@@ -51,9 +51,11 @@ it('handles queued cancellation, deadlines and authenticated event isolation wit
   const events:unknown[]=[];socket=new WebSocket(`ws://127.0.0.1:${c.port}/v1/events?conversationId=${b.id}`,{headers:{authorization:`Bearer ${c.token}`}});socket.on('message',raw=>events.push(JSON.parse(raw.toString())));await new Promise<void>((resolve,reject)=>{socket!.once('open',resolve);socket!.once('error',reject);});
   const first=await call<ChatMessage>(`/v1/conversations/${a.id}/messages`,'POST',{content:'SLOW_NOW',requestId:'slow'});
   const queued=await call<ChatMessage>(`/v1/conversations/${a.id}/messages`,'POST',{content:'不要发送这个请求',requestId:'queued'});await call(`/v1/messages/${queued.id}/cancel`,'POST');
+  await delay(1800);expect((await call<ChatMessage>('/v1/messages/'+first.id)).status).toBe('running');
+  await call(`/v1/messages/${first.id}/cancel`,'POST');
   let end=first;for(let i=0;i<70&&['queued','running'].includes(end.status);i++){await delay(100);end=await call('/v1/messages/'+first.id);}
-  expect(end.error).toBe('MODEL_TIMEOUT');expect(end.status).toBe('failed');await delay(100);expect((await call<ChatMessage>('/v1/messages/'+queued.id)).status).toBe('cancelled');
-  expect(events.every(e=>(e as {type:string}).type==='ready')).toBe(true);expect(JSON.stringify(fixture.requests)).not.toContain('不要发送这个请求');
+  expect(end.status).toBe('cancelled');expect((await call<ChatMessage>('/v1/messages/'+queued.id)).status).toBe('cancelled');
+  expect(events.map(e=>(e as {type:string}).type)).toEqual(['snapshot-start','snapshot-end','ready']);expect(JSON.stringify(fixture.requests)).not.toContain('不要发送这个请求');
   const refused=new WebSocket(`ws://127.0.0.1:${c.port}/v1/events?conversationId=${b.id}`,{headers:{authorization:'Bearer invalid'}});refused.on('error',()=>{});const status=await new Promise<number>(resolve=>{refused.on('unexpected-response',(_req,res)=>{resolve(res.statusCode!);res.resume();refused.terminate();});});expect(status).toBe(401);
   expect((await call<ChatMessage[]>(`/v1/conversations/${b.id}/messages`))).toHaveLength(0);
  }finally{socket?.close();await cli(root,['stop']);await fixture.close();rmSync(root,{recursive:true,force:true});}

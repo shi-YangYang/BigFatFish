@@ -1,4 +1,5 @@
-import { adapterEffort, openAIModelOptions } from './model-options.js';
+import { forwardModel } from './model-forwarder.js';
+import { adapterEffort, openAIModelOptions, MODEL_REQUEST_TIMEOUT_MS } from './model-options.js';
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
@@ -13,7 +14,7 @@ export class DSHAdapter implements AgentEngine {
   constructor(private p: DataPaths) {}
   async close() { await Promise.all([...this.children].map(h => h.close())); }
   async run(input: EngineInput): Promise<string> {
-    if(input.images?.length && (!input.model.vision || input.images.length>2 || input.images.some(i=>i.data.length>5600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(i.data))))throw new Error('INVALID_ENGINE_IMAGES');
+    if(input.images?.length && (input.images.length>2 || input.images.some(i=>i.data.length>5600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(i.data))))throw new Error('INVALID_ENGINE_IMAGES');
     const home = join(this.p.data, 'engine', input.conversationId);
     for (const path of [join(this.p.data, 'engine'), home, join(home, 'workspace')]) {
       assertRegular(path, true); mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -23,6 +24,8 @@ export class DSHAdapter implements AgentEngine {
     let childPort = 0, text = '', attempt = '', revision = 0;
     const bridge = createServer(async (req, res) => {
       if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${token}` || req.headers.origin) { res.writeHead(403).end(); return; }
+      if (req.url === '/model/chat/completions' && input.model.provider === 'openai') { await forwardModel(req, res, input.model.baseURL, input.key, input.signal); return; }
+      if (req.url !== '/') { res.writeHead(404).end('{}'); return; }
       try {
         let body = ''; for await (const chunk of req) { body += chunk; if (body.length > 262144) throw new Error(); }
         const data = JSON.parse(body);
@@ -44,22 +47,22 @@ export class DSHAdapter implements AgentEngine {
     let runError: unknown;
     const cleanupErrors: unknown[] = [];
     try {
+    await new Promise<void>((resolve, reject) => { bridge.once('error', reject); bridge.listen(0, '127.0.0.1', resolve); });
+    const bridgePort = (bridge.address() as { port: number }).port;
     const plugin = fileURLToPath(new URL('./dsh-bridge.mjs', import.meta.url));
     const disabled = ['persistent-bash','persistent-pwsh','tool-fs','tool-working-directory','session-log-deepseek','plugin-package-inventory-deepseek','terminal-bash','terminal-pwsh','pty'];
     const patches: unknown[] = disabled.map(id => ({ id, disabled: true }));
     patches.push({ id: 'sandbox-policy', config: { mode: 'read-only' } });
     if (input.model.provider === 'openai') {
       patches.push({ id: 'llm-deepseek', disabled: true });
-      patches.push({ insert: [{ id: 'llm-bff', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { bff: { api: 'openai-completions', ...(input.model.reasoningEffort ? { reasoning: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', models: [{ id: input.model.model, ...openAIModelOptions(input.model), input: input.model.vision ? ['text','image'] : ['text'], contextWindow: input.model.contextWindow, maxTokens: input.model.maxTokens }], timeoutMs: input.model.timeoutMs, streamIdleTimeoutMs: input.model.timeoutMs, retryPolicy: { mode: 'normal', maxRetries: 0 } } } } }] });
-    } else patches.push({ id: 'llm-deepseek', config: { ...(input.model.reasoningEffort ? { reasoningEffort: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', defaultContextWindow: input.model.contextWindow, streamIdleTimeoutMs: input.model.timeoutMs } });
+      patches.push({ insert: [{ id: 'llm-bff', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { bff: { api: 'openai-completions', ...(input.model.reasoningEffort ? { reasoning: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: `http://127.0.0.1:${bridgePort}/model`, apiKeyEnv: 'BFF_MODEL_API_KEY', models: [{ id: input.model.model, ...openAIModelOptions(input.model), input: ['text','image'] }], timeoutMs: MODEL_REQUEST_TIMEOUT_MS, streamIdleTimeoutMs: MODEL_REQUEST_TIMEOUT_MS, retryPolicy: { mode: 'normal', maxRetries: 0 } } } } }] });
+    } else patches.push({ id: 'llm-deepseek', config: { ...(input.model.reasoningEffort ? { reasoningEffort: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', streamIdleTimeoutMs: MODEL_REQUEST_TIMEOUT_MS } });
     patches.push({ insert: [{ id: 'bff-bridge', name: plugin }] });
     privateFile(profile); writeFileSync(profile, JSON.stringify(patches));
-    await new Promise<void>((resolve, reject) => { bridge.once('error', reject); bridge.listen(0, '127.0.0.1', resolve); });
-    const bridgePort = (bridge.address() as { port: number }).port;
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.key || 'local-no-key', BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
-    harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, maxTokens: input.model.maxTokens, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
+    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
+    harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {
       try { if (childPort) { const r = await fetch(`http://127.0.0.1:${childPort}/${input.sessionId}`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(1500) }); if (r.ok) return; } } catch { /* owned process fallback */ }

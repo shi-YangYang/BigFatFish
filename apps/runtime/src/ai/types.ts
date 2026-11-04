@@ -1,8 +1,9 @@
-export type ModelPurpose = 'chat' | 'reasoning' | 'vision' | 'memory' | 'asr' | 'tts';
+export type ModelPurpose = 'chat' | 'asr' | 'tts';
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export interface ModelConfig {
   id: string; label: string; provider: 'deepseek' | 'openai'; baseURL: string; model: string;
-  contextWindow: number; maxTokens: number; timeoutMs: number; vision: boolean; reasoningEffort?: ReasoningEffort;
+  /** Legacy input fields; ignored on save and never forwarded as generation settings. */
+  contextWindow?: number; maxTokens?: number; timeoutMs?: number; vision?: boolean; reasoningEffort?: ReasoningEffort;
 }
 export interface Persona {
   name: string; avatar: string; role: string; traits: string; style: string; likes: string;

@@ -1,7 +1,10 @@
+import { subscribeChat } from '../chat-events';
+import { mergeChatMessage } from '../chat-messages';
+import { notifyMessage } from './Notifications';
 import { PromptInput } from "./beui/prompt-input";
 import { Message, MessageAvatar, MessageContent, MessageBubble, MessageBubbleContent } from "./beui/message";
 import { Disclosure, Menu, Alert } from "./Surfaces";
-import { Button, Input, Field, Select } from "./Controls";
+import { Button, Input, Field } from "./Controls";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ChatMessage,
@@ -30,13 +33,14 @@ export function Chat({
   useEffect(() => { if (!active) setVoiceOpen(false); }, [active]);
   const [sessions, setSessions] = useState<Conversation[]>([]),
     [selection, setSelection] = useState({ id: "" }),
-    [model, setModel] = useState(""),
+    [chatModel, setChatModel] = useState(""),
     [messages, setMessages] = useState<ChatMessage[]>([]),
     [text, setText] = useState(""),
     [busy, setBusy] = useState(false),
     [history, setHistory] = useState(false),
     [readOnly, setReadOnly] = useState<string[]>([]),
-    [notice, setNotice] = useState("");
+    [streamOffline, setStreamOffline] = useState(false),
+    [streamRetry, setStreamRetry] = useState(0);
   const [tools, setTools] = useState<
       { name: string; state: string; at: string }[]
     >([]),
@@ -53,6 +57,8 @@ export function Chat({
     textRef = useRef(text),
     fileInput = useRef<HTMLInputElement>(null);
   const locked = readOnly.includes(selected);
+  const sessionModel = sessions.find(session => session.id === selected)?.modelId;
+  const canChat = models.some(model => model.id === (selected ? sessionModel : chatModel));
   function updateText(value: string) {
     draftVersion.current++;
     textRef.current = value;
@@ -68,8 +74,13 @@ export function Chat({
     updateText(drafts.current.get(id) ?? "");
     setMessages([]);
     setTools([]);
-    setNotice("");
+
   }
+  useEffect(() => {
+    let live = true;
+    void api<{ chat?: string }>("/v1/model-routes").then(routes => { if (live) setChatModel(routes.chat ?? ""); }).catch(fail);
+    return () => { live = false; };
+  }, [models, fail]);
   useEffect(() => {
     if (!active) setHistory(false);
   }, [active]);
@@ -98,40 +109,31 @@ export function Chat({
   }, [fail]);
   useEffect(() => {
     if (!selected || !connected || !active) return;
-    let live = true,
-      loading = false;
-    const load = async () => {
-      if (loading) return;
-      loading = true;
-      try {
-        const data = await api<ChatMessage[]>(
-          `/v1/conversations/${selected}/messages`,
-        );
-        if (live && currentSelection.current === selection) setMessages(data);
-        const actions = await api<typeof tools>(
-          `/v1/conversations/${selected}/tools`,
-        );
-        if (live && currentSelection.current === selection) setTools(actions);
-      } catch (e) {
-        if (live && currentSelection.current === selection) fail(e);
-      } finally {
-        loading = false;
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), 700);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [selection, selected, connected, active, fail]);
+    let live = true, attempt = 0, stop = () => {}, timer: ReturnType<typeof setTimeout>;
+    function connectStream() {
+      stop();
+      stop = subscribeChat(selected, event => {
+        if (!live || currentSelection.current !== selection || event.conversationId !== selected) return;
+        if (event.type === 'snapshot-start') { setMessages([]); setTools([]); }
+        else if (event.type === 'snapshot-end') { setTools(event.tools ?? []); setStreamOffline(false); attempt = 0; }
+        else if ((event.type === 'message' || event.type === 'snapshot-message') && event.message) setMessages(items => mergeChatMessage(items, event.message!));
+        else if (event.type === 'tool' && event.name && event.state && event.at) setTools(items => [...items.slice(-499), { name: event.name!, state: event.state!, at: event.at! }]);
+      }, () => {
+        if (!live) return;
+        setStreamOffline(true); stop();
+        if (attempt < 5) timer = setTimeout(connectStream, Math.min(10000, 500 * 2 ** attempt++));
+      });
+    }
+    connectStream();
+    return () => { live = false; clearTimeout(timer); stop(); };
+  }, [selection, selected, connected, active, streamRetry]);
   async function send() {
     if (
       !text.trim() ||
       sending.current ||
       locked ||
       !connected ||
-      !models.length
+      !canChat
     )
       return;
     let origin = currentSelection.current;
@@ -144,13 +146,13 @@ export function Chat({
     const request = pending.current.get(origin.id)!;
     sending.current = request;
     setBusy(true);
-    setNotice("");
+
     try {
       if (!origin.id) {
         const session = await api<Conversation>(
           "/v1/conversations",
           "POST",
-          model ? { modelId: model } : {},
+          {},
         );
         if (!mounted.current) return;
         setSessions((items) => [session, ...items]);
@@ -181,9 +183,9 @@ export function Chat({
           "EXTERNAL_CONVERSATION_READ_ONLY"
         ) {
           setReadOnly((items) => [...items, origin.id]);
-          setNotice("这是外部渠道会话，请从 QQ 继续对话。");
+          notifyMessage("这是外部渠道会话，请从 QQ 继续对话。");
         } else
-          setNotice(
+          notifyMessage(
             `${errorText(e)} 若发送结果未知，请先核对历史；重试同一内容会沿用本次请求。`,
           );
       }
@@ -229,7 +231,7 @@ export function Chat({
   }
   async function speak(content: string) {
     if (!voice.trim()) {
-      setNotice("请先在输入区的声音选项中填写声音名称。");
+      notifyMessage("请先在输入区的声音选项中填写声音名称。");
       return;
     }
     setMediaBusy(true);
@@ -307,11 +309,11 @@ export function Chat({
               <div className="chat-welcome">
                 <FishAvatar />
                 <h2>
-                  {models.length
+                  {canChat
                     ? "今天想聊些什么？"
                     : "先为大肥鱼添加一个模型"}
                 </h2>
-                {!models.length ? (
+                {!canChat ? (
                   <Button type="button" onClick={configureModel}>
                     添加聊天模型
                   </Button>
@@ -390,15 +392,11 @@ export function Chat({
             />
           )}
           <div className="composer-area">
-            {notice && (
-              <Alert className="inline-notice">
-                {notice}
-              </Alert>
-            )}
+            {streamOffline && <p role="status" className="stream-status">实时连接已断开，正在保留已有回复。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
             {locked && <p className="muted">此会话仅供查看，请从 QQ 继续。</p>}
             <PromptInput className="composer" onSubmit={() => send()}
               aria-label="消息" value={text} onValueChange={updateText}
-              placeholder="和大肥鱼聊聊…" disabled={locked || !models.length}
+              placeholder="和大肥鱼聊聊…" disabled={locked || !canChat}
               submitDisabled={busy || !connected} footer={
               <div className="composer-tools">
                 <Input
@@ -431,32 +429,8 @@ export function Chat({
                     />
                   </Field>
                 </Menu>
-                {!selected && (
-                  <Select
-                    aria-label="新会话模型"
-                    value={model}
-                    onValueChange={(value) => setModel(value)}
-                  >
-                    <option value="">默认聊天模型</option>
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-                <Button
-                  variant="primary"
-                  className="send-button"
-                  type="submit"
-                  disabled={
-                    busy ||
-                    locked ||
-                    !connected ||
-                    !models.length ||
-                    !text.trim()
-                  }
-                >
+                <Button variant="primary" className="send-button" type="submit"
+                  disabled={busy || locked || !connected || !canChat || !text.trim()}>
                   {busy ? "发送中…" : "发送"}
                 </Button>
               </div>

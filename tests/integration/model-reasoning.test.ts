@@ -30,14 +30,15 @@ it('applies real DSH reasoning to resumed sessions and restores provider default
         const actual = fixture.requests.slice(before).find(req => req.url.includes('messages') || req.url.includes('completions'))!;
         if (provider === 'openai') {
           expect(actual.body.reasoning_effort).toBe(effort);
-          expect(actual.body.max_completion_tokens).toBe(512);
+          expect(actual.body).not.toHaveProperty('max_completion_tokens');
+          expect(actual.body).not.toHaveProperty('max_tokens');
         } else {
           expect(actual.body.thinking).toEqual({ type: effort === 'none' ? 'disabled' : 'enabled' });
           expect(actual.body.output_config).toEqual(effort === 'none' ? undefined : { effort: effort ?? 'high' });
         }
         if (turn > 1) expect(JSON.stringify(actual.body.messages)).toContain('reasoning-turn-0');
       }
-      for (const change of [{ baseURL: model.baseURL + '/changed' }, { model: 'other' }, { contextWindow: 16384 }]) expect(() => chat.config.saveModel({ ...model, ...change })).toThrow('MODEL_IN_USE');
+      for (const change of [{ baseURL: model.baseURL + '/changed' }, { model: 'other' }]) expect(() => chat.config.saveModel({ ...model, ...change })).toThrow('MODEL_IN_USE');
       expect(() => chat.config.saveModel({ ...model, reasoningEffort: 'invalid' as ReasoningEffort })).toThrow('INVALID_REASONING_EFFORT');
       if (provider === 'deepseek') expect(() => chat.config.saveModel({ ...model, reasoningEffort: 'medium' })).toThrow('INVALID_REASONING_EFFORT');
     }

@@ -1,5 +1,13 @@
 # Task Handoff
 
+## 当前任务：Spec019简化模型与实时反馈已完成
+
+用户要求五项修正，后续确认“语音输入单独拿出来吧”，最终chat/asr/tts三类。dev基线8e567fe，开始干净；Spec019 Done。实施/root/implement_chat_experience与新独立验收/root/accept_chat_experience报告已全部读取处理，PASS无返工。删除高级区及旧生成覆盖，图片/记忆/日记/活动共用chat；旧配置/密钥/历史保留。固定DSH公开deprecated兼容钩子及受限OpenAI转发的原因见Decision012；DeepSeek保留协议必需默认。Runtime真实事件经Web WS、原生认证NDJSON到Tauri Channel，Chat不再700ms轮询；统一beUI通知5秒收起、可关闭和暂停。保留浅海蓝。
+
+S3仅配置兼容与认证实时传输：定向Runtime/真实DSH/模型转发测试、原生HTTP→IPC测试、apps范围类型与Node/Desktop/Web构建通过；完整证据和已修正的初次失败见Spec019 Plan。根tsconfig既有model-connection-http.test.ts:91类型问题未扩大修复，不声称全项目typecheck通过。root经cua_repl实际验证三用途、通知自动消失/重试/键盘暂停、380px无溢出、真实WebSocket首片/完成/取消，四张截图与ui-evidence.json在build/chat-experience；验收Agent实际目视截图。预览http://127.0.0.1:53429/，owned session80039，隔离内存fixture，无真实凭据。
+
+验收后同步build/portable/dist共121个文件，逐字节与当前dist一致，metadata一致，证据dev-resources.json；未启动用户Runtime。开发测试需重启Runtime及开发窗口。真实百炼/平台账号、原生窗口实测、Windows仍待验，未重打DMG，下方安装包不含Spec019。root按持续每阶段授权本地commit，准确hash以git log为准；未push/PR/合并，远端未刷新。满足停止条件，不追加验证，不恢复旧P0–P7待验工作。下方为历史记录。
+
 ## 最新交付：macOS 测试包已刷新（2026-11-04）
 
 用户明确要求“打呀”。基于dev源码27cbc1d，/root/package_latest_mac重新构建Desktop/Web并生成最新macOS arm64 App/DMG，含Spec016–018间距与浅海蓝；复用已核实未变的Node24.20.0与生产依赖，无源码修改。三项构建实际exit0，119个随包dist文件/嵌入资产/颜色/metadata/MIT一致，ad-hoc签名验证exit0。新独立/root/accept_latest_mac_package只读验收PASS，两个完整报告已处理，无返工。DMG：apps/desktop/src-tauri/target/release/bundle/dmg/BigFatFish_0.1.0_aarch64.dmg，210248739字节，SHA256 6cc428b3723a83c08c75b3ac6846fea6dd2057cf92af10666fc6ca95c1881397。本次证据build/macos-test-20261104，结果集中记录Spec018 Plan后续打包节。root按持续授权本地提交文档记录，准确hash见git log；未push/PR/合并，远端未刷新。未公证、未安装/原生启动、真实模型和平台账号/Windows仍待验。满足打包交付条件，停止追加验证；下方未打包描述均为历史阶段边界。

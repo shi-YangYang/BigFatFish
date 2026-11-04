@@ -44,7 +44,7 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | API | 用途 |
 | --- | --- |
 | `/v1/status`、`/v1/logs` | 实际运行状态、脱敏日志 |
-| `/v1/models`、`/v1/model-routes` | 模型配置及 chat/reasoning/vision/memory/asr/tts 路由 |
+| `/v1/models`、`/v1/model-routes` | 模型配置及 chat/asr/tts 路由；旧细分用途兼容归一到聊天 |
 | `POST /v1/models/discover`、`POST /v1/models/test` | 对当前模型配置草稿发现模型或执行一次有界生成诊断，不保存配置或会话 |
 | `/v1/persona`、`/v1/persona/history` | 版本化人格 |
 | `/v1/conversations`、`/:id/messages`、`/:id/tools` | 会话、消息与实际工具活动 |
@@ -55,7 +55,7 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | `/v1/plugins` | 安装目录、生命周期和工具 |
 | `/v1/media/transcribe`、`/v1/media/synthesize` | 有界音频消费者 |
 
-WebSocket：本机 `/v1/events?conversationId=ID` 使用 bearer；Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。初始 ready 不是生成完成。断线后的权威记录从消息 HTTP API 重新读取，发送使用 requestId 防重复。前端会话切换与草稿版本保护不能省略。
+实时订阅：本机 `/v1/events?conversationId=ID` WebSocket 与 `/v1/events/stream?conversationId=ID` NDJSON 使用 bearer；Desktop 由原生宿主将 NDJSON 转为 Tauri Channel，Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串或交给前端。连接先依序发送 snapshot-start、逐条 snapshot-message、snapshot-end，再交付排队的增量并发 ready；ready 不是生成完成。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。断线有限退避重连时补齐快照，发送使用 requestId 防重复。前端会话切换、终态与草稿版本保护不能省略。
 
 模型诊断输入包含`provider/baseURL`，可附`id/apiKey/timeoutMs`；测试另需`model`，可附`maxTokens/reasoningEffort`。省略apiKey时仅允许对同提供商、同规范化地址复用id对应密钥，显式空字符串表示不使用密钥。发现返回`{models:[{id,name}],elapsedMs}`，测试返回`{ok:true,elapsedMs}`；错误为稳定错误码，不返回上游正文。推理字段的值、默认与已有配置约束见[模型说明](ai-core.md)。
 

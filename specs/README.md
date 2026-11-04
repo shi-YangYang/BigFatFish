@@ -37,3 +37,5 @@
 - [Spec 017：大肥鱼蓝色主题去紫](spec-017-pure-blue-theme/spec.md)：[独立验收PASS](spec-017-pure-blue-theme/acceptance.md)；统一纯蓝主色、浅蓝底色及beUI状态配色，本轮源码/预览交付。
 
 - [Spec 018：浅海蓝与轻量选中态](spec-018-soft-blue/spec.md)：[独立验收PASS](spec-018-soft-blue/acceptance.md)；采用用户选择的清透浅海蓝，区分主操作与浅底深字页签。
+
+- [Spec 019：简化模型设置与实时聊天反馈](spec-019-chat-experience/spec.md)：[独立验收PASS](spec-019-chat-experience/acceptance.md)；聊天/语音输入/朗读三类用途、服务端默认、流式回复与统一临时错误提示。

@@ -29,3 +29,10 @@ export function reasoningBody(provider: ModelConfig['provider'], effort: Reasoni
   if (provider === 'openai') return effort ? { reasoning_effort: effort } : {};
   return effort === 'none' ? { thinking: { type: 'disabled' } } : { thinking: { type: 'enabled' }, output_config: { effort: effort ?? 'high' } };
 }
+
+// Local resource safeguards, independent of provider generation defaults.
+export const MODEL_REQUEST_TIMEOUT_MS = 180000;
+export const RESTORED_HISTORY_CHAR_BUDGET = 48000;
+export function normalizeModel(config: ModelConfig): ModelConfig {
+  return { id: config.id, label: config.label || config.model, provider: config.provider, baseURL: config.baseURL, model: config.model, ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}) };
+}

@@ -1,4 +1,4 @@
-import { modelURL, parseReasoning } from './model-options.js';
+import { modelURL, parseReasoning, normalizeModel } from './model-options.js';
 import type { DatabaseSync } from 'node:sqlite';
 import { InputError, object, string, type ModelConfig, type Persona } from './types.js';
 import { SecretStore } from './secrets.js';
@@ -12,11 +12,11 @@ export class Configuration {
   }
   encryptSecret(value: string) { return this.secrets.encrypt(value); }
   decryptSecret(value: string) { return this.secrets.decrypt(value); }
-  models() { return this.db.prepare('SELECT id, config, secret FROM models ORDER BY id').all().map(row => ({ ...JSON.parse(row.config as string) as ModelConfig, hasKey: !!row.secret })); }
+  models() { return this.db.prepare('SELECT id, config, secret FROM models ORDER BY id').all().map(row => ({ ...normalizeModel(JSON.parse(row.config as string)), hasKey: !!row.secret })); }
   model(id: string) {
     const row = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
     if (!row) throw new InputError('MODEL_NOT_CONFIGURED', 409);
-    return { config: JSON.parse(row.config as string) as ModelConfig, key: row.secret ? this.secrets.decrypt(row.secret as string) : '' };
+    return { config: normalizeModel(JSON.parse(row.config as string)), key: row.secret ? this.secrets.decrypt(row.secret as string) : '' };
   }
   saveModel(input: unknown) {
     const b = object(input); const id = string(b.id, 64);
@@ -25,9 +25,7 @@ export class Configuration {
     if (provider !== 'deepseek' && provider !== 'openai') throw new InputError('INVALID_PROVIDER');
     const baseURL = modelURL(b.baseURL);
     const reasoningEffort = parseReasoning(provider, b.reasoningEffort);
-    const number = (value: unknown, min: number, max: number) => { if (!Number.isInteger(value) || Number(value) < min || Number(value) > max) throw new InputError('INVALID_MODEL_LIMIT'); return Number(value); };
-    const config: ModelConfig = { id, label: string(b.label, 100), provider, baseURL, model: string(b.model, 200), contextWindow: number(b.contextWindow, 2048, 2000000), maxTokens: number(b.maxTokens, 1, 128000), timeoutMs: number(b.timeoutMs, 1000, 600000), vision: b.vision === true, ...(reasoningEffort ? { reasoningEffort } : {}) };
-    if (config.maxTokens >= config.contextWindow) throw new InputError('INVALID_MODEL_LIMIT');
+    const config: ModelConfig = { id, label: b.label === undefined ? string(b.model, 200) : string(b.label, 200), provider, baseURL, model: string(b.model, 200), ...(reasoningEffort ? { reasoningEffort } : {}) };
     const old = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
     if (old && this.modelIdentity(JSON.parse(old.config as string)) !== this.modelIdentity(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
     const secret = b.apiKey === undefined ? old?.secret ?? null : (string(b.apiKey, 8192, true) ? this.secrets.encrypt(b.apiKey as string) : null);
@@ -35,7 +33,7 @@ export class Configuration {
     return this.models().find(model => model.id === id)!;
   }
   private modelIdentity(config: ModelConfig) {
-    const identity = { ...config, baseURL: modelURL(config.baseURL) }; delete identity.reasoningEffort; return JSON.stringify(identity);
+    return JSON.stringify([config.provider, modelURL(config.baseURL), config.model]);
   }
   deleteModel(id: string) {
     if (this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
@@ -43,10 +41,23 @@ export class Configuration {
     if (Object.values(routes).includes(id)) throw new InputError('MODEL_IN_USE', 409);
     this.db.prepare('DELETE FROM models WHERE id=?').run(id); return { deleted: true };
   }
-  routes(): Record<string, string> { const row = this.db.prepare("SELECT value FROM settings WHERE key='model_routes'").get(); return row ? JSON.parse(row.value as string) : {}; }
+  routes(): Partial<Record<'chat'|'asr'|'tts', string>> {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key='model_routes'").get();
+    return this.normalizeRoutes(row ? JSON.parse(row.value as string) : {});
+  }
+  private normalizeRoutes(routes: Record<string, unknown>) {
+    const result: Partial<Record<'chat'|'asr'|'tts', string>> = {};
+    // Old specialized routes remain readable but cannot override a configured chat model.
+    const chat = routes.chat ?? routes.reasoning ?? routes.vision ?? routes.memory;
+    for (const [purpose, id] of Object.entries({ chat, asr: routes.asr, tts: routes.tts }))
+      if (id !== undefined && id !== '') result[purpose as 'chat'|'asr'|'tts'] = string(id, 64);
+    return result;
+  }
   saveRoutes(input: unknown) {
-    const routes = object(input); const result: Record<string,string> = {};
-    for (const [purpose, id] of Object.entries(routes)) { if (!['chat','reasoning','vision','memory','asr','tts'].includes(purpose)) throw new InputError('INVALID_MODEL_PURPOSE'); result[purpose] = string(id, 64); this.model(result[purpose]); }
+    const routes = object(input);
+    if (Object.keys(routes).some(key => !['chat','asr','tts','reasoning','vision','memory'].includes(key))) throw new InputError('INVALID_MODEL_PURPOSE');
+    const result = this.normalizeRoutes(routes);
+    for (const id of Object.values(result)) this.model(id);
     this.db.prepare("INSERT INTO settings(key,value) VALUES('model_routes',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(result)); return result;
   }
   persona(): Persona { return JSON.parse(this.db.prepare('SELECT config FROM personas ORDER BY version DESC LIMIT 1').get()!.config as string); }

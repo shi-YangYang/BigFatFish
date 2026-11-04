@@ -3,7 +3,7 @@ import {transcribe,synthesize} from './media.js';
 import type { FastifyInstance, RouteShorthandOptions } from 'fastify';
 import websocket from '@fastify/websocket';
 import type { ChatService } from './chat.js';
-import type { ChatEvent } from './types.js';
+import { registerChatEvents } from './events.js';
 export async function registerAi(app: FastifyInstance, chat: ChatService) {
   await app.register(websocket, { options: { maxPayload: 1024 } });
   app.post('/v1/media/transcribe',async req=>transcribe(chat.config,req.body as {data:string;mimeType:string},AbortSignal.timeout(60000)));
@@ -35,10 +35,5 @@ export async function registerAi(app: FastifyInstance, chat: ChatService) {
   app.post<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.send(req.params.id, req.body));
   app.post<{ Params: { id: string } }>('/v1/messages/:id/cancel', async req => chat.cancel(req.params.id));
   app.get<{ Params: { id: string } }>('/v1/messages/:id', async req => chat.message(req.params.id));
-  app.get<{ Querystring: { conversationId: string } }>('/v1/events', { websocket: true, schema: { querystring: { type: 'object', required: ['conversationId'], properties: { conversationId: { type: 'string', maxLength: 100 } }, additionalProperties: false } } }, (socket, req) => {
-    try { chat.conversation(req.query.conversationId); } catch { socket.close(1008); return; }
-    const listener = (event: ChatEvent) => { if (event.conversationId !== req.query.conversationId) return; if (socket.bufferedAmount > 1048576) { socket.close(1013); return; } socket.send(JSON.stringify(event)); };
-    chat.events.on('tool',listener);chat.events.on('message', listener); socket.on('close', () => {chat.events.off('message', listener);chat.events.off('tool',listener);}); socket.on('error', () => {chat.events.off('message', listener);chat.events.off('tool',listener);});
-    socket.send(JSON.stringify({ type: 'ready', conversationId: req.query.conversationId }));
-  });
+  registerChatEvents(app, chat);
 }

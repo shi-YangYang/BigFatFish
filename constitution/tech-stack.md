@@ -84,6 +84,10 @@ Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或
 
 Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；业务状态留在原页面。PromptInput保留Enter换行、发送期间继续编辑与Chat草稿/请求归属。中文Tabs唯一标识、浮层焦点和无障碍行为在组件职责层适配。无独立通用Textarea的长文本编辑、隐藏file input、audio、品牌图与普通语义布局保留原生元素，不把它们称作beUI组件。无需数据迁移。最终覆盖与验收以Spec014为准。
 
+## 模型与实时体验（Spec019）
+
+用途统一为chat/asr/tts，聊天默认多模态且供记忆、日记和活动复用。旧高级参数兼容读取但不再覆盖生成。OpenAI经每轮受限转发移除SDK强塞的输出上限，DeepSeek沿用协议必需的适配器默认。Desktop认证NDJSON经原生IPC转交页面，Web通过认证WebSocket共享分批历史与实时事件，不暴露Bearer；临时错误使用共享beUI通知自动收起。固定DSH旧Session的maxTokens兼容及升级限制见Decision012。
+
 ## 模型连接诊断与推理（Spec015）
 
 模型发现和短生成诊断归属Runtime ai普通模块，Desktop/Web仍通过认证API访问；诊断不保存配置或写聊天。ModelConfig增加可选reasoningEffort，保存在原config JSON，schema仍为6。固定DSH0.2.2-alpha.2通过profile的适配器默认值传递推理强度；OpenAI显式配置同时声明reasoningEfforts及标准协议映射，默认态保持原行为，DeepSeek沿用Messages。恢复会话不持久化这些适配器默认值，因此后续修改或切回默认能够重新解析。无新依赖或引擎替换，源码与实际wire验收见Spec015及Decision011。
