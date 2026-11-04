@@ -56,6 +56,8 @@ Local adaptations:
   TabsList scrolling accessible labels are localized for the Chinese interface.
 - Drawer close label is localized. Focus-trap candidates exclude hidden/inert
   descendants. Popover dismissal consumes Escape and portals into its dialog scope.
+- Popover geometry shifts and flips the panel within the visual viewport, follows
+  scroll/resize, and bounds long content with scrolling while retaining its morph.
 - PromptInput adds a product-owned footer and independent submitDisabled control;
   Enter defaults to newline, IME input is left intact, submitted text is not trimmed,
   and controlled draft clearing remains the Chat owner's responsibility. Busy or

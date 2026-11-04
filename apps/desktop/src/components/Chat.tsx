@@ -392,7 +392,7 @@ export function Chat({
             />
           )}
           <div className="composer-area">
-            {streamOffline && <p role="status" className="stream-status">实时连接已断开，正在保留已有回复。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
+            {streamOffline && <p role="status" className="stream-status">聊天连接已断开，已有回复已保留。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
             {locked && <p className="muted">此会话仅供查看，请从 QQ 继续。</p>}
             <PromptInput className="composer" onSubmit={() => send()}
               aria-label="消息" value={text} onValueChange={updateText}
@@ -415,7 +415,7 @@ export function Chat({
                 >
                   {mediaBusy ? "处理中…" : "上传音频"}
                 </Button>
-                <Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
+                <Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" align="start" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
 
                   <Field>
                     声音名称

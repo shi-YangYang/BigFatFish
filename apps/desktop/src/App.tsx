@@ -24,9 +24,11 @@ export default function App() {
     ),
     [drawer, setDrawer] = useState(false),
     [menu, setMenu] = useState(false),
+    [runtimeMenuOpen, setRuntimeMenuOpen] = useState(false),
     [approvalCount, setApprovalCount] = useState(0),
     [activity, setActivity] = useState<ActivityOverview>();
   const live = useRef(false);
+  const runtimeMenuTrigger = useRef<HTMLButtonElement>(null);
   const fail = notifyError;
   const reload = useCallback(async () => {
     setModels(await api("/v1/models"));
@@ -181,13 +183,13 @@ export default function App() {
             待审批 <Badge status="warning">{approvalCount}</Badge>
           </Button>
         )}
-        <Menu trigger={<Button className="runtime-menu" aria-label="运行状态">
+        <Menu open={runtimeMenuOpen} onOpenChange={setRuntimeMenuOpen} trigger={<Button ref={runtimeMenuTrigger} className="runtime-menu" aria-label="运行状态">
             <span className={`status-dot ${connected ? "online" : ""}`} />
             {connected
               ? activity?.paused
                 ? "活动已暂停"
-                : "已连接"
-              : "未连接"}
+                : "服务在线"
+              : "服务离线"}
           </Button>}>
 
           <div className="runtime-popover">
@@ -213,7 +215,12 @@ export default function App() {
                 {activity.paused ? "恢复活动" : "暂停活动"}
               </Button>
             )}
-            <Button type="button" onClick={() => setDrawer(true)}>
+            <Button type="button" onClick={() => {
+              setRuntimeMenuOpen(false);
+              // Give the drawer a stable return target outside the closing menu.
+              runtimeMenuTrigger.current?.focus({ preventScroll: true });
+              setDrawer(true);
+            }}>
               审批与记录
             </Button>
             {isWeb && (
@@ -240,7 +247,7 @@ export default function App() {
         <Notifications />
         {initialized && !connected && (
           <Alert variant="warning" className="connection-banner" role="status">
-            连接已断开，当前内容与草稿已保留。
+            服务连接已断开，当前内容与草稿已保留。
             <Button type="button" size="compact" onClick={() => void connect()}>
               重新连接
             </Button>

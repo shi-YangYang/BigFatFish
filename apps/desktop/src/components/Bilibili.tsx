@@ -236,7 +236,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
       </fieldset>
       <fieldset disabled={busy || !status?.enabled}>
         <legend>寻找视频</legend>
-        <ActionRow>
+        <ActionRow className="video-query-row">
           <Field>
             关键词
             <Input value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -276,7 +276,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
             )}
           </div>
         )}
-        <ActionRow>
+        <ActionRow className="video-query-row">
           <Field>
             BV 号
             <Input value={bvid} onChange={(e) => setBvid(e.target.value)} />

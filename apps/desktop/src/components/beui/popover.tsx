@@ -25,7 +25,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePopoverPortalPosition } from "./popover-position";
+import { placePopover, POPOVER_GUTTER, usePopoverPortalPosition } from "./popover-position";
 import { useDismiss } from "./use-dismiss";
 import {
   type HoverGesture,
@@ -97,14 +97,10 @@ function buildGeo(
   tH: number,
   cW: number,
   cH: number,
-  side: Side,
-  align: Align,
-  gap: number,
+  px: number,
+  py: number,
   panelRadius: number,
 ): Geo {
-  const py = side === "bottom" ? tH + gap : -(gap + cH);
-  const px = align === "start" ? 0 : align === "end" ? tW - cW : (tW - cW) / 2;
-
   const left = Math.min(0, px);
   const top = Math.min(0, py);
   const layerW = Math.max(tW, px + cW) - left;
@@ -540,19 +536,23 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
 
   useEffect(() => setPortalReady(true), []);
 
+  const placement = useMemo(
+    () => layout ? placePopover(layout, side, align, gap) : null,
+    [layout, side, align, gap],
+  );
+
   const geo = useMemo(
     () =>
       buildGeo(
         layout?.trigger.width ?? 0,
         layout?.trigger.height ?? 0,
-        layout?.content.width ?? 0,
-        layout?.content.height ?? 0,
-        side,
-        align,
-        gap,
+        placement?.width ?? 0,
+        placement?.height ?? 0,
+        placement?.x ?? 0,
+        placement?.y ?? 0,
         panelRadius,
       ),
-    [layout, side, align, gap, panelRadius],
+    [layout, placement, panelRadius],
   );
 
   // Morph the same clip on the goo body and the content, so the whole popover
@@ -694,7 +694,10 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
               position: "absolute",
               left: geo.panel.x,
               top: geo.panel.y,
-              transformOrigin: `${ALIGN_ORIGIN[align]} ${side === "bottom" ? "top" : "bottom"}`,
+              maxWidth: layout ? `min(20rem, ${Math.max(0, layout.viewport.width - POPOVER_GUTTER * 2)}px)` : undefined,
+              maxHeight: placement?.maxHeight,
+              overflowY: "auto",
+              transformOrigin: `${ALIGN_ORIGIN[align]} ${(placement?.side ?? side) === "bottom" ? "top" : "bottom"}`,
             }}
             className={cn(
               "w-max max-w-[min(92vw,20rem)] p-4 text-popover-foreground outline-none",

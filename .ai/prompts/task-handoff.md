@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec020原生UI巡检修复已完成
+
+用户在巡检完成后明确“那你修一下”。EXISTING，dev基线4848d4e，开始干净；Spec020 Done，规格/实施/R1及最终PASS在specs/spec-020-ui-audit-fixes/。共享Popover避让/翻转、菜单转审批关闭和焦点、设置滚动条占位、B站统一操作列、模型旧用途文案、同名去重、服务/聊天状态区分均完成。首轮/root/accept_ui_audit_fixes FAIL仅B站100px列导致换行；新实施/root/rework_ui_action_column改112px并nowrap，新独立/root/accept_ui_audit_r1 PASS，全部报告已读取处理。S2定向定位测试7/7、apps类型检查通过；root实际cua_repl复查原生900/380浮层、审批及Escape焦点、长短设置页、模型去重和R1 B站对齐，证据build/ui-audit-fixes，01无效和07失败图保留历史。仅重复构建以纳入后续具体CSS修正，最终debug app构建exit0并已打开；未打发行DMG。窗口恢复900×680聊天页，隔离fixture服务已停止；用户配置和原有Runtime未改变，旧后台导致的聊天连接故障未在本轮修复。root按持续每阶段授权本地commit，准确hash见git log；不push/PR/合并，远端未刷新。满足停止条件，不再追加验证或恢复旧P0–P7工作。下方均为历史。
+
 ## 当前任务：Spec019简化模型与实时反馈已完成
 
 用户要求五项修正，后续确认“语音输入单独拿出来吧”，最终chat/asr/tts三类。dev基线8e567fe，开始干净；Spec019 Done。实施/root/implement_chat_experience与新独立验收/root/accept_chat_experience报告已全部读取处理，PASS无返工。删除高级区及旧生成覆盖，图片/记忆/日记/活动共用chat；旧配置/密钥/历史保留。固定DSH公开deprecated兼容钩子及受限OpenAI转发的原因见Decision012；DeepSeek保留协议必需默认。Runtime真实事件经Web WS、原生认证NDJSON到Tauri Channel，Chat不再700ms轮询；统一beUI通知5秒收起、可关闭和暂停。保留浅海蓝。

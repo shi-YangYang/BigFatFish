@@ -96,7 +96,7 @@ export function Models({
                 }}
               >
                 {m.label}
-                <small>{m.model}</small>
+                {m.label !== m.model && <small>{m.model}</small>}
               </Button>
               <span>{m.hasKey ? "密钥已设置" : "未设置密钥"}</span>
               <Button

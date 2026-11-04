@@ -201,6 +201,12 @@ fieldset > .ui-button,
 .ui-actions > [role="status"] {
   align-self: center;
 }
+.video-query-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+}
+.video-query-row > .ui-field { min-width: 0; }
+.video-query-row > .ui-button { width: 100%; white-space: nowrap; }
 .approval-actions {
   margin-top: 16px;
 }
@@ -364,6 +370,7 @@ fieldset > .ui-button,
   min-height: 0;
   overflow: auto;
 }
+.workspace-main:not(.chat-page) { scrollbar-gutter: stable; }
 .content-page {
   max-width: 984px;
   padding: var(--page-padding);

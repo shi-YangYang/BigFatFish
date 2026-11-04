@@ -16,11 +16,11 @@ export function Disclosure({ title, children, className, ...props }: Omit<Compon
     <CollapsibleContent className="data-[state=open]:overflow-visible" contentClassName="disclosure-content">{children}</CollapsibleContent>
   </Collapsible>;
 }
-export function Menu({ trigger, children, className, side = "bottom", open, onOpenChange }: {
+export function Menu({ trigger, children, className, side = "bottom", align = "end", open, onOpenChange }: {
   trigger: ReactElement<{ "aria-label"?: string; children?: ReactNode }>; children: ReactNode; className?: string;
-  side?: "top" | "bottom"; open?: boolean; onOpenChange?: (open: boolean) => void;
+  side?: "top" | "bottom"; align?: "start" | "center" | "end"; open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
-  return <Popover open={open} onOpenChange={onOpenChange} side={side} align="end" sideOffset={8} panelRadius={8} gooStrength={0}>
+  return <Popover open={open} onOpenChange={onOpenChange} side={side} align={align} sideOffset={8} panelRadius={8} gooStrength={0}>
     <PopoverTrigger>{trigger}</PopoverTrigger>
     <PopoverContent ariaLabel={trigger.props["aria-label"] ?? (typeof trigger.props.children === "string" ? trigger.props.children : "选项")} className={cn("ui-popover", className)}>{children}</PopoverContent>
   </Popover>;
