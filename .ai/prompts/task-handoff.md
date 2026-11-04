@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 最新交付：macOS 测试包已刷新（2026-11-04）
+
+用户明确要求“打呀”。基于dev源码27cbc1d，/root/package_latest_mac重新构建Desktop/Web并生成最新macOS arm64 App/DMG，含Spec016–018间距与浅海蓝；复用已核实未变的Node24.20.0与生产依赖，无源码修改。三项构建实际exit0，119个随包dist文件/嵌入资产/颜色/metadata/MIT一致，ad-hoc签名验证exit0。新独立/root/accept_latest_mac_package只读验收PASS，两个完整报告已处理，无返工。DMG：apps/desktop/src-tauri/target/release/bundle/dmg/BigFatFish_0.1.0_aarch64.dmg，210248739字节，SHA256 6cc428b3723a83c08c75b3ac6846fea6dd2057cf92af10666fc6ca95c1881397。本次证据build/macos-test-20261104，结果集中记录Spec018 Plan后续打包节。root按持续授权本地提交文档记录，准确hash见git log；未push/PR/合并，远端未刷新。未公证、未安装/原生启动、真实模型和平台账号/Windows仍待验。满足打包交付条件，停止追加验证；下方未打包描述均为历史阶段边界。
+
 ## 当前阶段：Spec018浅海蓝已完成
 
 用户否决Spec017过艳纯蓝，明确选择“浅海蓝，更清透轻盈”。dev基线9557f0a，开始干净；Spec018 Done。实施/root/implement_sea_blue完整报告已读取，仅style.css颜色及产品页签indicator/label规则，主色#22789F、hover#1D668A、soft#ECF8FE；页签浅底海蓝字，主按钮实色白字，保留布局和逻辑。S0对比度白字4.94、页签4.56；root在cua_repl预览目视模型和数据并保存docs/design/desktop-webui-blue.jpg及build/sea-blue/data-blue.jpg，均最终883×1344完整视口。裁剪空白图已替换，预览回到模型页并保留。新独立/root/accept_sea_blue PASS，完整报告已读取处理，两图实际目视，无返工。不test/build/lint/typecheck/打包。root按持续授权完成本地commit，确切hash以git log为准；未push/PR/合并，远端未刷新。旧DMG不含本轮颜色，停止追加验证。下方为历史。
