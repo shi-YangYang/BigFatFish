@@ -29,8 +29,10 @@ fn settings_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 pub fn settings(app: &tauri::AppHandle) -> Result<Settings, String> {
     let file = settings_file(app)?;
     if file.exists() {
-        return serde_json::from_slice(&std::fs::read(file).map_err(|_| "SETTINGS_UNAVAILABLE")?)
-            .map_err(|_| "SETTINGS_INVALID".into());
+        let mut value: Settings = serde_json::from_slice(&std::fs::read(file).map_err(|_| "SETTINGS_UNAVAILABLE")?)
+            .map_err(|_| "SETTINGS_INVALID")?;
+        if super::development::managed() { value.data_dir = super::development::data_dir()?.to_string_lossy().into(); }
+        return Ok(value);
     }
     Ok(Settings {
         data_dir: super::data_dir()?.to_string_lossy().into(),
@@ -43,18 +45,16 @@ pub fn cli(
     args: Vec<String>,
     input: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let root = app
-        .path()
-        .resource_dir()
-        .map_err(|_| "INSTALLATION_INCOMPLETE")?
-        .join("runtime");
-    let mut command = Command::new(root.join(if cfg!(windows) {
-        "bin/node.exe"
+    super::development::ensure_cli_allowed(&args)?;
+    let mut command = if super::development::managed() {
+        super::development::cli_command()?
     } else {
-        "bin/node"
-    }));
+        let root = app.path().resource_dir().map_err(|_| "INSTALLATION_INCOMPLETE")?.join("runtime");
+        let mut command = Command::new(root.join(if cfg!(windows) { "bin/node.exe" } else { "bin/node" }));
+        command.arg(root.join("dist/cli/src/main.js"));
+        command
+    };
     command
-        .arg(root.join("dist/cli/src/main.js"))
         .args(args)
         .arg("--data-dir")
         .arg(super::data_dir()?)
@@ -120,16 +120,19 @@ pub async fn desktop_configure(
     }
 
     let old = settings(&app)?;
+    if super::development::managed() && old.data_dir != data_dir { return Err("DEV_DATA_DIR_FIXED".into()); }
     if old.complete && old.data_dir != data_dir {
         return Err("USE_BACKUP_TO_MIGRATE".into());
     }
     *SELECTED.lock().map_err(|_| "SETTINGS_UNAVAILABLE")? = Some(data_dir.clone().into());
+    if !super::development::managed() {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         cli(&handle, vec!["start".into()], serde_json::json!({}))
     })
     .await
     .map_err(|_| "CLI_FAILED")??;
+    }
     if autostart {
         app.autolaunch().enable()
     } else {
@@ -159,10 +162,27 @@ pub async fn desktop_maintenance(
     if !["export", "inspect", "restore"].contains(&action.as_str()) {
         return Err("INVALID_REQUEST".into());
     }
-    tauri::async_runtime::spawn_blocking(move || cli(&app, vec!["backup".into(), action], input))
+    let args = vec!["backup".into(), action];
+    super::development::ensure_cli_allowed(&args)?;
+    tauri::async_runtime::spawn_blocking(move || cli(&app, args, input))
         .await
         .map_err(|_| "CLI_FAILED")?
 }
+pub fn quit(app: &tauri::AppHandle) {
+    if super::development::managed() {
+        ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
+        app.exit(0);
+    } else {
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if cli(&app, vec!["stop".into()], serde_json::json!({})).is_ok() {
+                ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
+                app.exit(0);
+            }
+        });
+    }
+}
+
 pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let s = settings(app.handle())?;
     *SELECTED.lock().unwrap() = Some(s.data_dir.into());
@@ -182,19 +202,13 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.set_menu(Menu::with_items(app, &[&application, &edit])?)?;
     app.on_menu_event(|app, event| {
         if event.id.as_ref() == "app-quit" {
-            let app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                if cli(&app, vec!["stop".into()], serde_json::json!({})).is_ok() {
-                    ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
-                    app.exit(0);
-                }
-            });
+            quit(app);
         }
     });
     let open = MenuItem::with_id(app, "open", "打开 BigFatFish", true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", "暂停自动活动", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出并停止服务", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &pause, &quit])?;
+    let quit_item = MenuItem::with_id(app, "quit", "退出并停止服务", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &pause, &quit_item])?;
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
@@ -216,18 +230,12 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 });
             }
             "quit" => {
-                let app = app.clone();
-                tauri::async_runtime::spawn_blocking(move || {
-                    if cli(&app, vec!["stop".into()], serde_json::json!({})).is_ok() {
-                        ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
-                        app.exit(0);
-                    }
-                });
+                quit(app);
             }
             _ => {}
         })
         .build(app)?;
-    if s.complete {
+    if s.complete && !super::development::managed() {
         let app = app.handle().clone();
         tauri::async_runtime::spawn_blocking(move || {
             if cli(

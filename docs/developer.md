@@ -15,6 +15,18 @@ node dist/cli/src/main.js plugins list --data-dir /absolute/path/fish --json
 
 `build` 生成 Node 核心、桌面前端和 `dist/web`。`build:node` 同时生成 `dist/runtime/plugin-catalog` 的 QQ/B站/抖音安装产物、`dist/plugin-sdk` 和 `dist/plugin-examples`。`release:prepare` 将这些资源与固定 Node/生产依赖一起放入独立安装包。安装后的命令是 `bin/bigfatfish`，无需源码目录、全局 Node 或开发工具。桌面打包及签名边界见 [安装与迁移](install-and-migrate.md)。
 
+### 托管桌面开发
+
+`npm run desktop:dev` 先编译 Node 源码和资源，再启动受管 Runtime、Vite 与 Tauri；无需 `release:prepare`。默认读取已保存的桌面数据目录；`BIGFATFISH_DATA_DIR` 显式覆盖后，supervisor、原生 API 和开发 CLI 都使用同一路径。已有配置和记录原地保留。仅精确识别为本仓库 `dist`、旧 debug Runtime 或 `build/portable` 入口的后台可以优雅接管；其他入口需先从对应应用正常退出。
+
+关闭窗口、退出菜单和 Ctrl+C 结束本次开发会话，启动失败也会清理已启动资源。同一数据目录不能并行启动两套开发会话。前端与 Rust 维持热重载；Node 后端改动后重新运行命令。Tauri 参数仍可传入，例如 `npm run desktop:dev -- --no-watch`；托管模式不支持 `--release`，发行请用 `desktop:build`。
+
+托管原生入口会在执行前拒绝备份导出/恢复、安装更新及应用重启，防止维护停服触发 supervisor 回收、使维护子进程在写入中途结束。备份检查、更新检查与离线签名验证仍可使用。数据维护需先退出开发会话，再通过独立 CLI 操作；应用更新使用正常安装版，重启开发则退出后重新运行 `npm run desktop:dev`。此限制不改变独立 CLI 或安装版的维护流程。
+
+开发脚本使用本机 Node 与当前 `dist`；原生托管分支只在 debug 构建且收到 supervisor 环境时启用，发行包和独立 CLI daemon 行为不变。Unix 只清理自己的进程组；Windows 使用系统 PowerShell 运行仓库内 Job Object 包装，限定 Tauri 子树，并沿用已有 ACL 工具的 EncodedCommand 方式，不修改系统执行策略。Windows 原生行为仍需实机验证。
+
+定向验证（先 `npm run build:node`）：`npx vitest run tests/integration/desktop-dev.test.ts`。测试使用临时目录和受控子进程，不依赖真实模型账号。
+
 ## 启用 HTTPS 控制台
 
 默认没有 Web 监听器。由服务器本机操作者准备证书和私钥，以标准输入配置独立管理口令；不要在命令参数、URL、日志或共享脚本中写口令。

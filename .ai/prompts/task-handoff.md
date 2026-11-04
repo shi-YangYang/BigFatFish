@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec022开发入口统一管理进程已完成
+
+用户要求 `npm run desktop:dev` 管理全部开发进程，并确认继续使用当前配置/聊天记录、接管本项目旧后台。dev基线82fb2f0，开始干净；Spec022 Done、Decision013。原实施/root/implement_managed_dev完成源码准备、数据目录一致、归属/认证/expected-instance保护、开发锁、IPC Runtime/Vite/Tauri清理和仅debug原生适配；正式daemon/安装版行为保留。首轮/root/accept_managed_dev FAIL唯一维护停服冲突；新实施/root/rework_dev_maintenance前置保护托管备份导出/恢复/install=true/应用重启并接中文提示，只读检查保留。新独立/root/accept_managed_dev_r1 PASS，全部完整报告已读取处理，无待返工。
+
+S3限定开发生命周期：Node构建、10/10进程集成、Rust check、R1 3/3 Rust策略测试及apps类型通过；root隔离真实dev启动后SIGINT清理4个进程/连接/端口通过，随后实际接管旧PID10046，新worker85905使用原数据且既有会话保留，流式404→200并收到snapshot-end。证据build/managed-dev-*及Plan。root启动的普通开发会话exec session5927留给用户；后续状态以实际进程为准，勿擅自停止。Windows、原生关闭按钮现场操作和R1实际UI维护拒绝未实测，不把代码证据当实机。按持续每阶段授权本地commit，准确hash见git log；不push/PR/合并，远端未刷新。满足停止条件，不追加检查或恢复旧待验工作。下方均为历史。
+
 ## 当前任务：Spec021桌面图标一致性已完成
 
 Windows补齐：用户明确指出不仅macOS，Windows也需统一；dev基线758e3ab。实施/root/implement_icon_consistency仅替换icon.ico，复用固定圆角图源生成16/24/32/48/64/256六尺寸，256px主体边界[25,25,230,230]，与macOS留白一致。新独立/root/accept_windows_icon PASS，完整报告已读取处理；S0仅资源和Tauri EXE/默认窗口图标引用审阅，未测试/构建/实机/重打Windows安装包。root按持续阶段授权本地commit，准确hash见git log；未push，远端未刷新。下段macOS实施记录保留为历史，Linux通用PNG未改。

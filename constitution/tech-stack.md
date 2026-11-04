@@ -62,7 +62,7 @@ P5新增schema6活动/请求映射/计划、共用permissions审批、douyin浏�
 
 P6 实施完成，本地代码返工独立PASS。`maintenance/` 统一一致快照、选择性逻辑归档、凭据加密、恢复与更新 journal；CLI 和桌面调用同一核心。固定锁在 runtime 分区，更新保留旧程序与数据；macOS 首次启动失败后使用显式人工回退。安装与迁移说明见 [docs/install-and-migrate.md](../docs/install-and-migrate.md)。
 
-发行包固定官方 Node 24.20.0，按目标系统校验并安装生产依赖；构建暂存 manifest 不构成源码分包。`npm run release:prepare` 生成 portable 资源，`npm run desktop:build` 准备资源后执行 Tauri 真实 bundle；`desktop:dev` 前也须准备资源。Rust 最低 1.90，autostart 2.7.0、updater 2.14.1；桌面采用官方 Minisign 与签名版本绑定，portable 使用 Ed25519 签名清单，均无默认测试信任源。根 tar 7.5.22 用于受限解包。
+发行包固定官方 Node 24.20.0，按目标系统校验并安装生产依赖；构建暂存 manifest 不构成源码分包。`npm run release:prepare` 生成 portable 资源，`npm run desktop:build` 准备资源后执行 Tauri 真实 bundle；`desktop:dev` 由独立开发 supervisor 自动编译当前 Node 代码并管理 Runtime/Vite/Tauri，不依赖发行资源准备。Rust 最低 1.90，autostart 2.7.0、updater 2.14.1；桌面采用官方 Minisign 与签名版本绑定，portable 使用 Ed25519 签名清单，均无默认测试信任源。根 tar 7.5.22 用于受限解包。
 
 Mac 已有 ad-hoc app/DMG 安装与实际升级/人工回退，Linux arm64 portable、Docker/Compose/systemd 已有运行证据；Windows 构建及实机、正式签名公证与发布、跨 schema 升级、实际注销/重启仍未验证。现有 schema 仍为 6，本地代码验收不等同完整跨平台交付。
 
@@ -75,6 +75,12 @@ P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm6
 后续Mac↔Linux arm64迁移发现并修复共用CLI stop提前成功：连接消失不足以证明停机，现等待实例锁释放并在锁内复核身份；维护操作仍独立取锁。新产物完成无绕行的直接备份/恢复、DSH续聊和记忆/凭据/恢复失权验证，经新的独立验收PASS。当前Mac portable/app/DMG及Linux归档/镜像均已同步，最终路径与哈希见Spec008 Plan和本机build/p6-stop-rework/evidence.json；之前产物哈希保留为历史，Windows/真实云账号/跨schema限制不变。
 
 Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或依赖修改；本机Docker amd64模拟环境已实际运行x64 Node/SQLite/Runtime/DSH/SDK/TLS，独立包脱离源码目录仅用随包Node通过，新独立验收PASS。产物build/p6-linux-x64及build/artifacts同名linux-x64归档，命令/哈希/环境与清理见Spec008 Plan和build/p6-linux-x64-evidence/evidence.json。Mac/arm64既有产物未覆盖，原生x64 VPS、Windows和真实云账号仍未验证；用户已要求真实服务先保留待验项。
+
+## 托管桌面开发（Spec022）
+
+`scripts/desktop-dev*.mjs` 统一开发源码准备、数据目录、同仓库旧后台接管与受管退出；独立 IPC worker 不改变安装版 daemon 入口。原生 `development.rs` 仅在 debug 且显式开发环境启用，使用本机 Node/当前 CLI；正式后台常驻语义不变。进程归属核实、expected-instance 停机、独立开发锁和 Windows Tauri Job Object 保护无关实例。后端源码改动重新运行命令；相关验证范围见 Spec022。
+
+`development.rs` 同时统一托管原生维护策略：备份导出/恢复、安装更新和应用重启在副作用前拒绝，CLI 适配器使用同一策略；只读检查保留。维护数据先退出开发会话再用独立 CLI，应用更新使用正常安装版，开发重启重新执行命令，避免 supervisor 回收正在维护的子进程。
 
 ## beUI 前端组件（Spec013–014）
 

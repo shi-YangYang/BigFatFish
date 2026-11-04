@@ -43,3 +43,5 @@
 - [Spec 020：修复原生UI巡检问题](spec-020-ui-audit-fixes/spec.md)：[返工独立验收PASS](spec-020-ui-audit-fixes/acceptance.md)；共享浮层避让与菜单关闭、表单对齐、模型及连接状态文案，已完成原生定向复查。
 
 - [Spec 021：统一桌面图标](spec-021-desktop-icon-consistency/spec.md)：[独立验收PASS](spec-021-desktop-icon-consistency/acceptance.md)；macOS 与 Windows 的开发/打包图标统一圆角与透明留白；Windows 已完成资源验收，未实机验证。
+
+- [Spec 022：开发入口统一管理进程](spec-022-managed-desktop-dev/spec.md)：[返工独立验收PASS](spec-022-managed-desktop-dev/acceptance.md)；单命令管理当前后台、前端及桌面，保护进程归属与停服维护边界。

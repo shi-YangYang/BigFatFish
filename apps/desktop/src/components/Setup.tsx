@@ -370,7 +370,7 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
         <Button
           type="button"
           disabled={busy}
-          onClick={() => void invoke("desktop_restart")}
+          onClick={() => void invoke("desktop_restart").catch(fail)}
         >
           重启应用
         </Button>

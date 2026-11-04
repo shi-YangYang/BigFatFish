@@ -59,14 +59,17 @@ npm run cli -- stop --data-dir .local/bigfatfish
 
 ### 桌面开发
 
-准备独立运行资源后启动开发桌面；已有同目录 Runtime 会复用：
+一条命令编译当前后台并启动 Runtime、前端和桌面窗口，无需先准备发行资源：
 
 ```bash
-npm run release:prepare
 npm run desktop:dev
 ```
 
-使用自定义数据目录时，桌面与 CLI 必须指向同一位置，例如 macOS/Linux：
+开发模式沿用桌面已保存的数据目录、模型配置和聊天记录。启动时会核实并重启本仓库旧后台；其他安装或无法确认归属的后台会报冲突，不会自动关闭。关闭开发窗口或按 Ctrl+C 会停止本次后台和开发服务，正式安装版的后台常驻行为不变。修改后端源码后重新运行命令；前端和 Rust 保留原有热重载。
+
+开发窗口保留备份检查、更新检查和离线签名验证；备份导出/恢复需先退出开发会话，再使用独立 CLI，安装更新需使用正常安装版。重启开发请退出后重新运行 `npm run desktop:dev`。
+
+如需指定其他数据目录，显式环境变量优先，例如 macOS/Linux：
 
 ```bash
 BIGFATFISH_DATA_DIR="$PWD/.local/bigfatfish" npm run desktop:dev

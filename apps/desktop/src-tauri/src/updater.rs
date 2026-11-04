@@ -43,6 +43,7 @@ pub async fn desktop_update_trust(
 }
 #[tauri::command]
 pub async fn desktop_update(app: AppHandle, install: bool) -> Result<serde_json::Value, String> {
+    super::development::ensure_allowed(super::development::Operation::Update { install })?;
     let path = file(&app)?;
     if !path.exists() {
         return Ok(serde_json::json!({"state":"unconfigured"}));
@@ -140,6 +141,7 @@ pub async fn desktop_update_file(
     archive: String,
     install: bool,
 ) -> Result<serde_json::Value, String> {
+    super::development::ensure_allowed(super::development::Operation::Update { install })?;
     let trust: Trust =
         serde_json::from_slice(&std::fs::read(file(&app)?).map_err(|_| "UPDATE_TRUST_INVALID")?)
             .map_err(|_| "UPDATE_TRUST_INVALID")?;
@@ -214,7 +216,8 @@ pub async fn desktop_update_file(
     Ok(serde_json::json!({"state":"installed","restartRequired":true,"snapshot":snapshot}))
 }
 #[tauri::command]
-pub fn desktop_restart(app: AppHandle) {
+pub fn desktop_restart(app: AppHandle) -> Result<(), String> {
+    super::development::ensure_allowed(super::development::Operation::Restart)?;
     super::desktop::ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
     app.restart();
 }

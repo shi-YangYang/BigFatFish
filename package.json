@@ -19,7 +19,7 @@
     "test": "npm run build:node && vitest run",
     "cli": "node dist/cli/src/main.js",
     "runtime": "node dist/runtime/src/main.js",
-    "desktop:dev": "cd apps/desktop && tauri dev",
+    "desktop:dev": "node scripts/desktop-dev.mjs",
     "desktop:build": "npm run release:prepare && cd apps/desktop && tauri build",
     "frontend:dev": "vite --config apps/desktop/vite.config.ts",
     "release:prepare": "npm run build:node && npm run build:web && node scripts/prepare-release.mjs",

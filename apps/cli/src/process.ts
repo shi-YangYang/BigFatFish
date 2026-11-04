@@ -39,7 +39,7 @@ export async function start(p: DataPaths, port: number): Promise<RuntimeStatus> 
   }
   throw new Error('START_TIMEOUT');
 }
-export async function stop(p: DataPaths): Promise<{ state: 'stopped'; alreadyStopped: boolean }> {
+export async function stop(p: DataPaths, expectedInstanceId?: string): Promise<{ state: 'stopped'; alreadyStopped: boolean }> {
   const readCurrent = () => {
     try { return readConnection(p); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
@@ -53,6 +53,7 @@ export async function stop(p: DataPaths): Promise<{ state: 'stopped'; alreadySto
     if (Date.now() > readinessDeadline) throw new Error('STOP_TIMEOUT');
     await delay(80);
   }
+  if (expectedInstanceId && connection.instanceId !== expectedInstanceId) throw new Error('INSTANCE_CHANGED');
   let alreadyStopped = false;
   try { await requestRuntime(connection, '/v1/shutdown', 'POST'); }
   catch (error) {
