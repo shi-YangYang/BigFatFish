@@ -45,6 +45,7 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | --- | --- |
 | `/v1/status`、`/v1/logs` | 实际运行状态、脱敏日志 |
 | `/v1/models`、`/v1/model-routes` | 模型配置及 chat/reasoning/vision/memory/asr/tts 路由 |
+| `POST /v1/models/discover`、`POST /v1/models/test` | 对当前模型配置草稿发现模型或执行一次有界生成诊断，不保存配置或会话 |
 | `/v1/persona`、`/v1/persona/history` | 版本化人格 |
 | `/v1/conversations`、`/:id/messages`、`/:id/tools` | 会话、消息与实际工具活动 |
 | `/v1/messages/:id/cancel` | 取消实际模型回合 |
@@ -55,6 +56,8 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | `/v1/media/transcribe`、`/v1/media/synthesize` | 有界音频消费者 |
 
 WebSocket：本机 `/v1/events?conversationId=ID` 使用 bearer；Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。初始 ready 不是生成完成。断线后的权威记录从消息 HTTP API 重新读取，发送使用 requestId 防重复。前端会话切换与草稿版本保护不能省略。
+
+模型诊断输入包含`provider/baseURL`，可附`id/apiKey/timeoutMs`；测试另需`model`，可附`maxTokens/reasoningEffort`。省略apiKey时仅允许对同提供商、同规范化地址复用id对应密钥，显式空字符串表示不使用密钥。发现返回`{models:[{id,name}],elapsedMs}`，测试返回`{ok:true,elapsedMs}`；错误为稳定错误码，不返回上游正文。推理字段的值、默认与已有配置约束见[模型说明](ai-core.md)。
 
 ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；Desktop/Web 聊天中可上传音频转写、朗读回复，「设置 → 声音」保留声音与媒体操作。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
 

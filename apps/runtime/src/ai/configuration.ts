@@ -1,3 +1,4 @@
+import { modelURL, parseReasoning } from './model-options.js';
 import type { DatabaseSync } from 'node:sqlite';
 import { InputError, object, string, type ModelConfig, type Persona } from './types.js';
 import { SecretStore } from './secrets.js';
@@ -22,16 +23,19 @@ export class Configuration {
     if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new InputError('INVALID_MODEL_ID');
     const provider = b.provider;
     if (provider !== 'deepseek' && provider !== 'openai') throw new InputError('INVALID_PROVIDER');
-    let url: URL; try { url = new URL(string(b.baseURL, 1000)); } catch { throw new InputError('INVALID_MODEL_URL'); }
-    if (url.username || url.password || url.search || url.hash || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) throw new InputError('INVALID_MODEL_URL');
+    const baseURL = modelURL(b.baseURL);
+    const reasoningEffort = parseReasoning(provider, b.reasoningEffort);
     const number = (value: unknown, min: number, max: number) => { if (!Number.isInteger(value) || Number(value) < min || Number(value) > max) throw new InputError('INVALID_MODEL_LIMIT'); return Number(value); };
-    const config: ModelConfig = { id, label: string(b.label, 100), provider, baseURL: url.href.replace(/\/$/, ''), model: string(b.model, 200), contextWindow: number(b.contextWindow, 2048, 2000000), maxTokens: number(b.maxTokens, 1, 128000), timeoutMs: number(b.timeoutMs, 1000, 600000), vision: b.vision === true };
+    const config: ModelConfig = { id, label: string(b.label, 100), provider, baseURL, model: string(b.model, 200), contextWindow: number(b.contextWindow, 2048, 2000000), maxTokens: number(b.maxTokens, 1, 128000), timeoutMs: number(b.timeoutMs, 1000, 600000), vision: b.vision === true, ...(reasoningEffort ? { reasoningEffort } : {}) };
     if (config.maxTokens >= config.contextWindow) throw new InputError('INVALID_MODEL_LIMIT');
     const old = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
-    if (old && old.config !== JSON.stringify(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
+    if (old && this.modelIdentity(JSON.parse(old.config as string)) !== this.modelIdentity(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
     const secret = b.apiKey === undefined ? old?.secret ?? null : (string(b.apiKey, 8192, true) ? this.secrets.encrypt(b.apiKey as string) : null);
     this.db.prepare('INSERT INTO models(id, config, secret) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config, secret=excluded.secret').run(id, JSON.stringify(config), secret);
     return this.models().find(model => model.id === id)!;
+  }
+  private modelIdentity(config: ModelConfig) {
+    const identity = { ...config, baseURL: modelURL(config.baseURL) }; delete identity.reasoningEffort; return JSON.stringify(identity);
   }
   deleteModel(id: string) {
     if (this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);

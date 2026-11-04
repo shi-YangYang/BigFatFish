@@ -83,3 +83,7 @@ Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或
 根devDependencies固定tailwindcss与@tailwindcss/vite 4.3.4、motion14.9.0、clsx2.1.1、tailwind-merge3.7.0；Spec014按官方源码依赖闭包新增lucide-react1.67.0与@floating-ui/dom1.8.0，不升级其他依赖。它们构建时进入前端bundle，不是Runtime新增运行依赖。Tailwind仅引入主题/utility，不启用Preflight，通过明确source路径扫描实际组件；清理被替代的旧控件CSS。尺寸采用px避免根字号14px造成rem缩小，DS蓝语义token通过beui-theme.css映射。
 
 Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；业务状态留在原页面。PromptInput保留Enter换行、发送期间继续编辑与Chat草稿/请求归属。中文Tabs唯一标识、浮层焦点和无障碍行为在组件职责层适配。无独立通用Textarea的长文本编辑、隐藏file input、audio、品牌图与普通语义布局保留原生元素，不把它们称作beUI组件。无需数据迁移。最终覆盖与验收以Spec014为准。
+
+## 模型连接诊断与推理（Spec015）
+
+模型发现和短生成诊断归属Runtime ai普通模块，Desktop/Web仍通过认证API访问；诊断不保存配置或写聊天。ModelConfig增加可选reasoningEffort，保存在原config JSON，schema仍为6。固定DSH0.2.2-alpha.2通过profile的适配器默认值传递推理强度；OpenAI显式配置同时声明reasoningEfforts及标准协议映射，默认态保持原行为，DeepSeek沿用Messages。恢复会话不持久化这些适配器默认值，因此后续修改或切回默认能够重新解析。无新依赖或引擎替换，源码与实际wire验收见Spec015及Decision011。

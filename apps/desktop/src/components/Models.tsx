@@ -1,4 +1,7 @@
-import { Disclosure } from "./Surfaces";
+import { useModelConnection } from "./useModelConnection";
+import { reasoningEfforts } from "../../../runtime/src/ai/model-options";
+import type { ReasoningEffort } from "../../../runtime/src/ai/types";
+import { Alert, Disclosure } from "./Surfaces";
 import {
   Button,
   Field,
@@ -37,6 +40,9 @@ export function Models({
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
     [purpose, setPurpose] = useState<ModelPurpose>("chat");
+  const connection = useModelConnection(form, key);
+  const waiting = busy || !!connection.pending;
+  const effortLabels: Record<ReasoningEffort, string> = { none: "关闭", minimal: "极低", low: "低", medium: "中", high: "高", xhigh: "极高", max: "最高" };
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -119,6 +125,7 @@ export function Models({
               setForm({
                 ...form,
                 provider: value as ModelConfig["provider"],
+                reasoningEffort: undefined,
                 baseURL:
                   value === "deepseek"
                     ? "https://api.deepseek.com/anthropic"
@@ -163,6 +170,33 @@ export function Models({
             }
           />
         </Field>
+        <ActionRow>
+          <Button disabled={waiting || !form.baseURL.trim()} onClick={() => void connection.run("discover")}>
+            {connection.pending === "discover" ? "正在获取…" : "获取模型列表"}
+          </Button>
+          <Button disabled={waiting || !form.baseURL.trim() || !form.model.trim()} onClick={() => void connection.run("test")}>
+            {connection.pending === "test" ? "正在测试…" : "测试连接"}
+          </Button>
+          <span className="muted">测试会调用所选模型，消耗少量 token。</span>
+        </ActionRow>
+        {connection.result && (connection.result.error
+          ? <Alert>{connection.result.message}</Alert>
+          : <p role="status">{connection.result.message}</p>)}
+        {connection.models.length > 0 && <Field>
+          可用模型
+          <Select value={connection.models.some(model => model.id === form.model) ? form.model : ""} onValueChange={model => setForm({ ...form, model })}>
+            <option value="">选择模型或在上方手动填写</option>
+            {connection.models.map(model => <option key={model.id} value={model.id}>{model.name === model.id ? model.id : `${model.name}（${model.id}）`}</option>)}
+          </Select>
+        </Field>}
+        <Field>
+          推理强度
+          <Select value={form.reasoningEffort ?? ""} onValueChange={value => setForm({ ...form, reasoningEffort: value ? value as ReasoningEffort : undefined })}>
+            <option value="">默认</option>
+            {reasoningEfforts[form.provider].map(effort => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}
+          </Select>
+        </Field>
+        <p className="muted">具体强度由模型支持；不支持时请选择默认。保存后用于后续请求。</p>
         <Disclosure className="advanced-fields" title={<>高级配置</>}>
 
           <FormGrid className="field-grid">
@@ -204,7 +238,7 @@ export function Models({
           </FormGrid>
         </Disclosure>
         <ActionRow className="form-actions">
-          <Button variant="primary" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={waiting}>
             保存模型
           </Button>
           <span role="status">{saved}</span>

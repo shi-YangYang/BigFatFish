@@ -1,3 +1,4 @@
+import { adapterEffort, openAIModelOptions } from './model-options.js';
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
@@ -49,8 +50,8 @@ export class DSHAdapter implements AgentEngine {
     patches.push({ id: 'sandbox-policy', config: { mode: 'read-only' } });
     if (input.model.provider === 'openai') {
       patches.push({ id: 'llm-deepseek', disabled: true });
-      patches.push({ insert: [{ id: 'llm-bff', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { bff: { api: 'openai-completions', baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', models: [{ id: input.model.model, input: input.model.vision ? ['text','image'] : ['text'], contextWindow: input.model.contextWindow, maxTokens: input.model.maxTokens }], timeoutMs: input.model.timeoutMs, streamIdleTimeoutMs: input.model.timeoutMs, retryPolicy: { mode: 'normal', maxRetries: 0 } } } } }] });
-    } else patches.push({ id: 'llm-deepseek', config: { baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', defaultContextWindow: input.model.contextWindow, streamIdleTimeoutMs: input.model.timeoutMs } });
+      patches.push({ insert: [{ id: 'llm-bff', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { bff: { api: 'openai-completions', ...(input.model.reasoningEffort ? { reasoning: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', models: [{ id: input.model.model, ...openAIModelOptions(input.model), input: input.model.vision ? ['text','image'] : ['text'], contextWindow: input.model.contextWindow, maxTokens: input.model.maxTokens }], timeoutMs: input.model.timeoutMs, streamIdleTimeoutMs: input.model.timeoutMs, retryPolicy: { mode: 'normal', maxRetries: 0 } } } } }] });
+    } else patches.push({ id: 'llm-deepseek', config: { ...(input.model.reasoningEffort ? { reasoningEffort: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', defaultContextWindow: input.model.contextWindow, streamIdleTimeoutMs: input.model.timeoutMs } });
     patches.push({ insert: [{ id: 'bff-bridge', name: plugin }] });
     privateFile(profile); writeFileSync(profile, JSON.stringify(patches));
     await new Promise<void>((resolve, reject) => { bridge.once('error', reject); bridge.listen(0, '127.0.0.1', resolve); });

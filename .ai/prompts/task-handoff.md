@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前阶段：Spec015模型连接诊断与推理强度已完成
+
+用户要求测试连接、获取模型列表、设置推理强度；已明确选择实际调用所选模型显示耗时。dev基线8c0088f、开始干净；Decision011。官方OpenAI/DeepSeek规范与固定DSH0.2.2-alpha.2已核实，完整调研和实施报告已读取处理并记入Plan。首轮新独立/root/accept_model_connection FAIL，完整报告已读取：Runtime5秒socket超时早于新诊断服务预算。新实施/root/rework_model_timeout已完成：两个新路由preHandler31秒/onSend恢复默认；真实HTTP慢响应、预算超时及同连接普通请求限制回归11.77秒通过，Node构建/类型/相关lint通过。完整报告已读取，详见rework.md。新独立/root/accept_model_timeout重验PASS，完整报告已读取处理，Spec015 Done，无剩余阻塞；未重跑未受影响UI/DSH。S3仅相关模型子系统，证据build/model-connection。
+
+root已在R1修复后刷新Runtime并完成Mac Tauri打包，实际退出0；最新package-evidence.json记录包内119个dist文件全部匹配当前源码产物，Desktop资产/MIT/metadata匹配。最终DMG SHA-256 ed46374dc692b70658612b8729c68d106340acf846686dbbdd1e731356038b9c；首轮含R1包仅保留历史证据。四张模型页稳定图覆盖1100/380；图中123ms为隔离fixture值。预览http://127.0.0.1:53425/、owned session70573。未原生启动、真实云账号/Windows仍待验；本地ad-hoc未公证。root按持续每阶段本地commit授权完成提交，确切hash以git log为准；无push/PR/合并授权或操作，远端未刷新，旧P0–P7不恢复。满足停止条件，不追加检查。下方为已完成阶段。
+
 ## 当前任务：Spec014全界面beUI迁移
 
 用户明确“能用beui的全部替换”。dev基线2b3c8de、开始clean。Spec014已Done：/root/implement_beui_interface完整报告已读取并记录到Plan，新的/root/accept_beui_interface独立验收PASS，完整报告已读取处理，无需返工；其实际目视10图并补查380×500通过。覆盖表单/页签/浮层/状态/卡片/加载/聊天展示与PromptInput/适用导航；保留已认可布局及业务状态。无通用Textarea等明确原生边界见Spec，真实事件/值回调、中文Tab、空值Select/checkbox、PromptInput Enter与忙碌编辑、Drawer焦点均有定向证据。

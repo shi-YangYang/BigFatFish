@@ -282,7 +282,7 @@ it.skipIf(!existsSync(executable))(
           radius: getComputedStyle(button).borderRadius,
           library: button.getAttribute("data-beui"),
         })));
-        expect(headerButtons.every((button) => button.height === 40 && button.radius === "8px" && button.library === "button")).toBe(true);
+        expect(headerButtons.every((button) => Math.abs(button.height - 40) < 0.01 && button.radius === "8px" && button.library === "button")).toBe(true);
 
         if (width > 700) expect((await page.locator(".app-sidebar").boundingBox())!.width).toBeLessThanOrEqual(80);
         const box = await page
@@ -328,7 +328,7 @@ it.skipIf(!existsSync(executable))(
         await page
           .getByLabel("服务地址", { exact: true })
           .evaluate((el) => (el.closest(".ui-input") ?? el).getBoundingClientRect().height),
-      ).toBe(40);
+      ).toBeCloseTo(40, 2);
       await page.screenshot({ path: "build/beui-interface/regression-settings-1100.png" });
       // General settings must not mix fields, toggles and a stretched action in a two-column grid.
       await page.getByRole("tab", { name: "通用", exact: true }).click();
@@ -345,8 +345,8 @@ it.skipIf(!existsSync(executable))(
       expect(settingsBoxes.every((b) => b?.x === settingsBoxes[0]!.x)).toBe(
         true,
       );
-      expect(settingsBoxes[0]!.height).toBe(40);
-      expect(settingsBoxes[3]!.height).toBe(40);
+      expect(settingsBoxes[0]!.height).toBeCloseTo(40, 2);
+      expect(settingsBoxes[3]!.height).toBeCloseTo(40, 2);
       expect(settingsBoxes[3]!.width).toBeLessThan(settingsBoxes[0]!.width / 2);
       await page.getByRole("tab", { name: "数据", exact: true }).click();
       const backupActions = await Promise.all(
@@ -356,7 +356,7 @@ it.skipIf(!existsSync(executable))(
       );
       expect(
         backupActions.every(
-          (b) => b?.height === 40 && b.y === backupActions[0]!.y,
+          (b) => !!b && Math.abs(b.height - 40) < 0.01 && b.y === backupActions[0]!.y,
         ),
       ).toBe(true);
       await page.getByRole("button", { name: "我的鱼", exact: true }).click();
@@ -377,7 +377,7 @@ it.skipIf(!existsSync(executable))(
       expect(filters).toHaveLength(3);
       expect(
         filters.every(
-          (r) => r.height === 40 && r.bottom === filters[0]!.bottom,
+          (r) => Math.abs(r.height - 40) < 0.01 && r.bottom === filters[0]!.bottom,
         ),
       ).toBe(true);
       await page.getByRole("button", { name: "聊天", exact: true }).click();

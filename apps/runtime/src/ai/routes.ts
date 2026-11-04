@@ -1,5 +1,6 @@
+import { discoverModels, testModelConnection, MODEL_CONNECTION_TIMEOUT_MS } from './model-connection.js';
 import {transcribe,synthesize} from './media.js';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, RouteShorthandOptions } from 'fastify';
 import websocket from '@fastify/websocket';
 import type { ChatService } from './chat.js';
 import type { ChatEvent } from './types.js';
@@ -7,6 +8,18 @@ export async function registerAi(app: FastifyInstance, chat: ChatService) {
   await app.register(websocket, { options: { maxPayload: 1024 } });
   app.post('/v1/media/transcribe',async req=>transcribe(chat.config,req.body as {data:string;mimeType:string},AbortSignal.timeout(60000)));
   app.post('/v1/media/synthesize',async req=>synthesize(chat.config,req.body,AbortSignal.timeout(60000)));
+  const modelConnectionTransport: RouteShorthandOptions = {
+    // Extend only the authenticated handler wait, after the request body is read.
+    preHandler: async req => { req.raw.socket.setTimeout?.(MODEL_CONNECTION_TIMEOUT_MS + 1000); },
+    // Restore before writing either success or error; Node retains its normal
+    // response/keep-alive lifecycle and later requests do not inherit the exception.
+    onSend: async (req, _reply, payload) => {
+      req.raw.socket.setTimeout?.(app.initialConfig.connectionTimeout ?? 0);
+      return payload;
+    },
+  };
+  app.post('/v1/models/discover', modelConnectionTransport, async req => discoverModels(chat.config, req.body));
+  app.post('/v1/models/test', modelConnectionTransport, async req => testModelConnection(chat.config, req.body));
   app.get('/v1/models', async () => chat.config.models());
   app.post('/v1/models', async req => chat.config.saveModel(req.body));
   app.delete<{ Params: { id: string } }>('/v1/models/:id', async req => chat.config.deleteModel(req.params.id));

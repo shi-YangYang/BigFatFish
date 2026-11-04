@@ -29,3 +29,5 @@
 - [Spec 013：接入beUI并统一按钮](spec-013-beui-controls/spec.md)：[独立验收PASS](spec-013-beui-controls/acceptance.md)；官方Button源码/依赖与主题接入，修正顶部尺寸混用，原布局保持。
 
 - [Spec 014：全面迁移适用beUI组件](spec-014-beui-interface/spec.md)：[独立验收PASS](spec-014-beui-interface/acceptance.md)；表单/导航交互/浮层/状态和聊天展示实际采用beUI，必要原生边界及最终包见Plan。
+
+- [Spec 015：模型连接诊断与推理强度](spec-015-model-connection/spec.md)：[返工独立验收PASS](spec-015-model-connection/acceptance.md)；测试当前草稿并显示耗时、发现模型、推理参数真实传递，Runtime超时修复及最终Mac包见Plan/Rework。
