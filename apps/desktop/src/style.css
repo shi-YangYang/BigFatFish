@@ -8,17 +8,17 @@
   background: #f7f8fa;
   font-size: 14px;
   font-synthesis: none;
-  --border: #d4e3f2;
-  --border-strong: #8fb9e4;
-  --muted: #61758a;
-  --brand: #0866e6;
+  --border: #d4e7f1;
+  --border-strong: #93bfd3;
+  --muted: #647e8d;
+  --brand: #22789f;
   --accent: var(--brand);
-  --accent-hover: #0757c4;
-  --accent-muted: #456e99;
-  --soft: #eaf4ff;
-  --surface-soft: #f4f9ff;
-  --focus-ring: #8fc7ff;
-  --selection: #d4e9ff;
+  --accent-hover: #1d668a;
+  --accent-muted: #4e7f98;
+  --soft: #ecf8fe;
+  --surface-soft: #f6fbfe;
+  --focus-ring: #a6d8ef;
+  --selection: #daf0fa;
   --control-height: 40px;
   --control-radius: 8px;
   --field-gap: 6px;
@@ -374,7 +374,9 @@ fieldset > .ui-button,
 }
 .section-tabs-wrap { margin-bottom: var(--section-gap); }
 .section-tabs { gap: 4px; }
-.section-tabs [aria-selected="true"] { color: var(--accent); }
+.section-tabs [data-tabs-indicator] { background: var(--soft); }
+.section-tabs [aria-selected="true"],
+.section-tabs [data-tabs-label] { color: var(--accent); }
 .select-validation { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .section-tabs button { font-size: 14px; }
 .section-heading {

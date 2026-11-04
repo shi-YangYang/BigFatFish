@@ -35,3 +35,5 @@
 - [Spec 016：表单间距收紧](spec-016-form-spacing/spec.md)：[独立验收PASS](spec-016-form-spacing/acceptance.md)；统一字段、说明、分组与操作区间距，保持现有beUI与业务行为，本轮源码/预览交付，未重打发行包。
 
 - [Spec 017：大肥鱼蓝色主题去紫](spec-017-pure-blue-theme/spec.md)：[独立验收PASS](spec-017-pure-blue-theme/acceptance.md)；统一纯蓝主色、浅蓝底色及beUI状态配色，本轮源码/预览交付。
+
+- [Spec 018：浅海蓝与轻量选中态](spec-018-soft-blue/spec.md)：[独立验收PASS](spec-018-soft-blue/acceptance.md)；采用用户选择的清透浅海蓝，区分主操作与浅底深字页签。
