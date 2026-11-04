@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前阶段：Spec016表单间距收紧已完成
+
+用户要求先commit再收紧UI表单margin。dev基线8b4bbd8，开始干净；上一阶段已commit，无需空提交。Spec016 Done，/root/implement_form_spacing完整报告已读取处理。延续beUI/DS蓝/40px控件/72px导航与60px顶栏；标签6px、字段16px、分组24px、按钮8px、提示6px/反馈8px，清除form gap与p/Disclosure/card margin叠加。只改style.css、Models展示分组、Tabs包装class。S0，diff及六张有限代表图通过，实施者全部目视，root目视模型1100/数据380；三个窄屏几何记录6px/40px/无横溢出。新独立/root/accept_form_spacing PASS，完整报告已读取处理，实际目视三图并审阅diff/几何，无返工。不test/build/lint/typecheck/重打包，上阶段DMG不含本轮样式；preview http://127.0.0.1:53427/、owned74612，隔离fixture。root按持续每阶段授权完成本地commit，确切hash以git log为准；未push/PR/合并，远端未刷新。满足停止条件，旧P0–P7及真实账号待验不恢复。下方为历史完成阶段。
+
 ## 当前阶段：Spec015模型连接诊断与推理强度已完成
 
 用户要求测试连接、获取模型列表、设置推理强度；已明确选择实际调用所选模型显示耗时。dev基线8c0088f、开始干净；Decision011。官方OpenAI/DeepSeek规范与固定DSH0.2.2-alpha.2已核实，完整调研和实施报告已读取处理并记入Plan。首轮新独立/root/accept_model_connection FAIL，完整报告已读取：Runtime5秒socket超时早于新诊断服务预算。新实施/root/rework_model_timeout已完成：两个新路由preHandler31秒/onSend恢复默认；真实HTTP慢响应、预算超时及同连接普通请求限制回归11.77秒通过，Node构建/类型/相关lint通过。完整报告已读取，详见rework.md。新独立/root/accept_model_timeout重验PASS，完整报告已读取处理，Spec015 Done，无剩余阻塞；未重跑未受影响UI/DSH。S3仅相关模型子系统，证据build/model-connection。

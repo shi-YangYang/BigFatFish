@@ -62,7 +62,7 @@ export function Tabs<T extends string>({
   children: ReactNode;
 }) {
   return <BeTabs value={value} onValueChange={(next) => onChange(next as T)} variant="pill">
-    <TabsList aria-label={label} className="section-tabs rounded-[8px] p-0" wrapperClassName="mb-[28px]">
+    <TabsList aria-label={label} className="section-tabs rounded-[8px] p-0" wrapperClassName="section-tabs-wrap">
       {items.map((item) => <TabsTrigger value={item} key={item} className="h-[40px] min-w-[76px] px-[16px] text-[14px]">{item}</TabsTrigger>)}
     </TabsList>
     {items.map((item) => <TabsContent key={item} value={item} className="mt-0">{value === item ? children : null}</TabsContent>)}

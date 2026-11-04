@@ -160,3 +160,6 @@ Spec013已实现并独立PASS。采用基础Motion Button及薄兼容入口，�
 沿用同一固定上游revision，按实际源码闭包新增lucide-react1.67.0与@floating-ui/dom1.8.0，仅用于前端构建。通过普通源码组件组合实现复用，不新增package或workspace。必要适配放在组件责任层：Input传递真实事件，Select/Checkbox使用值回调，中文Tab保留唯一关联，PromptInput保持Enter换行与原草稿所有权，浮层遵守焦点/关闭顺序。删除已被替代的基础样式，保留DS蓝和现有布局；不改变Runtime/API/数据。
 
 Spec014已完成并获新独立验收PASS；相关前端类型/lint/双构建/原聊天回归和新增控件契约通过，380×500输入/发送可见。最新五张项目截图及Mac本地包已同步，实际证据与剩余验证边界见Spec014 Plan/Acceptance。
+
+## 表单间距收紧（Spec016）
+用户要求明确表单元素margin、收紧产品UI。保留beUI、DS蓝与40px控件，间距由共享布局栈负责，清除子段落/嵌套表单/折叠的外margin叠加。标签和字段说明6px，字段/网格16px，分组24px，按钮与操作反馈8px；内容padding桌面24px/窄屏16px，表单卡片16px。文字卡片内部保留12px、checkbox行保留40px点击高度与4px行间隔。模型页以普通展示容器关联诊断反馈/推理说明，不改变状态或请求；Tabs包装24px，移除窄屏内外双重间距。实际视觉与范围见Spec016 Plan，本轮不重打发行包。

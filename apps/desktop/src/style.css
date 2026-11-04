@@ -16,6 +16,12 @@
   --soft: #eef2ff;
   --control-height: 40px;
   --control-radius: 8px;
+  --field-gap: 6px;
+  --form-gap: 16px;
+  --section-gap: 24px;
+  --action-gap: 8px;
+  --surface-padding: 16px;
+  --page-padding: 24px;
 }
 * {
   box-sizing: border-box;
@@ -51,16 +57,22 @@ select {
 .ui-checkbox { min-height: 24px; }
 .ui-checkbox button { border-style: solid; width: 20px; height: 20px; }
 .ui-field > label { font-size: 13px; }
-.ui-disclosure { margin: 16px 0; }
+.ui-disclosure { margin: var(--section-gap) 0; }
 .disclosure-trigger { width: 100%; justify-content: space-between; text-align: left; }
-.disclosure-content { padding: 16px 0 2px; }
+.disclosure-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-gap);
+  padding: var(--form-gap) 0 0;
+}
 .ui-popover { min-width: 180px; max-width: calc(100vw - 32px); padding: 12px; font-size: 14px; }
 .alert-content { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; overflow-wrap: anywhere; }
 .alert-content > button { margin-left: auto; }
 .ui-alert { font-size: 13px; flex-shrink: 0; }
 .loading-state { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 40px 20px; color: var(--muted); }
-.business-card { overflow-wrap: anywhere; margin: 16px 0; }
-.business-card h3 { margin-top: 0; }
+.business-card { overflow-wrap: anywhere; margin: var(--form-gap) 0; }
+.business-card:has(form, fieldset, .ui-field) { padding: var(--surface-padding); }
+.business-card > :is(h2, h3, h4) { margin: 0; }
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -123,12 +135,12 @@ fieldset {
 }
 legend {
   font-weight: 600;
-  margin-bottom: 14px;
+  margin-bottom: var(--form-gap);
 }
 .ui-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--field-gap);
   font-size: 13px;
   line-height: 20px;
   min-width: 0;
@@ -136,19 +148,35 @@ legend {
 .ui-field:has(.ui-checkbox) {
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: var(--action-gap);
   min-height: var(--control-height);
 }
 form,
 fieldset,
-.settings {
+.settings,
+.form-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--form-gap);
 }
 form {
-  margin: 20px 0;
+  margin: var(--section-gap) 0;
 }
+/* A layout stack owns its spacing; child block margins must not add to it. */
+:is(form, fieldset, .settings, .form-section, .field-with-help, .form-feedback, .disclosure-content, .business-card) > :is(p, form, fieldset, .ui-disclosure, .ui-actions, .business-card) {
+  margin: 0;
+}
+.field-with-help,
+.form-feedback,
+.settings > [role="alertdialog"] {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.field-with-help { gap: var(--field-gap); }
+.form-feedback,
+.settings > [role="alertdialog"] { gap: var(--action-gap); }
+.form-feedback > [role="status"] { font-size: 13px; }
 form > .ui-button,
 fieldset > .ui-button,
 .settings > .ui-button {
@@ -158,7 +186,7 @@ fieldset > .ui-button,
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--action-gap);
   min-width: 0;
 }
 .ui-actions > .ui-field {
@@ -178,7 +206,7 @@ fieldset > .ui-button,
 .ui-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: var(--form-gap);
   align-items: end;
 }
 .ui-form-grid .ui-field:has(.ui-textarea) {
@@ -190,10 +218,10 @@ fieldset > .ui-button,
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 20px;
+  gap: 4px var(--form-gap);
 }
 .content-page section > fieldset {
-  margin: 24px 0;
+  margin: var(--section-gap) 0;
 }
 .credential-grid > .ui-button {
   grid-column: 1 / -1;
@@ -333,12 +361,13 @@ fieldset > .ui-button,
 }
 .content-page {
   max-width: 984px;
-  padding: 32px;
+  padding: var(--page-padding);
   margin: auto;
 }
 .settings-page {
   max-width: 744px;
 }
+.section-tabs-wrap { margin-bottom: var(--section-gap); }
 .section-tabs { gap: 4px; }
 .section-tabs [aria-selected="true"] { color: var(--accent); }
 .select-validation { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
@@ -348,7 +377,7 @@ fieldset > .ui-button,
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: var(--section-gap);
 }
 .section-heading h2 {
   margin: 0;
@@ -580,15 +609,12 @@ fieldset > .ui-button,
 }
 .model-form {
   margin: 0;
-  gap: 20px;
-}
-.advanced-fields {
-  margin: 4px 0;
+  gap: var(--section-gap);
 }
 .model-list {
   display: grid;
   gap: 8px;
-  margin-bottom: 28px;
+  margin-bottom: var(--section-gap);
 }
 .model-list > div {
   display: flex;
@@ -615,7 +641,7 @@ fieldset > .ui-button,
   color: var(--muted);
 }
 .actions {
-  margin: 16px 0;
+  margin: var(--form-gap) 0;
 }
 .filters {
   grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
@@ -831,9 +857,6 @@ audio {
   }
 }
 @media (max-width: 960px) {
-  .content-page {
-    padding: 28px 24px;
-  }
   .brand {
     gap: 8px;
   }
@@ -862,11 +885,11 @@ audio {
     gap: 8px;
   }
   .content-page {
-    padding: 24px 20px;
+    --page-padding: 16px;
+    padding: var(--page-padding);
   }
   .section-tabs {
     gap: 3px;
-    margin-bottom: 24px;
   }
   .messages {
     padding: 24px 16px 16px;
