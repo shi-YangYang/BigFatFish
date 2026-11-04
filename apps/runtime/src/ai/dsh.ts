@@ -1,4 +1,5 @@
 import { forwardModel } from './model-forwarder.js';
+import { buildPersonaPrompt } from './persona-prompt.js';
 import { adapterEffort, openAIModelOptions, MODEL_REQUEST_TIMEOUT_MS } from './model-options.js';
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
 import { createServer } from 'node:http';
@@ -61,7 +62,7 @@ export class DSHAdapter implements AgentEngine {
     privateFile(profile); writeFileSync(profile, JSON.stringify(patches));
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: `你是${input.persona.name}。人格配置：${JSON.stringify(input.persona)}\n这是持续的人格配置；不声称拥有真实意识。不具备外部操作工具时不要声称已执行。\n${input.context ?? ''}` });
+    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
     harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {

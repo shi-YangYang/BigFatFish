@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec027 大肥鱼人设已完成
+
+EXISTING，dev 基线 e9439ac，开始干净。用户要求联网解决人设平淡；研究见 Decision016，原创嘴欠黏人/女儿感/乖巧黏人预设、简洁beUI选择与统一提示。默认偏好未回复，按推荐嘴欠黏人为新安装默认；既有配置不改写，需选择保存，旧Runtime需重新运行desktop:dev。Spec027 Done。
+
+实施/root/implement_fish_persona完成；首轮独立/root/accept_fish_persona仅FAIL活动chooseActivity通过overview重新注入persona。新实施/root/rework_fish_persona非破坏性分离persona/state；新独立/root/accept_fish_persona_r1 PASS，所有完整报告已读取处理，无剩余返工。S2原Node build、apps-only tsc、7项定向测试通过；R1 S1单个真实DSH活动请求回归最终PASS（首次测试任务消息定位错误修正后通过），未重复原检查。root隔离UI桌面/380px保存/自定义/历史/冲突/布局检查通过，截图build/fish-persona/01–03；fixture97444与tab9关闭，viewport恢复。未改真实Runtime/用户数据、未调用云模型或QQ，真实口吻未实测，未重打安装包。按持续每阶段授权本地commit，hash见git log；无push/PR/merge，远端未刷新。满足停止条件。下方历史。
+
 ## 当前任务：Spec026精简界面解释文案已完成
 
 EXISTING，dev基线139ebd1，开始干净。用户要求尽量删除「主人只能有一个QQ」这类面向开发者/AI的解释，界面面向实际使用者。Spec026 Done。实施/root/implement_interface_copy、新独立验收/root/accept_interface_copy均已完成，完整报告已读取处理，PASS无返工。仅QQ/模型/记忆/日记冗余说明、重复placeholder、抖音限制措辞与单条失效CSS；行为和必要操作提示保持。S0只diff，不开UI、不test/build/lint/typecheck，不操作后台。web-design已增加明确示例。按持续授权阶段本地commit，hash见git log；无push/PR/merge，远端未刷新。满足停止条件。下方历史。

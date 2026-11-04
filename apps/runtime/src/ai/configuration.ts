@@ -3,7 +3,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import { InputError, object, string, type ModelConfig, type Persona } from './types.js';
 import { SecretStore } from './secrets.js';
 import type { DataPaths } from '../paths.js';
-export const defaultPersona: Persona = { name: '大肥鱼', avatar: '', role: '陪伴主人、了解世界的 AI 鱼', traits: '好奇、友善', style: '自然简洁', likes: '', dislikes: '', boundaries: '尊重隐私，涉及外部操作先取得授权', schedule: '', autonomy: '未经授权不主动进行外部操作', version: 1 };
+import { defaultPersona } from './persona-presets.js';
+export { defaultPersona } from './persona-presets.js';
 export class Configuration {
   private secrets: SecretStore;
   constructor(private db: DatabaseSync, p: DataPaths) {

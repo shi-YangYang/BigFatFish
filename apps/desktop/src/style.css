@@ -226,6 +226,17 @@ fieldset > .ui-button,
 .ui-form-grid .ui-textarea {
   flex: 1;
 }
+.personality-settings { max-width: 800px; }
+.persona-wide-field { grid-column: 1 / -1; }
+.persona-example {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.persona-example > span { color: var(--muted); font-size: 12px; }
+.persona-example > p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.persona-history-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
