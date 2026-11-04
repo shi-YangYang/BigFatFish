@@ -40,3 +40,19 @@ cp build/macos-icons/icon.icns apps/desktop/src-tauri/icons/icon.icns
 
 ### Known Limitations / Remaining Questions
 无实施待确认项。旧安装包未自动替换，本轮未重打 DMG；未来正常开发编译/打包会读入新 ICNS。Windows/Linux 素材未变，不扩展实机验证。系统缓存未清理，用户数据与原有 Runtime 未触碰。
+
+## Windows 补齐（用户后续明确范围）
+
+上一轮只完成 macOS，用户指出 Windows 也需统一；本节覆盖上述仅复制 ICNS、不覆盖 ICO 的历史限制。直接从已认可的固定 `macos-icon.png` 转换 Windows 多尺寸 ICO，保留源文件位置避免无必要重命名，不改 Rust、配置、脚本或页面素材。核实 Tauri Windows 的 EXE/默认窗口资源路径均使用该 ICO。
+
+风险 S0，仅现有图标文件转换；检查资源差异、尺寸和透明边界，不运行测试、构建、lint 或 typecheck。无 Windows 机器，不声称实机/安装包验证。实施和新的独立验收分别追加本 Plan 与现有 acceptance.md，保留 macOS 结果。root 按持续阶段授权本地 commit。
+
+### Windows Implementation Report
+
+实施 Agent：`/root/implement_icon_consistency`。仅更新 `apps/desktop/src-tauri/icons/icon.ico`；复用上轮 Tauri 从同一圆角源图生成的 ICO，已核实临时源 PNG 与入库 PNG 的 SHA-256 一致，且同次生成的 ICNS 与当前 ICNS 一致，没有重新生成、裁切或缩小。新 ICO SHA-256：`905b5ea90f088e8308ba729b78c6dabed72e7ea9542d6bd75c026bb915d8a683`，103,941 字节。
+
+锁定 `tauri-build 2.7.4/src/lib.rs:797` 读取 `bundle.icon` 中的 `.ico`，`:860` 将其作为 Windows application icon 资源嵌入 EXE；`tauri-codegen 2.7.4/src/context.rs:211` 的 Windows 分支通过 `default_window_icon_from_app_icon_resource()` 读取该 EXE 资源。既有配置引用 `icons/icon.ico`，开发与打包均走此资源链，替换资源即可覆盖，无须添加重复图标设置或修改生命周期。
+
+S0 资源检查：ICO 有 16/24/32/48/64/256 六种尺寸，均为 32-bit PNG，目录尺寸与 PNG 实际尺寸一致；透明圆角保留。256px 条目的 alpha>127 主体边界为 `[25,25,230,230]`，即每边约 9.8%，与已确认的 1024px 源图一致；小尺寸差异仅为像素取整。已目视 256px 解码图，角色/圆角/留白正确。证据为 `build/icon-consistency/windows-geometry.jsonl` 与 `windows-{size}.png`。没有执行测试、构建、lint、typecheck 或 Windows 实机检查，不声称旧 Windows 安装包已更新。
+
+之后如需同步生成两平台资源，可沿用上节编码命令，并额外复制 `build/macos-icons/icon.ico` 到 `apps/desktop/src-tauri/icons/icon.ico`；通用 PNG 和页面头像继续保留原状。未改 ICNS、源 PNG、Rust、配置、依赖或脚本。

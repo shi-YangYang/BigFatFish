@@ -2,6 +2,8 @@
 
 ## 当前任务：Spec021桌面图标一致性已完成
 
+Windows补齐：用户明确指出不仅macOS，Windows也需统一；dev基线758e3ab。实施/root/implement_icon_consistency仅替换icon.ico，复用固定圆角图源生成16/24/32/48/64/256六尺寸，256px主体边界[25,25,230,230]，与macOS留白一致。新独立/root/accept_windows_icon PASS，完整报告已读取处理；S0仅资源和Tauri EXE/默认窗口图标引用审阅，未测试/构建/实机/重打Windows安装包。root按持续阶段授权本地commit，准确hash见git log；未push，远端未刷新。下段macOS实施记录保留为历史，Linux通用PNG未改。
+
 用户要求本地commit并把自行打包/开发入口的方形大图标统一为已认可的系统圆角版本。EXISTING，dev基线0693c04，开始干净；Spec021位于specs/spec-021-desktop-icon-consistency/。实施/root/implement_icon_consistency已完成，仅更新icon.icns、新增固定macos-icon.png：从现有正确debug App的NSWorkspace系统图标提取，不重绘。开发Tauri直接设置ICNS，原资源满幅方形；修复后两入口继续同源。临时bundle再次经系统读取，主体边界与固定源一致[100,100,923,923]/1024，无二次缩小。Root一次隔离desktop:dev编译18.44秒成功并运行，二进制内新ICNS全部字节匹配；开发命令已停止，原debug App PID30270及用户Runtime未改变。CUA不支持绑定该未打包进程/Dock，不能声称获得实际dev Dock截图；未重打DMG/清缓存。新独立/root/accept_icon_consistency PASS，无返工；两个完整报告已读取处理。Root按本轮和持续每阶段授权本地commit，准确hash见git log；不push/PR/合并，远端未刷新。满足停止条件，不追加验证。证据build/icon-consistency与Plan；下方均为已完成历史。
 
 ## 当前任务：Spec020原生UI巡检修复已完成

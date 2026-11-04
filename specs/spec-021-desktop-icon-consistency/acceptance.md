@@ -27,3 +27,26 @@ PASS
 
 ## Required Rework
 无。协调者可完成状态更新和已授权的本地提交。
+
+## Windows 补齐独立验收
+
+### Result
+PASS
+
+验收 Agent：`/root/accept_windows_icon`，2026-11-04；独立于实施 Agent `/root/implement_icon_consistency`。本节补充 Windows 范围，前述 macOS 结果保留。
+
+### Spec Coverage
+- 本轮生产资源差异仅 `icons/icon.ico`，未改变已通过的 ICNS、固定源 PNG、网页头像、Rust、配置或依赖。
+- 实际目视 Windows 256px 解码图与固定圆角源图，角色、圆角和留白比例一致。已审阅六种尺寸 16/24/32/48/64/256 的资源记录；四角透明，256px 主体边界 `[25,25,230,230]` 与 1024px 源图的约 9.8% 留白比例一致。
+- 已独立读取现有 Tauri 配置及锁定的 `tauri-build 2.7.4`、`tauri-codegen 2.7.4` 对应代码：Windows 构建从配置选择 ICO 嵌入 EXE，默认窗口图标再从该应用资源读取；开发和打包共用资源，无需调用点特判。
+
+### Validation
+- Risk Level：S0，仅图标资源转换。
+- Evidence Reviewed：当前 Spec、Windows Implementation Report、Git 状态/资源 diff、`tauri.conf.json`、锁定 Tauri 的资源选择代码、`windows-geometry.jsonl`、`windows-256.png` 与 `macos-icon.png`。
+- 未重复生成、编译、启动、测试、lint 或 typecheck；未操作用户桌面、修改业务代码或执行 Git 写操作。
+
+### Issues / Required Rework
+无阻塞问题，无返工项。
+
+### Regression Risks
+没有 Windows 测试机，本次为资源与引用路径验收，不代表已完成 Windows 实机、任务栏现场目视或安装包验证。既有 Windows 安装包没有自动更新，需后续正常重新编译/打包纳入新图标。
