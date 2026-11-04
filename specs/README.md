@@ -41,3 +41,5 @@
 - [Spec 019：简化模型设置与实时聊天反馈](spec-019-chat-experience/spec.md)：[独立验收PASS](spec-019-chat-experience/acceptance.md)；聊天/语音输入/朗读三类用途、服务端默认、流式回复与统一临时错误提示。
 
 - [Spec 020：修复原生UI巡检问题](spec-020-ui-audit-fixes/spec.md)：[返工独立验收PASS](spec-020-ui-audit-fixes/acceptance.md)；共享浮层避让与菜单关闭、表单对齐、模型及连接状态文案，已完成原生定向复查。
+
+- [Spec 021：统一桌面图标](spec-021-desktop-icon-consistency/spec.md)：[独立验收PASS](spec-021-desktop-icon-consistency/acceptance.md)；开发和 macOS 打包共用固定圆角与透明留白图标。

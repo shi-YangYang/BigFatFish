@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec021桌面图标一致性已完成
+
+用户要求本地commit并把自行打包/开发入口的方形大图标统一为已认可的系统圆角版本。EXISTING，dev基线0693c04，开始干净；Spec021位于specs/spec-021-desktop-icon-consistency/。实施/root/implement_icon_consistency已完成，仅更新icon.icns、新增固定macos-icon.png：从现有正确debug App的NSWorkspace系统图标提取，不重绘。开发Tauri直接设置ICNS，原资源满幅方形；修复后两入口继续同源。临时bundle再次经系统读取，主体边界与固定源一致[100,100,923,923]/1024，无二次缩小。Root一次隔离desktop:dev编译18.44秒成功并运行，二进制内新ICNS全部字节匹配；开发命令已停止，原debug App PID30270及用户Runtime未改变。CUA不支持绑定该未打包进程/Dock，不能声称获得实际dev Dock截图；未重打DMG/清缓存。新独立/root/accept_icon_consistency PASS，无返工；两个完整报告已读取处理。Root按本轮和持续每阶段授权本地commit，准确hash见git log；不push/PR/合并，远端未刷新。满足停止条件，不追加验证。证据build/icon-consistency与Plan；下方均为已完成历史。
+
 ## 当前任务：Spec020原生UI巡检修复已完成
 
 用户在巡检完成后明确“那你修一下”。EXISTING，dev基线4848d4e，开始干净；Spec020 Done，规格/实施/R1及最终PASS在specs/spec-020-ui-audit-fixes/。共享Popover避让/翻转、菜单转审批关闭和焦点、设置滚动条占位、B站统一操作列、模型旧用途文案、同名去重、服务/聊天状态区分均完成。首轮/root/accept_ui_audit_fixes FAIL仅B站100px列导致换行；新实施/root/rework_ui_action_column改112px并nowrap，新独立/root/accept_ui_audit_r1 PASS，全部报告已读取处理。S2定向定位测试7/7、apps类型检查通过；root实际cua_repl复查原生900/380浮层、审批及Escape焦点、长短设置页、模型去重和R1 B站对齐，证据build/ui-audit-fixes，01无效和07失败图保留历史。仅重复构建以纳入后续具体CSS修正，最终debug app构建exit0并已打开；未打发行DMG。窗口恢复900×680聊天页，隔离fixture服务已停止；用户配置和原有Runtime未改变，旧后台导致的聊天连接故障未在本轮修复。root按持续每阶段授权本地commit，准确hash见git log；不push/PR/合并，远端未刷新。满足停止条件，不再追加验证或恢复旧P0–P7工作。下方均为历史。
