@@ -1042,3 +1042,18 @@ audio {
 
 .qq-reply-options > .ui-disclosure + .ui-disclosure { border-top: 1px solid var(--border); }
 .qq-group-disclosure .qq-friends-manual-toggle { align-self: flex-start; width: fit-content; }
+
+/* QQ sticker library follows existing form spacing and sea-blue controls. */
+.sticker-manager { display: grid; gap: 16px; }
+.sticker-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sticker-toolbar > button { margin-left: auto; }
+.sticker-toolbar .check, .sticker-item-actions .check { margin: 0; }
+.sticker-add { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.sticker-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 12px; }
+.sticker-item { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.sticker-preview { height: 132px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-soft); overflow: hidden; }
+.sticker-preview img { width: 100%; height: 100%; object-fit: contain; }
+.sticker-caption { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.sticker-caption .muted { font-size: 12px; }
+.sticker-item-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; min-height: 32px; }
+@media (max-width: 480px) { .sticker-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .sticker-item { padding: 10px; } .sticker-preview { height: 110px; } .sticker-toolbar { gap: 8px; } }

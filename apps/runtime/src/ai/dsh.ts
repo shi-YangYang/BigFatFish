@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { privateFile, assertRegular, type DataPaths } from '../paths.js';
 import { windowsAcl } from '../windows-acl.js';
-import type { AgentEngine, EngineInput } from './engine.js';
+import type { AgentEngine, EngineInput, EngineTool } from './engine.js';
 export class DSHAdapter implements AgentEngine {
   private children = new Set<DeepSeekHarness>();
   constructor(private p: DataPaths) {}
@@ -23,6 +23,7 @@ export class DSHAdapter implements AgentEngine {
     }
     const token = randomBytes(32).toString('hex');
     let childPort = 0, text = '', attempt = '', revision = 0;
+    const imageResults = new Map<string,{tool:EngineTool;value:unknown;presented:boolean}>();
     const bridge = createServer(async (req, res) => {
       if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${token}` || req.headers.origin) { res.writeHead(403).end(); return; }
       if (req.url === '/model/chat/completions' && input.model.provider === 'openai') { await forwardModel(req, res, input.model.baseURL, input.key, input.signal); return; }
@@ -30,7 +31,26 @@ export class DSHAdapter implements AgentEngine {
       try {
         let body = ''; for await (const chunk of req) { body += chunk; if (body.length > 262144) throw new Error(); }
         const data = JSON.parse(body);
-        if(data.tool && data.sessionId===input.sessionId){const tool=input.tools?.find(t=>t.name===data.tool);if(!tool)throw new Error();input.signal.throwIfAborted();input.onTool?.({name:tool.name,state:'running'});try{const value=await tool.execute(data.args,input.signal);input.signal.throwIfAborted();const result=JSON.stringify({result:value});if(result.length>65536)throw new Error();input.onTool?.({name:tool.name,state:'completed'});res.end(result);return;}catch{input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}}
+        if(data.imageReceipt && data.sessionId===input.sessionId){
+          const pending=imageResults.get(data.imageReceipt);if(!pending||typeof data.presented!=='boolean')throw new Error();
+          if(data.presented&&pending.presented)throw new Error(); // Success is accepted only once; a later transport failure may still revoke it.
+          const success=data.presented&&!input.signal.aborted;
+          pending.presented=success;if(!success)imageResults.delete(data.imageReceipt);
+          try{pending.tool.onImageResult?.(pending.value,success);input.onTool?.({name:pending.tool.name,state:success?'completed':'failed'});}
+          catch{imageResults.delete(data.imageReceipt);pending.tool.onImageResult?.(pending.value,false);input.onTool?.({name:pending.tool.name,state:'failed'});throw new Error();}
+          if(!success&&data.presented)throw new Error();res.end('{}');return;
+        }
+        if(data.tool && data.sessionId===input.sessionId){
+          const tool=input.tools?.find(t=>t.name===data.tool);if(!tool)throw new Error();input.signal.throwIfAborted();input.onTool?.({name:tool.name,state:'running'});
+          try{
+            if(tool.resultKind==='image'&&imageResults.size>=16)throw new Error('TOOL_IMAGE_PENDING_LIMIT');
+            const value=await tool.execute(data.args,input.signal);input.signal.throwIfAborted();
+            const imageReceipt=tool.resultKind==='image'?randomBytes(24).toString('hex'):undefined;
+            const result=JSON.stringify({result:value,...(imageReceipt?{imageReceipt}:{})});if(result.length>(imageReceipt?2_800_000:65536))throw new Error();
+            if(imageReceipt)imageResults.set(imageReceipt,{tool,value,presented:false});else input.onTool?.({name:tool.name,state:'completed'});
+            res.end(result);return;
+          }catch{input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}
+        }
         if (data.ready === true && Number.isInteger(data.port) && data.port > 0 && data.port < 65536) childPort = data.port;
         else if (data.sessionId === input.sessionId && !input.signal.aborted) {
           const frame = data.frame;
@@ -62,7 +82,7 @@ export class DSHAdapter implements AgentEngine {
     privateFile(profile); writeFileSync(profile, JSON.stringify(patches));
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters})=>({name,description,parameters}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
+    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters,resultKind})=>({name,description,parameters,resultKind}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
     harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {
@@ -98,6 +118,8 @@ export class DSHAdapter implements AgentEngine {
         if (!bridge.listening) { resolve(); return; }
         bridge.close(error => error ? reject(error) : resolve()); bridge.closeAllConnections();
       }));
+      for(const {tool,value,presented} of imageResults.values())if(!presented)await cleanup(()=>{tool.onImageResult?.(value,false);input.onTool?.({name:tool.name,state:'failed'});});
+      imageResults.clear();
       await cleanup(() => rmSync(profile, { force: true }));
     }
     if (cleanupErrors.length) throw new AggregateError([...(runError ? [runError] : []), ...cleanupErrors], 'ENGINE_CLEANUP_FAILED');

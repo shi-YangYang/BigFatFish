@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -39,6 +39,7 @@ export const migrations = [
    CREATE INDEX activity_status ON activity_tasks(platform,status);
    CREATE TABLE activity_requests(request_id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES activity_tasks(id),platform TEXT NOT NULL,kind TEXT NOT NULL,input TEXT NOT NULL);
    CREATE INDEX activity_video ON activity_tasks(platform,kind,json_extract(input,'$.videoId'),status);`,
+  `CREATE TABLE qq_stickers(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),builtin INTEGER NOT NULL CHECK(builtin IN (0,1)),revision TEXT NOT NULL,mime_type TEXT NOT NULL,bytes INTEGER NOT NULL,data TEXT NOT NULL); CREATE TABLE qq_sticker_options(id INTEGER PRIMARY KEY CHECK(id=1),network_enabled INTEGER NOT NULL CHECK(network_enabled IN (0,1)),revision TEXT NOT NULL);`,
 ];
 export function migrate(db: DatabaseSync, steps = migrations) {
   const current = Number(db.prepare('PRAGMA user_version').get()?.user_version);

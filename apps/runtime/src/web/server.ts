@@ -54,7 +54,7 @@ export async function createWeb(p:DataPaths,c:WebConfig,processes:{stop:()=>Prom
   const file=join(directory,randomUUID());let stopped=false;
   try{if(action==='restore'){if(typeof b.data!=='string'||b.data.length>179000000)throw new Error('INVALID_ARCHIVE');writeFileSync(file,Buffer.from(b.data,'base64'),{mode:0o600,flag:'wx'});inspectArchive(file,b.password);}
    await processes.stop();stopped=true;
-   const result=action==='export'?await exportArchive(p,file,{password:b.password,scopes:b.scopes,credentials:b.credentials}):restoreArchive(p,file,b.password);
+   const result=action==='export'?await exportArchive(p,file,{password:b.password,scopes:b.scopes,credentials:b.credentials}):await restoreArchive(p,file,b.password);
    await processes.start();stopped=false;
    return action==='export'?{state:'completed',data:readFileSync(file).toString('base64')}:{state:'completed',...result};
   }finally{try{if(stopped)await processes.start();}finally{rmSync(file,{force:true});busy=false;}}

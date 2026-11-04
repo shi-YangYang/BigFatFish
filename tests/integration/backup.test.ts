@@ -114,10 +114,10 @@ it("backs up a drained real DSH fish, restores without hidden engine context, re
       ).toString(),
     );
     expect(JSON.stringify(inner)).not.toContain("UNIQUE_SECRET");
-    expect(() => restoreArchive(q, encrypted, "wrong")).toThrow(
+    await expect(restoreArchive(q, encrypted, "wrong")).rejects.toThrow(
       "ARCHIVE_DECRYPT_FAILED",
     );
-    restoreArchive(q, archive);
+    await restoreArchive(q, archive);
     runtime = await startRuntime(q);
     expect(runtime.connection.token).not.toBe(oldToken);
     expect((await call<{ name: string }>("/v1/persona")).name).toBe("迁移鱼");
@@ -148,7 +148,7 @@ it("backs up a drained real DSH fish, restores without hidden engine context, re
     const bad = JSON.parse(readFileSync(archive, "utf8"));
     bad.files[0].path = "../../escape";
     writeFileSync(join(root, "bad"), JSON.stringify(bad));
-    expect(() => restoreArchive(q, join(root, "bad"))).toThrow(
+    await expect(restoreArchive(q, join(root, "bad"))).rejects.toThrow(
       "INVALID_ARCHIVE_PATH",
     );
     expect(readFileSync(q.database)).toEqual(before);
@@ -161,10 +161,10 @@ it("backs up a drained real DSH fish, restores without hidden engine context, re
       sha256: createHash("sha256").update(b).digest("hex"),
     };
     writeFileSync(join(root, "bad"), JSON.stringify(bad));
-    expect(() => restoreArchive(q, join(root, "bad"))).toThrow(
+    await expect(restoreArchive(q, join(root, "bad"))).rejects.toThrow(
       "ARCHIVE_SCHEMA_UNSUPPORTED",
     );
-    restoreArchive(q, encrypted, "test-password-12345");
+    await restoreArchive(q, encrypted, "test-password-12345");
     runtime = await startRuntime(q);
     expect((await call<{ hasKey: boolean }[]>("/v1/models"))[0]?.hasKey).toBe(
       true,
@@ -188,7 +188,7 @@ it("selective exports do not reintroduce engine history; restore recovery keeps 
   try {
     const file = join(root, "partial");
     await exportArchive(p, file, { scopes: ["persona"] });
-    restoreArchive(q, file);
+    await restoreArchive(q, file);
     const db = new DatabaseSync(q.database);
     expect(db.prepare("SELECT COUNT(*) AS n FROM conversations").get()?.n).toBe(
       0,
@@ -202,7 +202,7 @@ it("selective exports do not reintroduce engine history; restore recovery keeps 
     );
     const unlock = acquireInstance(q.lock);
     try {
-      expect(() => restoreArchive(q, file)).toThrow("ALREADY_RUNNING");
+      await expect(restoreArchive(q, file)).rejects.toThrow("ALREADY_RUNNING");
     } finally {
       unlock();
     }
@@ -219,7 +219,7 @@ it("selective exports do not reintroduce engine history; restore recovery keeps 
     const unsafe = join(root, "unsafe");
     await exportArchive(p, unsafe, { scopes: ["models"] });
     const before = readFileSync(q.database);
-    expect(() => restoreArchive(q, unsafe)).toThrow();
+    await expect(restoreArchive(q, unsafe)).rejects.toThrow();
     expect(readFileSync(q.database)).toEqual(before);
   } finally {
     rmSync(root, { recursive: true, force: true });

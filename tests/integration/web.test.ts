@@ -34,3 +34,21 @@ it('active gateway blocks credential replacement; expires sessions and rate limi
  try{expect(()=>configureWeb(p,{...input,password:'new-isolated-password'})).toThrow('WEB_STOP_REQUIRED');const headers={host:'127.0.0.1:8443',origin:c.origin};const login=await app.inject({method:'POST',url:'/auth/login',headers,payload:{password:input.password}});expect(login.statusCode).toBe(200);await new Promise(r=>setTimeout(r,20));expect((await app.inject({url:'/auth/session',headers:{...headers,cookie:String(login.headers['set-cookie']).split(';')[0]}})).statusCode).toBe(401);for(let i=0;i<4;i++)await app.inject({method:'POST',url:'/auth/login',headers,payload:{password:'wrong'}});expect((await app.inject({method:'POST',url:'/auth/login',headers,payload:{password:'wrong'}})).statusCode).toBe(429);
  }finally{await app.close();rmSync(root,{recursive:true,force:true});}
 });
+
+it('waits for asynchronous sticker restore before restarting the Web runtime',async()=>{
+ const {DatabaseSync}=await import('node:sqlite'),{readFileSync}=await import('node:fs');
+ const {exportArchive}=await import('../../apps/runtime/src/maintenance/archive.js');
+ const {StickerLibrary}=await import('../../apps/runtime/src/channels/stickers.js');
+ const sharp=(await import('sharp')).default;
+ const root=mkdtempSync(join(tmpdir(),'bff-web-restore-order-')),p=paths(join(root,'fish')),cert=join(root,'cert'),key=join(root,'key');
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',cert,'-days','1','-subj','/CN=localhost'],{stdio:'ignore'});
+ configureWeb(p,{origin:'https://127.0.0.1:8443',password:'isolated-test-password',cert,key});const c=webConfig(p),runtime=await startRuntime(p);await runtime.stop();
+ const source=new DatabaseSync(p.database),image=await sharp({create:{width:32,height:32,channels:3,background:'blue'}}).png().toBuffer(),item=await new StickerLibrary(source).add({name:'恢复表情',description:'',data:image.toString('base64')});source.close();
+ const file=join(root,'archive.json');await exportArchive(p,file,{scopes:['plugins']});const destination=new DatabaseSync(p.database);destination.prepare('DELETE FROM qq_stickers WHERE id=?').run(item.id);destination.close();
+ let starts=0;const app=await createWeb(p,c,{stop:async()=>{},start:async()=>{const db=new DatabaseSync(p.database);try{expect(new StickerLibrary(db).image(item.id).data).toBe(image.toString('base64'));starts++;}finally{db.close();}}});
+ try{
+  const headers:Record<string,string>={host:'127.0.0.1:8443',origin:c.origin},login=await app.inject({method:'POST',url:'/auth/login',headers,payload:{password:'isolated-test-password'}});expect(login.statusCode).toBe(200);
+  headers.cookie=String(login.headers['set-cookie']).split(';')[0]!;headers['x-bff-csrf']=login.json().csrf;
+  const restored=await app.inject({method:'POST',url:'/maintenance/restore',headers,payload:{data:readFileSync(file).toString('base64')}});expect(restored.statusCode,restored.body).toBe(200);expect(restored.json().state).toBe('completed');expect(starts).toBe(1);
+ }finally{await app.close();rmSync(root,{recursive:true,force:true});}
+});

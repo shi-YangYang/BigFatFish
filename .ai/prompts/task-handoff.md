@@ -1,5 +1,13 @@
 # Task Handoff
 
+## 当前任务：Spec028 QQ 表情回复已完成
+
+EXISTING，dev 基线 f39d9cc，开始干净。用户要求实际发图并明确网络与内置并用。Spec028/Decision017 Done：内置三张原创大肥鱼娘PNG、上传库、固定梗鲸网络搜索/看图/单张回复；普通插件权限不变，使用现有QQ最终guard。初实施/root/implement_qq_stickers报告已完整读取，20项相关检查分阶段通过。root三图复制/目视、实际App隔离1280/380px增删启停通过，证据build/qq-stickers/01–03；fixture67525/tab12已关闭、viewport恢复。
+
+首轮新独立/root/accept_qq_stickers FAIL：坏PNG归档可恢复且DSH解码失败仍保留发送资格。新/root/rework_qq_sticker_integrity已统一完整解码/异步staging恢复/私有DSH呈现receipt与失败撤销；10项直接相关检查分阶段通过、Nodebuild/apps-only类型通过。新独立/root/accept_qq_sticker_integrity复验PASS，全部完整报告已读取，首轮R1关闭。UI/网络未改未重跑；没有全项目套件、真实QQ/云模型/真实数据迁移或重打包。
+
+当前持续每阶段本地commit授权有效，由root完成本阶段提交，确切hash以git log为准；无push/PR/合并操作，远端未刷新。后端需重新运行npm run desktop:dev才使用本轮实现；真实云模型自然用图、QQ账号发图与Windows发行仍未验证。满足停止条件，不追加验证。下方为历史。
+
 ## 当前任务：Spec027 大肥鱼人设与默认偏好已完成
 
 EXISTING，dev 基线 e9439ac，开始干净。用户要求联网解决人设平淡；研究见 Decision016，原创嘴欠黏人/女儿感/乖巧黏人预设、简洁beUI选择与统一提示。用户现已回复默认女儿感；基线1d3e06f的S0补充由/root/implement_fish_persona完成，新独立/root/accept_daughter_default已PASS，完整报告已读取。新安装默认、文档、原续聊测试样本已同步，仅diff，没有运行测试/build/typecheck/UI。按持续授权本地commit；既有配置不改写，需选择保存，旧Runtime需重新运行desktop:dev。Spec027 与默认偏好补充均 Done。

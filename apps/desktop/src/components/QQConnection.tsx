@@ -1,3 +1,4 @@
+import {QQStickers} from './QQStickers';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import { api } from '../api';
 import { Card,Disclosure,Badge,Alert,Loading } from './Surfaces';
@@ -87,6 +88,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
     <ActionRow><Button type="submit" variant="primary">保存连接</Button>{channel?.config?.enabled&&<Button onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
    </fieldset>
   </form>}
+  <QQStickers fail={fail}/>
   <Card className="qq-records-card">
    <Disclosure title="最近消息"><RecentMessages fail={fail}/></Disclosure>
    {children}

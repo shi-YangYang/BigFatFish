@@ -55,3 +55,5 @@
 - [Spec 026：精简界面解释文案](spec-026-interface-copy/spec.md)：[独立验收PASS](spec-026-interface-copy/acceptance.md)；删除重复解释和内部实现说明。
 
 - [Spec 027：大肥鱼人设](spec-027-fish-persona/spec.md)：[返工独立验收PASS](spec-027-fish-persona/acceptance.md)；三套可编辑口吻、统一提示与简洁设定页。
+
+- [Spec 028：QQ 表情回复](spec-028-qq-stickers/spec.md)：[返工独立验收PASS](spec-028-qq-stickers/acceptance.md)；内置/上传与梗鲸网络表情、受控看图与发送。

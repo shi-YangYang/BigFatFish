@@ -20,3 +20,5 @@ copyFileSync('plugins/sdk/host.mjs','dist/plugin-examples/hello-fish/host.mjs');
 mkdirSync('dist/runtime/src/channels/managed',{recursive:true});
 copyFileSync('apps/runtime/src/channels/managed/unzip.ps1','dist/runtime/src/channels/managed/unzip.ps1');
 copyFileSync('apps/runtime/src/channels/managed/windows-job.ps1','dist/runtime/src/channels/managed/windows-job.ps1');
+
+cpSync('apps/runtime/src/channels/sticker-assets','dist/runtime/src/channels/sticker-assets',{recursive:true});

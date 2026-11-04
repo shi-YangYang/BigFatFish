@@ -37,3 +37,8 @@ it('revokes initialization host work before dispose and denies host calls during
  let began=0,aborted=0,exited=false;const child=new PluginProcess(root,'index.mjs',async(_m,_a,signal)=>{began++;return new Promise(resolve=>signal.addEventListener('abort',()=>{aborted++;resolve({});},{once:true}));},()=>{exited=true;});
  try{const initializing=child.call('initialize',{});for(let i=0;i<100&&!began;i++)await delay(10);expect(began).toBe(1);const stopping=child.dispose();expect(aborted).toBe(1);expect(exited).toBe(false);await Promise.allSettled([initializing,stopping]);expect(exited).toBe(true);expect(began).toBe(1);}finally{await child.stop();rmSync(root,{recursive:true,force:true});}
 });
+
+it('does not let plugin metadata enable trusted image result rendering',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-plugin-render-')));preparePaths(p);const db=openDatabase(p.database),plugins=new Plugins(db,p);
+ try{const b=pack("import {servePlugin} from './host.mjs';servePlugin({tools:{greet:async()=>({image:{data:'ignored',mimeType:'image/png'}})}});");Object.assign(b.manifest.tools[0]!,{resultKind:'image'});await plugins.install(b);await plugins.enable('hello-fish',b.manifest.permissions,{});expect(plugins.tools('local-owner','owner')[0]).not.toHaveProperty('resultKind');expect(plugins.tools('qq-owner:20002','owner')).toEqual([]);}finally{await plugins.close();db.close();rmSync(p.root,{recursive:true,force:true});}
+});

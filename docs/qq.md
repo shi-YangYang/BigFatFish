@@ -41,9 +41,9 @@ BigFatFish 可以在应用内准备原版 NapCat、扫码登录并设置回复�
 完整P7接口、NapCat前置条件与运行证据边界见 [开发与协议](developer.md#qq-媒体与实际协议)。
 
 - 入站识别文本、图片、语音、文件、真实提及及引用消息；保留类型与安全元数据，不获取 URL、不读取本机路径。P7通过同账号的get_file/get_record只获取有界base64字节，图片交视觉模型、语音交统一ASR；未取得字节或模型失败时明确标记未理解。文件内容阅读仍不支持。
-- 自动回复为文本并引用原消息，单条文本最多 4000 字，不自动拆分长消息。输入最多 64 个段；不支持的消息段和畸形事件不会进入模型。
+- 自动回复包含文本并引用原消息，可按语境附带一张已启用或已查看的网络表情，单条文本最多 4000 字，不自动拆分长消息。输入最多 64 个段；不支持的消息段和畸形事件不会进入模型。
 - 主动图片/语音可以从桌面选择 PNG/JPEG/WAV 文件，单个最多 2 MB，在直接发送表单选择附件。CLI JSON 另支持 SILK 语音（桌面无法预听 SILK）。总段数据不超过 2.8 MB。P7支持单独发送最多2MB的TXT/PDF文件，upload_private_file/upload_group_file本身即实际发送，不再发送第二条消息。长媒体与视频仍不支持。
-- 发送只接受本机认证入口明确提供的媒体字节，经格式和大小校验后转为 OneBot `base64://`；不接受任意 URL、路径或入站缓存文件名。协议服务仍可能因媒体编码或账号状态拒绝请求。
+- 手动发送只接受本机认证入口明确提供的媒体字节，经格式和大小校验后转为 OneBot `base64://`；不接受任意 URL、路径或入站缓存文件名。协议服务仍可能因媒体编码或账号状态拒绝请求。
 
 此边界依据固定 NapCat `98d781d19815d1625b24d717ce280ecf0a4f6d0c` 的 `packages/napcat-onebot/api/msg.ts`（`handleOb11FileLikeMessage`、`handleObfuckName`）及 `packages/napcat-common/src/file.ts`：缓存名未命中可回落到本地文件解析，因此不透传缓存名。OneBot 11 标准 `message/segment.md` 明确支持图片/语音 base64 输入。详情和许可见 [上游记录](upstreams.md)。没有复制这些上游实现。
 
@@ -90,3 +90,15 @@ node dist/cli/src/main.js channels stop --json
 - Windows x64：[官方原版 Windows.Node 包](https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.42/NapCat.Shell.Windows.Node.zip)，SHA256 `77397ac38d66f46383e48f08f35d5f9d37ec575c22069f62d6c600e73b4521ed`。内含 QQ 运行所需文件与 Node；校验后受限解包，用 Windows Job Object 管理独立进程树，不执行上游系统安装器。
 - 内部 WebUI 认证、扫码与配置 API 由 Runtime 封装，不向前端暴露凭据或任意请求代理。好友/群发现仅使用明确的只读 OneBot 操作。
 - 本轮协议、权限、取消和 Runtime 生命周期采用隔离夹具验证，实际 Docker/界面证据由 Spec023 Plan 记录。Windows 原生、真实 QQ 扫码与账号收发仍待验证。
+
+## 表情回复
+
+连接 → QQ → 表情中可预览三张内置大肥鱼娘图片，启停本地表情，或添加 PNG/JPEG（单张最大 2 MB）。添加时填写名称和适用场景，方便大肥鱼按语境选择；本地库最多 48 张、总计 24 MB。自添加图片可以删除，内置图片可停用。
+
+「网络表情」默认开启，使用[梗鲸公开图库](https://aigengtu.com/)的 DeepSeek 娘目录。大肥鱼可搜索、查看图片，再为当前 QQ 回复选择一张；图库或图片暂时不可用时可继续使用本地表情或文字。不会访问用户或模型给出的任意图片网址。公开图库内容由第三方维护，筛选和模型看图不能保证每次选图都适合；不希望使用外部素材时可关闭网络表情。
+
+每轮最多查看三张、选择一张表情，和简短文字通过同一条 QQ 消息发送。模型工具的选择仅为待发送状态；最终发送仍检查账号、回复范围、取消状态、记忆范围及图片是否被停用/删除。发送结果未知时不会自动重试。此能力仅用于 QQ 自动回复，桌面聊天和其他平台没有因此获得自动发图能力。
+
+本地表情与网络开关保存在 SQLite，并随「插件」范围的逻辑备份导出；schema 6 的旧备份仍可恢复。网络候选仅保留在当前回合，不写入本地库。更新后需重新运行 `npm run desktop:dev` 以使用新 Runtime。
+
+API：`GET/POST /v1/channels/qq/stickers` 获取元数据/上传，`GET /v1/channels/qq/stickers/:id/image` 读取图片，`PUT /v1/channels/qq/stickers/:id` 以 `{revision,enabled}` 修改状态，`DELETE /v1/channels/qq/stickers/:id` 删除自添加表情；`GET/PUT /v1/channels/qq/sticker-options` 读取/保存 `{networkEnabled,revision}`。这些接口沿用 Runtime/网页认证，不在图片 URL 中传递密钥。

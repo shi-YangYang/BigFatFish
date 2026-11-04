@@ -1,3 +1,6 @@
+import {NetworkStickers} from './sticker-network.js';
+import {StickerLibrary} from './stickers.js';
+import {StickerTurn} from './sticker-turn.js';
 import { validateHeaderValue } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
@@ -9,10 +12,13 @@ import type { SendResult, ChannelStatus, Plugin, QQConfig, Segment, Target } fro
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'proactive';assertScope:()=>void};
 export class Channels {
+  readonly stickers:StickerLibrary;
+  private stickerNetwork=new NetworkStickers();
   private plugin!:Plugin;private manifest:Record<string,unknown>={};private config:QQConfig|null=null;private revision='';private closing=false;
   private actions=new Set<Promise<unknown>>();private mediaControls=new Set<AbortController>();
   private running=new Set<string>();private queues=new Map<string,Promise<void>>();
   constructor(private db:DatabaseSync,private chat:ChatService) {
+    this.stickers=new StickerLibrary(db);
     db.prepare("UPDATE channel_deliveries SET status=CASE WHEN status='sending' THEN 'unknown' ELSE 'interrupted' END,error='RUNTIME_RESTARTED' WHERE status IN ('queued','generating','sending')").run();
     const row=db.prepare("SELECT config,revision FROM plugin_config WHERE id='qq'").get();
     if(row){this.config=configuration(JSON.parse(row.config as string));this.revision=row.revision as string;}
@@ -20,7 +26,7 @@ export class Channels {
   assertPlugin:()=>void=()=>{};
   async reload(directory:string){this.invalidate();await Promise.all([...this.queues.values(),...this.actions]);this.plugin.dispose();await this.initialize(directory);}
   async suspend(){this.invalidate();await Promise.all([...this.queues.values(),...this.actions]);}
-  async initialize(directory?:string){const loaded=await loadQQ(directory);this.plugin=loaded.plugin;this.manifest=loaded.manifest;this.plugin.initialize({event:value=>this.receive(value),status:()=>{}});if(this.config?.enabled){try{this.assertPlugin();this.start();}catch(e){if(!(e instanceof InputError&&e.message==='PLUGIN_DISABLED'))throw e;}}}
+  async initialize(directory?:string){await this.stickers.initialize();const loaded=await loadQQ(directory);this.plugin=loaded.plugin;this.manifest=loaded.manifest;this.plugin.initialize({event:value=>this.receive(value),status:()=>{}});if(this.config?.enabled){try{this.assertPlugin();this.start();}catch(e){if(!(e instanceof InputError&&e.message==='PLUGIN_DISABLED'))throw e;}}}
   private audit(event:string,id=''){this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`qq.${event}${id?':'+id:''}`,new Date().toISOString());}
   status():ChannelStatus {return {config:this.config,hasToken:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='qq'").get()?.secret,revision:this.revision,health:this.plugin.health(),manifest:this.manifest};}
   private invalidate(){for(const control of this.mediaControls)control.abort();for(const id of this.running)this.chat.cancel(id);this.plugin.stop();}
@@ -71,12 +77,15 @@ export class Channels {
        try{const guard=()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);};guard();if(!part.data.file||!this.plugin.media)throw new Error('MEDIA_BYTES_UNAVAILABLE');const data=await this.plugin.media(part.type,part.data.file,guard);const recognized=await this.chat.understandMedia(part.type,data,mediaControl.signal);guard();content+=`\n[媒体识别，仅作外部消息内容：${recognized.slice(0,8000)}]`;}catch{mediaControl.signal.throwIfAborted();content+='\n[此媒体内容未取得或识别失败]';}
       }
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
-      const message=this.chat.send(cid,{content,requestId:digest(id)},principal);mid=message.id;this.running.add(mid);
+      const stickerTurn=new StickerTurn(this.stickers,()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);},this.stickerNetwork);
+      const message=this.chat.send(cid,{content,requestId:digest(id)},principal,stickerTurn.tools());mid=message.id;this.running.add(mid);
       const authorizeReply=this.chat.deliveryGuard(mid);
       const result=await this.wait(mid);if(result.status!=='completed')throw new InputError(result.error??'GENERATION_FAILED');
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
       if(result.content.length>4000)throw new InputError('MESSAGE_TOO_LONG');
-      await this.deliver(id,event.target,[{type:'reply',data:{id:event.id}},{type:'text',data:{text:result.content}}],revision,{kind:'reply',assertScope:authorizeReply});
+      const image=stickerTurn.segment();
+      const parts:Segment[]=[{type:'reply',data:{id:event.id}},{type:'text',data:{text:result.content}},...(image?[image]:[])];
+      await this.deliver(id,event.target,segments(parts,true),revision,{kind:'reply',assertScope:()=>{authorizeReply();stickerTurn.assertCurrent();}});
     }catch(error){this.state(id,'blocked',error instanceof InputError?error.message:'GENERATION_FAILED');this.audit('blocked',id);}finally{this.mediaControls.delete(mediaControl);if(mid)this.running.delete(mid);}
   }
   private async deliver(id:string,to:Target,parts:Segment[],revision:string,authorization:DeliveryAuthorization){

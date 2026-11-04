@@ -1,3 +1,4 @@
+import {StickerLibrary} from '../channels/stickers.js';
 import {validateBundle,hash as pluginHash} from '../plugins/package.js';
 import { backup, DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
@@ -55,7 +56,7 @@ export const groups = {
     "activity_requests",
     "activity_schedules",
   ],
-  plugins: ["plugin_config"],
+  plugins: ["plugin_config", "qq_stickers", "qq_sticker_options"],
 } as const;
 export type Scope = keyof typeof groups;
 type Row = Record<string, SQLInputValue>;
@@ -155,7 +156,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || payload.schema !== SCHEMA_VERSION)
+  if (payload.version !== 1 || ![6, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -278,7 +279,7 @@ export function recoverMaintenance(p: DataPaths) {
   }
   rmSync(file); // Keep rollback directory for inspection; never delete the original fish implicitly.
 }
-export function restoreArchive(p: DataPaths, file: string, password?: string) {
+export async function restoreArchive(p: DataPaths, file: string, password?: string) {
   const payload = decode(file, password); // Validate before touching the destination.
   preparePaths(p);
   const release = acquireInstance(p.lock);
@@ -332,6 +333,7 @@ export function restoreArchive(p: DataPaths, file: string, password?: string) {
           ).run(...columns.map((c) => row[c]!));
         }
       }
+      await new StickerLibrary(db).validateStored();
       // Canonical message history will seed a fresh DSH session, excluding old hidden context and host paths.
       for (const row of db.prepare("SELECT id FROM conversations").all())
         db.prepare(
