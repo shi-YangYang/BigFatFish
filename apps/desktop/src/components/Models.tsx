@@ -200,7 +200,6 @@ export function Models({
               {reasoningEfforts[form.provider].map(effort => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}
             </Select>
           </Field>
-          <p className="muted">具体强度由模型支持；不支持时请选择默认。保存后用于后续请求。</p>
         </div>}
         <ActionRow className="form-actions">
           <Button variant="primary" type="submit" disabled={waiting}>

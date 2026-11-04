@@ -150,10 +150,6 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           </Button>
         </ActionRow>
       </form>
-      <p>
-        使用聊天模型整理，候选经确认后才用于新回合。每次整理最近
-        50 个完成回合，最多 16000 字，单条最多 4000 字。
-      </p>
       <TaskList
         tasks={tasks.filter((t) => t.kind === "extract")}
         refresh={load}

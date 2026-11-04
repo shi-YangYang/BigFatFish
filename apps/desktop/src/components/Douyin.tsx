@@ -303,7 +303,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
       </form>
       <Disclosure  title={<>准备互动</>}>
 
-        <p>私信、分享和投稿的发送协议尚未验证，当前会阻止提交。</p>
+        <p>暂不支持私信、分享和投稿。</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();

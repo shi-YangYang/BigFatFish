@@ -314,7 +314,6 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           生成或更新日记
         </Button>
       </form>
-      <p>使用聊天模型整理。再次生成会更新这天的日记。</p>
       <TaskList
         tasks={tasks.filter((t) => t.kind === "diary")}
         refresh={load}

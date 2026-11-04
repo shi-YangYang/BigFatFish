@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec026精简界面解释文案已完成
+
+EXISTING，dev基线139ebd1，开始干净。用户要求尽量删除「主人只能有一个QQ」这类面向开发者/AI的解释，界面面向实际使用者。Spec026 Done。实施/root/implement_interface_copy、新独立验收/root/accept_interface_copy均已完成，完整报告已读取处理，PASS无返工。仅QQ/模型/记忆/日记冗余说明、重复placeholder、抖音限制措辞与单条失效CSS；行为和必要操作提示保持。S0只diff，不开UI、不test/build/lint/typecheck，不操作后台。web-design已增加明确示例。按持续授权阶段本地commit，hash见git log；无push/PR/merge，远端未刷新。满足停止条件。下方历史。
+
 ## 当前任务：Spec025 QQ多好友、群聊触发与直接发送已完成
 
 EXISTING，dev基线1408455，开始干净。用户明确多好友可私聊但主人只有一个QQ；群聊普通消息也可回复，删除QQ主动审批。Spec025 Done、Decision015。实施/root/implement_qq_conversation_policy完成身份/配置/直接发送与UI/API/CLI/B站/插件迁移；首轮独立/root/accept_qq_conversation_policy仅FAIL好友草稿双表示不同步。新实施/root/rework_qq_friend_draft在单组件changeFriends统一三个编辑入口；新独立/root/accept_qq_policy_r1 PASS。所有完整报告已读取处理，无待返工。
