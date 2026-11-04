@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前阶段：Spec017大肥鱼蓝色主题去紫已完成
+
+用户明确否决偏紫UI，要求大肥鱼蓝色；dev基线cfa2953，开始干净，上一阶段已本地commit无须空提交。Spec017 Done，/root/implement_pure_blue完整报告已读取。主色#0866E6、hover#0757C4、浅底#EAF4FF，同系焦点/边框统一beUI引用，保持Spec016间距和所有逻辑；仅两CSS及button一行颜色class。S0，diff审阅/白字5.18对比度及root用cua_repl当前http://127.0.0.1:53427/隔离预览目视聊天/模型/数据配色完成，模型图docs/design/desktop-webui-blue.jpg，数据图build/pure-blue/data-blue.jpg。新独立/root/accept_pure_blue PASS，完整报告已读取处理，两图实际目视，无返工。不test/build/lint/typecheck/重打包；root按持续授权完成本地commit，确切hash以git log为准，未push/PR/合并，远端未刷新。旧DMG不含本轮样式，满足停止条件。下方为历史。
+
 ## 当前阶段：Spec016表单间距收紧已完成
 
 用户要求先commit再收紧UI表单margin。dev基线8b4bbd8，开始干净；上一阶段已commit，无需空提交。Spec016 Done，/root/implement_form_spacing完整报告已读取处理。延续beUI/DS蓝/40px控件/72px导航与60px顶栏；标签6px、字段16px、分组24px、按钮8px、提示6px/反馈8px，清除form gap与p/Disclosure/card margin叠加。只改style.css、Models展示分组、Tabs包装class。S0，diff及六张有限代表图通过，实施者全部目视，root目视模型1100/数据380；三个窄屏几何记录6px/40px/无横溢出。新独立/root/accept_form_spacing PASS，完整报告已读取处理，实际目视三图并审阅diff/几何，无返工。不test/build/lint/typecheck/重打包，上阶段DMG不含本轮样式；preview http://127.0.0.1:53427/、owned74612，隔离fixture。root按持续每阶段授权完成本地commit，确切hash以git log为准；未push/PR/合并，远端未刷新。满足停止条件，旧P0–P7及真实账号待验不恢复。下方为历史完成阶段。

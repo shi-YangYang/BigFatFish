@@ -33,3 +33,5 @@
 - [Spec 015：模型连接诊断与推理强度](spec-015-model-connection/spec.md)：[返工独立验收PASS](spec-015-model-connection/acceptance.md)；测试当前草稿并显示耗时、发现模型、推理参数真实传递，Runtime超时修复及最终Mac包见Plan/Rework。
 
 - [Spec 016：表单间距收紧](spec-016-form-spacing/spec.md)：[独立验收PASS](spec-016-form-spacing/acceptance.md)；统一字段、说明、分组与操作区间距，保持现有beUI与业务行为，本轮源码/预览交付，未重打发行包。
+
+- [Spec 017：大肥鱼蓝色主题去紫](spec-017-pure-blue-theme/spec.md)：[独立验收PASS](spec-017-pure-blue-theme/acceptance.md)；统一纯蓝主色、浅蓝底色及beUI状态配色，本轮源码/预览交付。

@@ -46,7 +46,7 @@ export interface ButtonLinkProps extends Omit<
 type Ripple = { id: number; x: number; y: number; size: number };
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+  primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
   secondary: "border border-border bg-card text-foreground hover:border-border",
   ghost: "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60",
   outline:

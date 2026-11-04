@@ -8,12 +8,17 @@
   background: #f7f8fa;
   font-size: 14px;
   font-synthesis: none;
-  --border: #e1e6ef;
-  --muted: #65718a;
-  --brand: #4d6bfe;
-  --accent: #3959e4;
-  --accent-hover: #2d49c8;
-  --soft: #eef2ff;
+  --border: #d4e3f2;
+  --border-strong: #8fb9e4;
+  --muted: #61758a;
+  --brand: #0866e6;
+  --accent: var(--brand);
+  --accent-hover: #0757c4;
+  --accent-muted: #456e99;
+  --soft: #eaf4ff;
+  --surface-soft: #f4f9ff;
+  --focus-ring: #8fc7ff;
+  --selection: #d4e9ff;
   --control-height: 40px;
   --control-radius: 8px;
   --field-gap: 6px;
@@ -40,7 +45,7 @@ select {
 }
 .ui-input, .ui-select, .ui-textarea { width: 100%; min-width: 0; }
 .ui-textarea {
-  border: 1px solid #cfd7e5;
+  border: 1px solid var(--border);
   border-radius: var(--control-radius);
   background: #fff;
   padding: 9px 11px;
@@ -50,7 +55,7 @@ select {
 }
 .ui-textarea[rows="1"] { min-height: var(--control-height); height: var(--control-height); }
 .ui-textarea:focus { border-color: var(--brand); }
-.ui-textarea:disabled { background: #f7f8fc; color: var(--muted); }
+.ui-textarea:disabled { background: var(--surface-soft); color: var(--muted); }
 .ui-input input { height: 100%; line-height: 20px; }
 .file-picker { display: flex; align-items: center; gap: 12px; min-height: 40px; }
 .file-picker span { overflow-wrap: anywhere; }
@@ -78,12 +83,12 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 3px solid #a8b8ff;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 ::selection {
-  color: #243a93;
-  background: #dce4ff;
+  color: var(--accent-hover);
+  background: var(--selection);
 }
 h1,
 h2,
@@ -235,7 +240,7 @@ fieldset > .ui-button,
 .app-sidebar {
   width: 72px;
   flex-shrink: 0;
-  background: #f3f5fb;
+  background: var(--surface-soft);
   border-right: 1px solid var(--border);
   padding: 12px 8px 16px;
   display: flex;
@@ -468,7 +473,7 @@ fieldset > .ui-button,
   color: var(--accent);
 }
 .session-list button.active small {
-  color: #5266a8;
+  color: var(--accent-muted);
 }
 .conversation {
   flex: 1;
@@ -565,7 +570,7 @@ fieldset > .ui-button,
   border-color: var(--brand);
 }
 .composer {
-  border: 1px solid #d2daf0;
+  border: 1px solid var(--border);
   border-radius: 12px;
   margin-top: 0;
   margin-bottom: 0;

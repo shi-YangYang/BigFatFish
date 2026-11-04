@@ -9,20 +9,21 @@
 
 @theme inline {
   --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
   --color-primary-foreground: #fff;
   --color-foreground: #202b33;
   --color-muted-foreground: var(--muted);
-  --color-muted: #eef2ff;
+  --color-muted: var(--soft);
   --color-card: #fff;
   --color-background: #fff;
   --color-popover: #fff;
   --color-popover-foreground: #202b33;
-  --color-accent: #eef2ff;
+  --color-accent: var(--soft);
   --color-accent-foreground: var(--accent);
   --color-destructive: #a13b32;
   --color-success: #24825f;
-  --color-ring: #a8b8ff;
-  --color-border-strong: #a8b8db;
+  --color-ring: var(--focus-ring);
+  --color-border-strong: var(--border-strong);
   --spacing: 4px;
   --text-xs: 12px;
   --text-sm: 14px;
