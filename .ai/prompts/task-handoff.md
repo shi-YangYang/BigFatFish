@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec024收紧QQ回复设置已完成
+
+EXISTING，dev基线2446d47，开始干净。用户已扫描并登录QQ，后续明确报告「能回复，没啥问题」，这是用户实测反馈，不冒充Agent现场收发证据；截图指出回复设置凌乱。Spec024 Done，实施/root/implement_qq_reply_layout和新独立验收/root/accept_qq_reply_layout完整报告已读取处理，PASS无返工。仅QQConnection/Workspaces/局部CSS展示分组：beUI浅海蓝设置卡片、同行账号操作、直接主动权限行、底部动作及独立记录区；所有状态/API/保存/轮询/权限边界保持。
+
+S0：定向diff检查通过，root使用隔离fixture在1000×760和380×820目视并检查手填、群展开、长昵称选择、隔离保存和记录入口；无横向溢出，主要控件高40px。证据build/qq-reply-layout/01–04，均是假数据。未运行test/build/lint/typecheck或重新打包，未操作真实QQ/Runtime。临时fixture61722与tab6已关闭，viewport已恢复。按持续每阶段授权本地commit，准确hash见git log；无push/PR/merge，远端未刷新。满足停止条件，不追加验证。下方历史。
+
 ## 当前任务：Spec023内置管理QQ组件已完成
 
 EXISTING，dev基线618d7f8，开始干净。用户要求内置NapCat并图形化配置、精简QQ页面；明确确认管理未修改原版，以及Mac/Linux Docker、Windows独立原生组件。Spec023 Done、Decision014。研究/root/research_managed_napcat、实施/root/implement_managed_qq、新独立验收/root/accept_managed_qq已完成，完整报告全部读取处理，独立PASS，无待返工。固定NapCat4.18.42、镜像digest和WindowsZIP SHA见Plan；普通channels内模块管理安装/启停/扫码/联系人与身份，不改系统QQ、分包或新增依赖/schema。

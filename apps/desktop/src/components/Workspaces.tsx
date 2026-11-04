@@ -120,11 +120,11 @@ export function Connections({ fail }: Fail) {
         </Button>
         {tab === "QQ" ? (
           <div className="qq-workspace">
-            <Channels fail={fail} />
-            <Disclosure  title={<>主动消息与操作记录</>}>
-
-              <Permissions fail={fail} />
-            </Disclosure>
+            <Channels fail={fail}>
+              <Disclosure title="主动发送与操作记录">
+                <Permissions fail={fail} />
+              </Disclosure>
+            </Channels>
           </div>
         ) : tab === "B站" ? (
           <Bilibili fail={fail} />

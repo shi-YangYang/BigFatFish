@@ -1,4 +1,4 @@
-import { useCallback,useEffect,useRef,useState } from 'react';
+import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import { api } from '../api';
 import { Card,Disclosure,Badge,Alert,Loading } from './Surfaces';
 import { Button,Field,Input,Checkbox,Select,ActionRow,FormGrid } from './Controls';
@@ -11,7 +11,7 @@ const healthLabels:Record<string,string>={online:'已连接',stopped:'已停用'
 const initial:QQConfig={url:'ws://127.0.0.1:3001',accountId:'',ownerId:'',groups:[],enabled:false,replyEnabled:true,proactiveEnabled:false};
 const errors:Record<string,string>={CHANNEL_VERSION_CONFLICT:'回复设置已在其他地方更新，请重新打开页面后修改。',QQ_ACCOUNT_CHANGED:'登录账号已变化，请重新核对回复设置。',QQ_DOCKER_MISSING:'请先安装并启动 Docker Desktop，再重试。',QQ_DOCKER_FAILED:'无法使用 Docker，请确认它已启动，再重试。',QQ_DOCKER_LOCAL_REQUIRED:'请选择本机 Docker 环境。',QQ_DOCKER_LINUX_REQUIRED:'请将 Docker 切换为 Linux 容器。',QQ_PLATFORM_UNSUPPORTED:'此系统暂不支持内置组件，可连接已有服务。',QQ_COMPONENT_UNAVAILABLE:'QQ 组件暂时没有响应，请重新启动。',QQ_COMPONENT_START_FAILED:'QQ 组件未能启动，请重试。',QQ_COMPONENT_AUTH:'QQ 组件认证失败，请重新启动。',QQ_COMPONENT_REQUEST_FAILED:'QQ 组件未能完成操作，请重试。',QQ_COMPONENT_CHECKSUM:'组件校验失败，请重新准备。',QQ_COMPONENT_DOWNLOAD:'下载失败，请检查网络后重试。',QQ_COMPONENT_STATE_INVALID:'组件状态文件无效，请保留数据并修复安装。',QQ_COMPONENT_INSTALL_INVALID:'组件安装不完整，请重新准备。',QQ_COMPONENT_OWNERSHIP:'发现不属于当前数据目录的组件，已停止操作。',QQ_EXTERNAL_ACTIVE:'请先停用已有服务连接，再启动内置组件。',QQ_LOGIN_FAILED:'QQ 登录未完成，请刷新二维码并在手机上完成验证。'};
 interface Lists {friends:QQContact[];groups:QQContact[];error?:string}
-export function QQConnection({fail}:{fail:(error:unknown)=>void}){
+export function QQConnection({fail,children}:{fail:(error:unknown)=>void;children?:ReactNode}){
  const [channel,setChannel]=useState<ChannelStatus>(),[component,setComponent]=useState<ManagedQQStatus>(),[lists,setLists]=useState<Lists>({friends:[],groups:[]}),[mode,setMode]=useState<'managed'|'external'>('managed'),[form,setForm]=useState<QQConfig>(initial),[revision,setRevision]=useState(''),[token,setToken]=useState(''),[manualOwner,setManualOwner]=useState(false),[manualGroups,setManualGroups]=useState(''),[busy,setBusy]=useState(false),[loadError,setLoadError]=useState(false);
  const initialized=useRef(false),editing=useRef(false),alive=useRef(true),pending=useRef(false),previousBusy=useRef(false),savePending=useRef(false);
  const refresh=useCallback(async()=>{
@@ -49,32 +49,41 @@ export function QQConnection({fail}:{fail:(error:unknown)=>void}){
     </ActionRow>
     {component?.phase==='missing'&&<p className="muted">首次使用需下载 QQ 组件。{component.engine==='docker'?'需先启动 Docker。':''}</p>}
    </Card>
-   {component?.account&&component.phase==='online'&&<form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>
+   {component?.account&&component.phase==='online'&&<Card className="qq-reply-card"><form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>
     <fieldset disabled={locked}>
-     <h3>回复设置</h3>
-     {lists.friends.length>0&&!manualOwner?<Field>我的 QQ<Select required value={form.ownerId} onValueChange={ownerId=>change({ownerId})}><option value="">选择你的 QQ</option>{lists.friends.map(friend=><option key={friend.id} value={friend.id}>{friend.name} · {friend.id}</option>)}</Select></Field>:<Field>我的 QQ 号<Input required inputMode="numeric" placeholder="接收大肥鱼私聊的 QQ" value={form.ownerId} onChange={event=>change({ownerId:event.target.value})}/></Field>}
-     {lists.friends.length>0&&<Button variant="ghost" size="compact" onClick={()=>setManualOwner(!manualOwner)}>{manualOwner?'从好友中选择':'手动输入 QQ 号'}</Button>}
-     <Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field>
-     <Disclosure title="群聊回复">
-      <p className="muted">只在选中的群被 @ 时回复</p>
-      {lists.groups.length?<div className="qq-group-list">{lists.groups.map(group=><Field className="check" key={group.id}><Checkbox checked={form.groups.includes(group.id)} onCheckedChange={checked=>change({groups:checked?[...form.groups,group.id]:form.groups.filter(id=>id!==group.id)})}/>{group.name} · {group.id}</Field>)}</div>:<Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={event=>{setManualGroups(event.target.value);change({groups:event.target.value.split(/[,，\s]+/).filter(Boolean)});}}/></Field>}
-      {lists.error&&<p className="muted">暂时无法读取群列表，可填写群号。</p>}
-     </Disclosure>
-     <Disclosure title="主动消息"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许创建主动消息审批</Field></Disclosure>
-     <ActionRow><Button type="submit" variant="primary">{channel?.config?.enabled?'保存回复设置':'启用连接'}</Button>{channel?.config?.enabled&&<Button onClick={()=>void act('/v1/channels/qq/stop')}>暂停回复</Button>}</ActionRow>
+     <div className="qq-reply-heading">
+      <h3>回复设置</h3>
+      <Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field>
+     </div>
+     <div className="qq-owner-row">
+      {lists.friends.length>0&&!manualOwner?<Field>我的 QQ<Select required value={form.ownerId} onValueChange={ownerId=>change({ownerId})}><option value="">选择你的 QQ</option>{lists.friends.map(friend=><option key={friend.id} value={friend.id}>{friend.name} · {friend.id}</option>)}</Select></Field>:<Field>我的 QQ 号<Input required inputMode="numeric" placeholder="接收大肥鱼私聊的 QQ" value={form.ownerId} onChange={event=>change({ownerId:event.target.value})}/></Field>}
+      {lists.friends.length>0&&<Button variant="ghost" onClick={()=>setManualOwner(!manualOwner)}>{manualOwner?'从好友中选择':'手动输入 QQ 号'}</Button>}
+     </div>
+     <div className="qq-reply-options">
+      <Disclosure className="qq-group-disclosure" title={<>群聊回复<span className="qq-setting-hint">{form.groups.length?`已选 ${form.groups.length} 个群`:'未选择'}</span></>}>
+       <p className="muted">只在选中的群被 @ 时回复</p>
+       {lists.groups.length?<div className="qq-group-list">{lists.groups.map(group=><Field className="check" key={group.id}><Checkbox checked={form.groups.includes(group.id)} onCheckedChange={checked=>change({groups:checked?[...form.groups,group.id]:form.groups.filter(id=>id!==group.id)})}/>{group.name} · {group.id}</Field>)}</div>:<Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={event=>{setManualGroups(event.target.value);change({groups:event.target.value.split(/[,，\s]+/).filter(Boolean)});}}/></Field>}
+       {lists.error&&<p className="muted">暂时无法读取群列表，可填写群号。</p>}
+      </Disclosure>
+      <div className="qq-proactive-row"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许主动消息</Field><span className="qq-setting-hint">逐条审批</span></div>
+     </div>
+     <ActionRow className="qq-reply-actions"><Button type="submit" variant="primary">{channel?.config?.enabled?'保存回复设置':'启用连接'}</Button>{channel?.config?.enabled&&<Button onClick={()=>void act('/v1/channels/qq/stop')}>暂停回复</Button>}</ActionRow>
     </fieldset>
-   </form>}
+   </form></Card>}
   </>:<form onSubmit={event=>{event.preventDefault();void act('/v1/channels/qq','PUT',{...form,mode:'external',revision,groups:manualGroups.split(/[,，\s]+/).filter(Boolean),...(token?{token}:{})});}}>
    <fieldset disabled={locked}><h3>连接已有 NapCat</h3>
     <FormGrid><Field>服务地址<Input required value={form.url} onChange={e=>change({url:e.target.value})}/></Field><Field>连接凭据<Input type="password" autoComplete="off" value={token} placeholder={channel?.hasToken?'已保存，留空不变':'可选'} onChange={e=>setToken(e.target.value)}/></Field></FormGrid>
     <FormGrid><Field>机器人 QQ 号<Input required value={form.accountId} onChange={e=>change({accountId:e.target.value})}/></Field><Field>我的 QQ 号<Input required value={form.ownerId} onChange={e=>change({ownerId:e.target.value})}/></Field></FormGrid>
     <Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={e=>{editing.current=true;setManualGroups(e.target.value);}}/></Field>
     <Field className="check"><Checkbox checked={form.enabled} onCheckedChange={enabled=>change({enabled})}/>启用连接</Field><Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field>
-    <Disclosure title="主动消息"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许创建主动消息审批</Field></Disclosure>
+    <div className="qq-proactive-row"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许主动消息</Field><span className="qq-setting-hint">逐条审批</span></div>
     <ActionRow><Button type="submit" variant="primary">保存连接</Button>{channel?.config?.enabled&&<Button onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
    </fieldset>
   </form>}
-  <Disclosure title="最近消息"><RecentMessages fail={fail}/></Disclosure>
+  <Card className="qq-records-card">
+   <Disclosure title="最近消息"><RecentMessages fail={fail}/></Disclosure>
+   {children}
+  </Card>
  </section>;
 }
 function RecentMessages({fail}:{fail:(e:unknown)=>void}){

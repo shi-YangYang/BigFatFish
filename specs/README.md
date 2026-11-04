@@ -47,3 +47,5 @@
 - [Spec 022：开发入口统一管理进程](spec-022-managed-desktop-dev/spec.md)：[返工独立验收PASS](spec-022-managed-desktop-dev/acceptance.md)；单命令管理当前后台、前端及桌面，保护进程归属与停服维护边界。
 
 - [Spec 023：内置管理 QQ 组件](spec-023-managed-qq/spec.md)：[独立验收PASS](spec-023-managed-qq/acceptance.md)；原版组件准备、扫码、回复范围与简洁连接页面。
+
+- [Spec 024：收紧 QQ 回复设置](spec-024-qq-reply-layout/spec.md)：[独立验收PASS](spec-024-qq-reply-layout/acceptance.md)；紧凑设置卡片、同排账号操作和记录分组。
