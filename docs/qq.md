@@ -1,14 +1,26 @@
 # QQ 渠道
 
-BigFatFish 通过 OneBot 11 正向 WebSocket 连接用户独立运行的 NapCat。请使用专用 QQ 小号；非官方接入可能受到平台限制，不保证账号安全。BigFatFish 不包含 NapCat、不代替扫码登录，也不读取其他应用的账号数据。
+BigFatFish 可以在应用内准备原版 NapCat、扫码登录并设置回复范围，也保留连接已有 OneBot 11 服务的方式。NapCat 是独立的第三方组件，遵循其自身的[许可证](https://github.com/NapNeko/NapCatQQ/blob/9335843246e3b7a17944861f3ac8731a259732c2/LICENSE)，不属于大肥鱼的 MIT 授权。请使用专用 QQ 账号，扫码与设备验证由用户完成。
 
-## 连接
+## 快速连接
 
-1. 从 [NapCat 官方项目](https://github.com/NapNeko/NapCatQQ) 自行安装并运行，完成扫码及设备验证。
-2. 在 NapCat 开启 OneBot 11 正向 WebSocket，推荐配置访问 token，消息格式选择数组。反向 WebSocket、HTTP 上报目前未接入。
-3. 启动 BigFatFish Runtime，配置聊天模型。在桌面「连接 → QQ」填写 WebSocket 地址、机器人 QQ 号、主人 QQ 号和允许的群号。连接凭据加密保存，不在查询接口返回；留空保持原值。凭据须可用于 HTTP Authorization 头，不能包含中文、表情、空白或控制字符；无效值会在保存前拒绝，保留原配置和连接。
-4. 勾选启用连接与自动回复，保存。回环地址可用 `ws://127.0.0.1:端口`；远端必须使用 `wss://`，不接受地址内嵌凭据、查询参数或重定向。
-5. 「已登录并在线」表示 `get_login_info` 账号匹配且 `get_status.online=true`。仅连接成功、`good=true` 或版本探测成功不代表已登录；扫码在 NapCat 完成。
+1. 打开「连接 → QQ → 快速连接」，点击「准备 QQ 组件」。首次需要联网下载固定版本。
+2. macOS/Linux 需要本机 Docker 已安装并启动，Docker 必须使用 Linux 容器；Windows x64 使用独立原生组件，不需要 Docker 或系统 QQ。Windows arm64 暂不支持内置组件，可连接已有服务。
+3. 点击「启动并登录」，用手机 QQ 扫描大肥鱼显示的二维码并确认登录；过期时点击「刷新二维码」。
+4. 登录后显示机器人账号。选择「我的 QQ」或手动填写自己的 QQ 号；展开「群聊回复」选择允许回复的群，默认不授权任何群。好友/群列表不可用时可手填 ID。
+5. 点击「启用连接」。默认只回复主人私聊及授权群的真实 @ 消息。「主动消息」默认关闭，开启后每条主动消息仍需要审批。
+
+内部地址、端口和两套随机凭据由 Runtime 管理，无需填写；机器人 QQ 从真实登录信息读取，不推断主人身份。「已登录」表示组件确认账号已在线，页面顶部「已连接」还要求现有 OneBot 插件完成账号与健康检查。
+
+「暂停回复」停用渠道并撤销待审批消息，保留 QQ 组件；「停止组件」同时停用渠道和所属组件。重新启动后可再次启用。开发窗口退出随 Runtime 清理组件；正式安装版关闭窗口到后台时，组件随后台继续运行。Runtime 正常关闭会清理所属容器或原生进程树；强制断电等不可捕获退出不保证实时清理，后续启动仅识别本实例资源。
+
+组件存于当前数据目录的 `data/qq-component/`，QQ 登录数据与日常 QQ 隔离。Mac 不修改 `/Applications/QQ.app`，Windows 不修改系统 QQ/注册表。便携逻辑备份不包含组件程序、QQ 登录态或容器身份；迁移后需重新准备和登录，恢复配置保持停用。
+
+## 连接已有服务
+
+已有 NapCat 的用户在「已有服务」填写地址、连接凭据、机器人 QQ 与主人 QQ。NapCat 需开启 OneBot 11 正向 WebSocket，消息格式为数组；本机允许回环 WS，远端必须使用 WSS。反向 WebSocket 和 HTTP 上报未接入。
+
+凭据留空保留原值，不会在查询接口返回；必须可用于 HTTP Authorization 头，不能包含中文、表情、空白或控制字符。非法值在保存前拒绝，保留原连接。切换到内置组件前请先停用已有服务；组件不会接管其他 NapCat 或 QQ 进程。
 
 已有不合法连接凭据导致初始化失败时，仅 QQ 显示凭据错误；本地 Runtime 和聊天仍可使用，可在渠道设置中填写有效凭据后恢复。主密钥文件缺失仍会安全拒绝启动，不会生成替代密钥。
 
@@ -70,3 +82,11 @@ node dist/cli/src/main.js channels stop --json
 `tests/integration/qq-rework.test.ts` 另用确定性模型桩验证生成后健康检查挂起期间撤销共享、未撤销发送对照、主人/独立审批语义，以及非法凭据不改变配置、旧异常凭据重启后的本地聊天和修正恢复。
 
 已执行本机 macOS 原生渠道/审批操作；没有连接真实 QQ 账号或扫码，没有真实 QQ 私聊/群聊/媒体收发证据。Windows 原生与真实云模型验证也未执行。
+
+## 内置组件的固定来源与验证
+
+- NapCat v4.18.42，commit `9335843246e3b7a17944861f3ac8731a259732c2`。
+- macOS/Linux：官方 `mlikiowa/napcat-docker`，固定 manifest digest `sha256:696e9574a0f6fb2f86cbecba8a32048f2a5823117dc9b13c6c02637ad890fa8b`，amd64/arm64。仅映射回环端口、挂载本实例数据，不启用 privileged、host network 或 Docker socket 挂载；上游原始日志不转交应用日志。
+- Windows x64：[官方原版 Windows.Node 包](https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.42/NapCat.Shell.Windows.Node.zip)，SHA256 `77397ac38d66f46383e48f08f35d5f9d37ec575c22069f62d6c600e73b4521ed`。内含 QQ 运行所需文件与 Node；校验后受限解包，用 Windows Job Object 管理独立进程树，不执行上游系统安装器。
+- 内部 WebUI 认证、扫码与配置 API 由 Runtime 封装，不向前端暴露凭据或任意请求代理。好友/群发现仅使用明确的只读 OneBot 操作。
+- 本轮协议、权限、取消和 Runtime 生命周期采用隔离夹具验证，实际 Docker/界面证据由 Spec023 Plan 记录。Windows 原生、真实 QQ 扫码与账号收发仍待验证。

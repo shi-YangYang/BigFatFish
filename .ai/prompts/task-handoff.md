@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec023内置管理QQ组件已完成
+
+EXISTING，dev基线618d7f8，开始干净。用户要求内置NapCat并图形化配置、精简QQ页面；明确确认管理未修改原版，以及Mac/Linux Docker、Windows独立原生组件。Spec023 Done、Decision014。研究/root/research_managed_napcat、实施/root/implement_managed_qq、新独立验收/root/accept_managed_qq已完成，完整报告全部读取处理，独立PASS，无待返工。固定NapCat4.18.42、镜像digest和WindowsZIP SHA见Plan；普通channels内模块管理安装/启停/扫码/联系人与身份，不改系统QQ、分包或新增依赖/schema。
+
+S3限定组件安装/身份/生命周期：相关测试6/6、managed resume定向1/1、Node构建/apps类型/Desktop构建通过；后续仅因相关源码变化重复必要检查。Root当前Mac arm64真实Docker通过实际Runtime API准备→启动→真实二维码→停止，所属容器/连接文件均清理，证据build/managed-qq-live/evidence.json。CUA实际React/beUI fixture检查准备/二维码/好友群/保存/已有服务/错误/380px布局；修正QQ外层操作记录宽度，最终08/05/07截图在build/managed-qq-ui，截图账号不是用户真实账号。UI服务/标签页已关闭；未改变用户真实QQ、模型或聊天数据。Windows原生与Linux实机、真实QQ扫码/联系人/收发仍待验，不需因此重开旧待验任务。root按每阶段本地commit持续授权收尾，准确hash见git log；不push/PR/merge，远端未刷新。必要验证已通过，满足停止条件。下方均为历史。
+
 ## 当前任务：Spec022开发入口统一管理进程已完成
 
 用户要求 `npm run desktop:dev` 管理全部开发进程，并确认继续使用当前配置/聊天记录、接管本项目旧后台。dev基线82fb2f0，开始干净；Spec022 Done、Decision013。原实施/root/implement_managed_dev完成源码准备、数据目录一致、归属/认证/expected-instance保护、开发锁、IPC Runtime/Vite/Tauri清理和仅debug原生适配；正式daemon/安装版行为保留。首轮/root/accept_managed_dev FAIL唯一维护停服冲突；新实施/root/rework_dev_maintenance前置保护托管备份导出/恢复/install=true/应用重启并接中文提示，只读检查保留。新独立/root/accept_managed_dev_r1 PASS，全部完整报告已读取处理，无待返工。

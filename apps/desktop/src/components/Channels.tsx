@@ -7,34 +7,13 @@ import {
   Select,
   Textarea,
   ActionRow,
-  FormGrid,
 } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type {
-  ChannelStatus,
-  QQConfig,
   Approval,
   Segment,
 } from "../../../runtime/src/channels/types";
-const initial: QQConfig = {
-  url: "ws://127.0.0.1:3001",
-  accountId: "",
-  ownerId: "",
-  groups: [],
-  enabled: false,
-  replyEnabled: true,
-  proactiveEnabled: false,
-};
-const healthErrors: Record<string, string> = {
-  INVALID_TOKEN: "连接凭据格式无效，请修改后保存",
-  CONNECTION_INIT_FAILED: "连接初始化失败，请检查配置后保存",
-  TOKEN_REJECTED: "连接凭据被拒绝",
-  ACCOUNT_MISMATCH: "实际登录账号与配置不一致",
-  LOGIN_REQUIRED: "请在 NapCat 登录",
-  HEALTH_CHECK_FAILED: "无法确认账号在线状态",
-  CONNECTION_LOST: "连接已断开",
-};
 const labels: Record<string, string> = {
   stopped: "已停用",
   connecting: "连接中",
@@ -55,174 +34,7 @@ const labels: Record<string, string> = {
   blocked: "已阻止",
   interrupted: "已中断",
 };
-export function Channels({ fail }: { fail: (e: unknown) => void }) {
-  const [status, setStatus] = useState<ChannelStatus>(),
-    [form, setForm] = useState(initial),
-    [token, setToken] = useState(""),
-    [groups, setGroups] = useState(""),
-    [revision, setRevision] = useState(""),
-    [busy, setBusy] = useState(false),
-    [deliveries, setDeliveries] = useState<
-      { id: string; status: string; error: string | null }[]
-    >([]);
-  const acting = useRef(false);
-  const refresh = useCallback(async () => {
-    const s = await api<ChannelStatus>("/v1/channels/qq");
-    setStatus(s);
-    setDeliveries(await api("/v1/channels/qq/deliveries"));
-    return s;
-  }, []);
-  const reset = (s: ChannelStatus) => {
-    setForm(s.config ?? initial);
-    setGroups(s.config?.groups.join(",") ?? "");
-    setRevision(s.revision);
-    setToken("");
-  };
-  useEffect(() => {
-    void refresh().then(reset).catch(fail);
-    const t = setInterval(() => void refresh().catch(fail), 3000);
-    return () => clearInterval(t);
-  }, [refresh, fail]);
-  const act = async (run: () => Promise<ChannelStatus>) => {
-    if (acting.current) return;
-    acting.current = true;
-    setBusy(true);
-    try {
-      const s = await run();
-      setStatus(s);
-      reset(s);
-    } catch (e) {
-      fail(e);
-    } finally {
-      acting.current = false;
-      setBusy(false);
-    }
-  };
-  return (
-    <section>
-      <h2>QQ</h2>
-      <p>
-        {labels[status?.health.state ?? "stopped"]}
-      </p>
-      {status?.health.error && <Alert>{healthErrors[status.health.error] ?? status.health.error}</Alert>}
-      <p>
-        先独立运行 NapCat，使用专用 QQ 小号扫码登录，开启正向
-        WebSocket。非官方接入可能受平台限制。
-      </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act(() =>
-            api("/v1/channels/qq", "PUT", {
-              ...form,
-              revision,
-              groups: groups
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-              ...(token ? { token } : {}),
-            }),
-          );
-        }}
-      >
-        <fieldset disabled={busy}>
-          <FormGrid>
-            <Field>
-              WebSocket 地址
-              <Input
-                required
-                value={form.url}
-                onChange={(e) => setForm({ ...form, url: e.target.value })}
-              />
-            </Field>
-            <Field>
-              连接凭据
-              <Input
-                type="password"
-                autoComplete="off"
-                value={token}
-                placeholder={status?.hasToken ? "已保存，留空保持不变" : "可选"}
-                onChange={(e) => setToken(e.target.value)}
-              />
-            </Field>
-          </FormGrid>
-          <FormGrid>
-            <Field>
-              机器人 QQ 号
-              <Input
-                required
-                value={form.accountId}
-                onChange={(e) =>
-                  setForm({ ...form, accountId: e.target.value })
-                }
-              />
-            </Field>
-            <Field>
-              主人 QQ 号
-              <Input
-                required
-                value={form.ownerId}
-                onChange={(e) => setForm({ ...form, ownerId: e.target.value })}
-              />
-            </Field>
-          </FormGrid>
-          <Field>
-            允许的群号（逗号分隔，仅回应 @ 机器人）
-            <Input value={groups} onChange={(e) => setGroups(e.target.value)} />
-          </Field>
-          <Field className="check">
-            <Checkbox
-
-              checked={form.enabled}
-              onCheckedChange={(value) => setForm({ ...form, enabled: value })}
-            />
-            启用连接
-          </Field>
-          <Field className="check">
-            <Checkbox
-
-              checked={form.replyEnabled}
-              onCheckedChange={(value) =>
-                setForm({ ...form, replyEnabled: value })
-              }
-            />
-            允许自动回复主人私聊及已授权群
-          </Field>
-          <Field className="check">
-            <Checkbox
-
-              checked={form.proactiveEnabled}
-              onCheckedChange={(value) =>
-                setForm({ ...form, proactiveEnabled: value })
-              }
-            />
-            允许创建主动消息审批
-          </Field>
-          <Button type="submit" variant="primary">
-            保存
-          </Button>
-        </fieldset>
-      </form>
-      <Button
-        type="button"
-        disabled={busy || !status?.config}
-        onClick={() => void act(() => api("/v1/channels/qq/stop", "POST"))}
-      >
-        停用并撤销待审批消息
-      </Button>
-      <p>
-        群聊默认不能读取主人私密记忆。已授权图片由聊天模型理解，语音由语音输入模型转写；无法取得媒体内容时会明确提示。自动回复为文本并引用原消息。
-      </p>
-      <h3>最近消息</h3>
-      {deliveries.map((d) => (
-        <div key={d.id}>
-          <p>{d.id} · {labels[d.status] ?? d.status}</p>
-          {d.error && <Alert>{d.error}</Alert>}
-        </div>
-      ))}
-    </section>
-  );
-}
+export { QQConnection as Channels } from "./QQConnection";
 export function Permissions({
   fail,
   approvalsOnly = false,

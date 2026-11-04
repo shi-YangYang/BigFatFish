@@ -97,3 +97,10 @@ Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；
 ## 模型连接诊断与推理（Spec015）
 
 模型发现和短生成诊断归属Runtime ai普通模块，Desktop/Web仍通过认证API访问；诊断不保存配置或写聊天。ModelConfig增加可选reasoningEffort，保存在原config JSON，schema仍为6。固定DSH0.2.2-alpha.2通过profile的适配器默认值传递推理强度；OpenAI显式配置同时声明reasoningEfforts及标准协议映射，默认态保持原行为，DeepSeek沿用Messages。恢复会话不持久化这些适配器默认值，因此后续修改或切回默认能够重新解析。无新依赖或引擎替换，源码与实际wire验收见Spec015及Decision011。
+
+
+## 内置 QQ 组件管理（Spec023）
+
+`apps/runtime/src/channels/managed/` 管理固定原版 NapCat 的安装、WebUI 认证、二维码、只读联系人发现和生命周期；`QQConnection.tsx` 使用现有 beUI 组件提供快速连接/已有服务入口。内部地址、凭据与账号由 Runtime 绑定，主人/群仍需明确授权，现有回复与审批规则保持。没有新增 npm 包或 schema migration。
+
+Mac/Linux 使用本机 Docker（固定 amd64/arm64 manifest digest、回环映射、实例标签与私有数据目录）；Windows x64 使用固定 SHA256 原版 Windows.Node 包、受限 ZIP 解包与 Job Object。QQ 数据在 `data/qq-component/`，不共享日常 QQ，不改系统 QQ 或安全设置。便携逻辑备份不包含此登录态/程序目录；恢复后的渠道保持停用。Windows 原生与真实账号仍待验，实际验证以 Spec023 Plan 为准。

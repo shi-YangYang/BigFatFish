@@ -5,7 +5,8 @@ export function configuration(input:unknown):QQConfig {
   const b=object(input);let url:URL;try{url=new URL(string(b.url,1000));}catch{throw new InputError('INVALID_CHANNEL_URL');}
   if(url.username||url.password||url.search||url.hash||!(url.protocol==='wss:'||url.protocol==='ws:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw new InputError('INVALID_CHANNEL_URL');
   if(!Array.isArray(b.groups)||b.groups.length>100||['enabled','replyEnabled','proactiveEnabled'].some(k=>typeof b[k]!=='boolean'))throw new InputError('INVALID_REQUEST');
-  return {url:url.href,accountId:stableId(b.accountId),ownerId:stableId(b.ownerId),groups:[...new Set(b.groups.map(stableId))],enabled:b.enabled as boolean,replyEnabled:b.replyEnabled as boolean,proactiveEnabled:b.proactiveEnabled as boolean};
+  if(b.mode!==undefined && !['managed','external'].includes(String(b.mode)))throw new InputError('INVALID_REQUEST');
+  return {...(b.mode?{mode:b.mode as QQConfig['mode']}:{}),url:url.href,accountId:stableId(b.accountId),ownerId:stableId(b.ownerId),groups:[...new Set(b.groups.map(stableId))],enabled:b.enabled as boolean,replyEnabled:b.replyEnabled as boolean,proactiveEnabled:b.proactiveEnabled as boolean};
 }
 export function target(input:unknown):Target {const b=object(input);if(!['private','group'].includes(String(b.kind)))throw new InputError('INVALID_TARGET');return {kind:b.kind as Target['kind'],id:stableId(b.id)};}
 export function segments(input:unknown,outbound=false):Segment[] {

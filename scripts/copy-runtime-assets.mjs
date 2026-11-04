@@ -16,3 +16,7 @@ cpSync('plugins/sdk','dist/plugin-sdk',{recursive:true});
 copyFileSync('scripts/pack-plugin.mjs','dist/plugin-sdk/pack-plugin.mjs');
 cpSync('examples/hello-fish','dist/plugin-examples/hello-fish',{recursive:true});
 copyFileSync('plugins/sdk/host.mjs','dist/plugin-examples/hello-fish/host.mjs');
+
+mkdirSync('dist/runtime/src/channels/managed',{recursive:true});
+copyFileSync('apps/runtime/src/channels/managed/unzip.ps1','dist/runtime/src/channels/managed/unzip.ps1');
+copyFileSync('apps/runtime/src/channels/managed/windows-job.ps1','dist/runtime/src/channels/managed/windows-job.ps1');

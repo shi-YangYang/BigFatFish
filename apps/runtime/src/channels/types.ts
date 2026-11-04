@@ -1,4 +1,4 @@
-export interface QQConfig { url:string; accountId:string; ownerId:string; groups:string[]; enabled:boolean; replyEnabled:boolean; proactiveEnabled:boolean }
+export interface QQConfig { mode?:'managed'|'external'; url:string; accountId:string; ownerId:string; groups:string[]; enabled:boolean; replyEnabled:boolean; proactiveEnabled:boolean }
 export interface Segment {type:'text'|'image'|'record'|'file'|'at'|'reply';data:Record<string,string>}
 export interface Target {kind:'private'|'group';id:string}
 export interface PluginHealth {state:string;error?:string}

@@ -993,3 +993,19 @@ audio {
 @media (max-width: 700px) { .notification-region { top: 68px; right: 16px; } }
 
 .model-defaults { display: grid; gap: 16px; }
+
+/* QQ setup uses the existing field/section rhythm and a single account surface. */
+.qq-workspace { max-width: 760px; }
+.qq-account-card { margin: var(--section-gap) 0; }
+.qq-account-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.qq-account-heading h3, .qq-account-heading p { margin: 0; }
+.qq-account-heading p { margin-top: 6px; }
+.qq-login-code { display: grid; justify-items: center; gap: 8px; padding: 12px 0; }
+.qq-login-code img { width: 220px; max-width: 100%; height: auto; border-radius: 8px; }
+.qq-login-code p { margin: 0; text-align: center; }
+.qq-group-list { max-height: 240px; overflow: auto; display: grid; gap: 8px; }
+.qq-group-list .ui-field { overflow-wrap: anywhere; }
+.qq-history { display: grid; gap: 12px; }
+.qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.qq-history time { color: var(--muted); font-size: 12px; }
+@media (max-width: 480px) { .qq-account-heading { align-items: flex-start; flex-wrap: wrap; } }

@@ -16,6 +16,7 @@ import { openDatabase } from './storage/database.js';
 import { createLogger } from './logger.js';
 import { Bilibili } from './bilibili/service.js';
 import { registerBilibili } from './bilibili/routes.js';
+import { ManagedQQ,registerManagedQQ } from './channels/managed/service.js';
 import { Channels } from './channels/service.js';
 import { registerChannels } from './channels/routes.js';
 import { ChatService } from './ai/chat.js';
@@ -33,7 +34,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
   let app: ReturnType<typeof createServer> | undefined;
   let stopping = false;let plugins:Plugins|undefined;
   let chat: ChatService | undefined;
-  let channels: Channels | undefined;
+  let channels: Channels | undefined;let managedQQ:ManagedQQ|undefined;
   let bilibili: Bilibili | undefined;let douyin:Douyin|undefined;let activities:Activities|undefined;
   const connection: Connection = { version: 1, pid: process.pid, port, token: randomBytes(32).toString('hex'), instanceId: randomUUID(), startedAt: new Date().toISOString() };
   let initialized!: () => void;
@@ -51,6 +52,7 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
     try { await activities?.close();await douyin?.close(); } catch(error){errors.push(error);}
     try { await bilibili?.close(); } catch (error) { errors.push(error); }
     try { await channels?.close(); } catch (error) { errors.push(error); }
+    try { await managedQQ?.close(); } catch(error){errors.push(error);}
     try { await chat?.close(); } catch (error) { errors.push(error); }
     try { await app?.close(); } catch (error) { errors.push(error); }
     if (app?.server.listening) {
@@ -107,10 +109,10 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       registerLife(app, chat.life);
       plugins=new Plugins(db,p);chat.plugins=plugins;registerPlugins(app,plugins);
       channels = new Channels(db,chat);channels.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='qq'))plugins!.check('qq');}; await channels.initialize(plugins.resource('qq'));
-      registerChannels(app,channels);
+      managedQQ=new ManagedQQ(p,channels);registerChannels(app,channels,()=>managedQQ!.resume());registerManagedQQ(app,managedQQ);managedQQ.initialize();
       bilibili=new Bilibili(db,chat,channels,p,adapters?.bilibili);await bilibili.initialize();registerBilibili(app,bilibili);
       const queue=new TaskQueue(db);douyin=new Douyin(db,chat,queue,p,adapters?.douyin);activities=new Activities(db,queue,chat,bilibili,douyin);registerDouyin(app,douyin,activities);
-      plugins.platform={stop:async id=>{if(id==='qq')await channels!.suspend();if(id==='bilibili')await bilibili!.suspend();if(id==='douyin')await douyin!.stop();},reload:async(id,path)=>{if(id==='qq')await channels!.reload(path);if(id==='bilibili')await bilibili!.reload(path);if(id==='douyin')await douyin!.reload(path);}};
+      plugins.platform={stop:async id=>{if(id==='qq'){await channels!.suspend();await managedQQ!.stopAndWait();}if(id==='bilibili')await bilibili!.suspend();if(id==='douyin')await douyin!.stop();},reload:async(id,path)=>{if(id==='qq')await channels!.reload(path);if(id==='bilibili')await bilibili!.reload(path);if(id==='douyin')await douyin!.reload(path);}};
       for(const id of ['qq','bilibili','douyin'])if(!plugins.list().some(x=>x.id===id)){
        const path=fileURLToPath(new URL(`../plugin-catalog/${id}.bff-plugin`,import.meta.url));
        if(existsSync(path)){const bundle=readBundle(path);await plugins.install(bundle);await plugins.enable(id,bundle.manifest.permissions,{});}
