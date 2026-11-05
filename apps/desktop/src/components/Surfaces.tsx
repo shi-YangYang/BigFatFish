@@ -20,7 +20,7 @@ export function Menu({ trigger, children, className, side = "bottom", align = "e
   trigger: ReactElement<{ "aria-label"?: string; children?: ReactNode }>; children: ReactNode; className?: string;
   side?: "top" | "bottom"; align?: "start" | "center" | "end"; open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
-  return <Popover open={open} onOpenChange={onOpenChange} side={side} align={align} sideOffset={8} panelRadius={8} gooStrength={0}>
+  return <Popover open={open} onOpenChange={onOpenChange} side={side} align={align} sideOffset={8} panelRadius={8} gooStrength={0} animated={false}>
     <PopoverTrigger>{trigger}</PopoverTrigger>
     <PopoverContent ariaLabel={trigger.props["aria-label"] ?? (typeof trigger.props.children === "string" ? trigger.props.children : "选项")} className={cn("ui-popover", className)}>{children}</PopoverContent>
   </Popover>;
@@ -45,7 +45,7 @@ export function Alert({ className, children, variant = "destructive", ...props }
   </BeAlert>;
 }
 export function Badge(props: ComponentProps<typeof AnimatedBadge>) {
-  return <AnimatedBadge size="sm" showIcon={false} pulse={false} {...props} className={cn("border-solid whitespace-nowrap", props.className)} />;
+  return <AnimatedBadge size="sm" showIcon={false} pulse={false} {...props} animated={false} className={cn("border-solid whitespace-nowrap", props.className)} />;
 }
 export function Loading({ children = "正在加载…" }: { children?: ReactNode }) {
   return <div className="loading-state"><Loader size={20} label="正在加载" /><span>{children}</span></div>;

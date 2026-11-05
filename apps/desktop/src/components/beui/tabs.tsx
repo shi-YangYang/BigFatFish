@@ -2,7 +2,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cancelFrame, frame, motion, MotionConfig, useReducedMotion, useSpring, type MotionValue, type Transition } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import {
   createContext,
   useCallback,
@@ -17,7 +17,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { EASE_OUT, SPRING_SWAP } from "./ease";
 import { cn } from "./utils";
 
 type Variant = "pill" | "underline" | "segment";
@@ -27,14 +26,8 @@ type IconDisplay = "always" | "selected";
 type Ctx = {
   value: string;
   setValue: (v: string) => void;
-  layoutId: string;
   variant: Variant;
   icons: IconDisplay;
-  /** The pill's box in the list, for tabs whose width changes as they're selected. */
-  track: Track;
-  /** Whether the tracked pill has been measured; until then CSS places it. */
-  placed: boolean;
-  setPlaced: (placed: boolean) => void;
   /**
    * The one tab Tab reaches: the selected tab, or the first enabled one when
    * nothing enabled is selected. `null` until the triggers have registered,
@@ -51,8 +44,6 @@ type Ctx = {
   panelId: (value: string) => string;
 };
 
-type Track = Record<"x" | "y" | "width" | "height", MotionValue<number>>;
-
 const TabsCtx = createContext<Ctx | null>(null);
 
 function useTabs() {
@@ -60,16 +51,6 @@ function useTabs() {
   if (!ctx) throw new Error("Tabs.* must be used inside <Tabs>");
   return ctx;
 }
-
-// Settle without overshoot: a scrollable tab list would turn even a small
-// overshoot into a transient scrollbar and layout shift.
-// Scale stiffness and damping together for a quicker glide with the same feel.
-const transition: Transition = {
-  type: "spring",
-  stiffness: 245,
-  damping: 36,
-  mass: 1.2,
-};
 
 export function Tabs({
   defaultValue,
@@ -85,16 +66,14 @@ export function Tabs({
   onValueChange?: (v: string) => void;
   variant?: Variant;
   /**
-   * With "selected", a trigger's icon springs open only on the selected tab
-   * and folds away when another is chosen. Defaults to "always".
+   * With "selected", a trigger's icon shows only on the selected tab
+   * and hides when another is chosen. Defaults to "always".
    */
   icons?: IconDisplay;
   children: ReactNode;
   className?: string;
 }) {
   const [internal, setInternal] = useState(defaultValue ?? "");
-  const layoutId = useId();
-  const reduce = useReducedMotion();
   const controlled = value !== undefined;
   const current = controlled ? value : internal;
   const setValue = useCallback(
@@ -104,12 +83,6 @@ export function Tabs({
     },
     [controlled, onValueChange],
   );
-  const x = useSpring(0, transition);
-  const y = useSpring(0, transition);
-  const width = useSpring(0, transition);
-  const height = useSpring(0, transition);
-  const track = useMemo(() => ({ x, y, width, height }), [x, y, width, height]);
-  const [placed, setPlaced] = useState(false);
   const [tabs, setTabs] = useState<Map<string, boolean>>(new Map());
   const registerTab = useCallback((tab: string, disabled: boolean) => {
     setTabs((map) => (map.get(tab) === disabled ? map : new Map(map).set(tab, disabled)));
@@ -148,12 +121,8 @@ export function Tabs({
     () => ({
       value: current,
       setValue,
-      layoutId,
       variant,
       icons,
-      track,
-      placed,
-      setPlaced,
       tabStop,
       registerTab,
       unregisterTab,
@@ -163,20 +132,12 @@ export function Tabs({
       tabId,
       panelId,
     }),
-    [current, icons, layoutId, setValue, variant, track, placed, tabStop, registerTab, unregisterTab, panels, registerPanel, unregisterPanel, tabId, panelId],
+    [current, icons, setValue, variant, tabStop, registerTab, unregisterTab, panels, registerPanel, unregisterPanel, tabId, panelId],
   );
   return (
-    <MotionConfig transition={reduce ? { duration: 0 } : transition}>
-      <TabsCtx.Provider value={contextValue}>
-        {/* layoutRoot: the indicator's layoutId measures in page coordinates, so
-            inside fixed/scrolled containers it would replay scroll offsets as
-            movement. The pill only ever travels within the list, so scoping
-            projection to the Tabs wrapper is always correct. */}
-        <motion.div layoutRoot className={className}>
-          {children}
-        </motion.div>
-      </TabsCtx.Provider>
-    </MotionConfig>
+    <TabsCtx.Provider value={contextValue}>
+      <div className={className}>{children}</div>
+    </TabsCtx.Provider>
   );
 }
 
@@ -195,9 +156,8 @@ export function TabsList({
 }: {
   wrapperClassName?: string;
 } & HTMLAttributes<HTMLDivElement>) {
-  const { variant, value, icons, track, placed, setPlaced } = useTabs();
+  const { variant, value } = useTabs();
   const reduce = useReducedMotion();
-  const tracked = icons === "selected" && variant !== "underline";
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -264,110 +224,6 @@ export function TabsList({
     reveal(listRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null);
   }, [children, value, edges.overflow, measure, reveal]);
 
-  useLayoutEffect(() => {
-    // With icons="selected" the chosen tab grows as its icon opens and the
-    // last one shrinks. A layout animation measures the tabs mid-change, so
-    // the pill would squeeze and catch up. Instead the pill springs straight
-    // to where the selected tab will settle, with every icon open or closed.
-    if (!tracked) return;
-    const list = listRef.current;
-    if (!list) return;
-    void children;
-    const place = () => {
-      const tabs = Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'));
-      const target = tabs.find((tab) => tab.dataset.tabsValue === value)?.parentElement;
-      if (!target) return;
-      // Measure the settled layout: open the selected icon and fold the rest
-      // for one synchronous read, then hand the styles back to Motion before
-      // anything paints. Exact in any layout, from flex rows to grids.
-      const icons = Array.from(list.querySelectorAll<HTMLElement>('[role="tab"] > [data-tabs-icon]'));
-      const saved = icons.map((icon) => [icon.style.width, icon.style.marginRight]);
-      for (const icon of icons) {
-        const open = icon.parentElement?.parentElement === target;
-        icon.style.width = open ? "auto" : "0px";
-        icon.style.marginRight = open ? `${ICON_GAP}px` : "0px";
-      }
-      const box = {
-        x: target.offsetLeft,
-        y: target.offsetTop,
-        // Fractional: a rounded width leaves the pill a hair off its tab.
-        width: target.getBoundingClientRect().width,
-        height: target.offsetHeight,
-      };
-      icons.forEach((icon, index) => {
-        [icon.style.width, icon.style.marginRight] = saved[index];
-      });
-      // A first measurement, or one after the list was hidden, lands in place.
-      const instant = reduce || track.width.get() === 0;
-      for (const key of ["x", "y", "width", "height"] as const) {
-        if (instant) track[key].jump(box[key]);
-        else track[key].set(box[key]);
-      }
-      // Hand over from the CSS pill once there's a real box, before paint.
-      if (box.width > 0) setPlaced(true);
-    };
-    place();
-    const observer = new ResizeObserver(place);
-    for (const tab of list.querySelectorAll('[role="tab"]')) if (tab.parentElement) observer.observe(tab.parentElement);
-    return () => observer.disconnect();
-  }, [tracked, value, children, reduce, track, setPlaced]);
-
-  useLayoutEffect(() => {
-    if (variant === "underline") return;
-    const list = listRef.current;
-    if (!list) return;
-    void children;
-    // `placed` swaps the indicator element, so measure the new one.
-    void placed;
-    const labels = Array.from(list.querySelectorAll<HTMLElement>("[data-tabs-label]"));
-    const indicator = list.querySelector<HTMLElement>("[data-tabs-indicator]");
-    const target = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    if (!indicator || !target || target.dataset.tabsValue !== value) {
-      for (const label of labels) label.style.clipPath = "inset(0 100% 0 0)";
-      return;
-    }
-    let frames = 0;
-    let stillFrames = 0;
-    let previous: { left: number; right: number } | undefined;
-    const syncClips = () => {
-      const pill = (reduce ? target : indicator).getBoundingClientRect();
-      // Read ALL geometry before writing ANY masks. A loop per tab interleaved
-      // reads and writes, forcing the browser to flush styles repeatedly.
-      const clips = labels.map((label) => {
-        const bounds = label.getBoundingClientRect();
-        const left = Math.max(0, Math.min(bounds.width, pill.left - bounds.left));
-        const right = Math.max(0, Math.min(bounds.width, bounds.right - pill.right));
-        return left + right >= bounds.width ? "inset(0 100% 0 0)" : `inset(0 ${right}px 0 ${left}px)`;
-      });
-      labels.forEach((label, index) => {
-        if (label.style.clipPath !== clips[index]) label.style.clipPath = clips[index];
-      });
-      frames += 1;
-      stillFrames = previous && Math.abs(pill.left - previous.left) < 0.01 && Math.abs(pill.right - previous.right) < 0.01 ? stillFrames + 1 : 0;
-      previous = { left: pill.left, right: pill.right };
-      if (reduce || (frames > 2 && stillFrames >= 2)) cancelFrame(syncClips);
-    };
-    // One shared pass after Motion paints the projected pill keeps every label
-    // in sync, including labels crossed during a long or interrupted glide.
-    frame.postRender(syncClips, true);
-    // A list measured while hidden (display: none, a closed panel, a
-    // breakpoint) gets every mask closed. Sync again once it has a size, or
-    // the selected label stays invisible until the value changes.
-    const resync = () => {
-      frames = 0;
-      stillFrames = 0;
-      previous = undefined;
-      cancelFrame(syncClips);
-      frame.postRender(syncClips, true);
-    };
-    const observer = new ResizeObserver(resync);
-    observer.observe(list);
-    return () => {
-      observer.disconnect();
-      cancelFrame(syncClips);
-    };
-  }, [value, children, variant, reduce, placed]);
-
   // Arrow keys move along the list and select as focus arrives, wrapping at
   // the ends; Home and End jump to the first and last enabled tab.
   const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -413,10 +269,9 @@ export function TabsList({
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
       )}
-      <motion.div
+      <div
         ref={viewportRef}
         id={viewportId}
-        layoutScroll
         className={cn("w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", edges.overflow && "[border-radius:inherit]")}
         style={edges.overflow ? {
           maskImage: `linear-gradient(to right, ${edges.left ? "transparent, black 40px" : "black, black 0px"}, ${edges.right ? "black calc(100% - 40px), transparent" : "black 100%"})`,
@@ -425,10 +280,10 @@ export function TabsList({
           if (event.target instanceof HTMLElement && event.target.getAttribute("role") === "tab") reveal(event.target);
         }}
       >
-        <div {...props} ref={listRef} role="tablist" onKeyDown={onListKeyDown} className={cn(listClasses[variant], "w-max", tracked && "relative", className)}>
+        <div {...props} ref={listRef} role="tablist" onKeyDown={onListKeyDown} className={cn(listClasses[variant], "w-max", className)}>
           {children}
         </div>
-      </motion.div>
+      </div>
       {edges.overflow && edges.left && (
         <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 rounded-l-[inherit] backdrop-blur-[2px] [mask-image:linear-gradient(to_right,black,transparent)]" />
       )}
@@ -444,40 +299,11 @@ export function TabsList({
   );
 }
 
-/** Space between a selected-only icon and its label, in pixels. */
-const ICON_GAP = 6;
-
-/**
- * A trigger's icon before its label. Shown on every tab, or with
- * `icons="selected"` springing open on the selected tab only.
- */
+/** Keep selected icons visible without waiting for an animation frame. */
 function TriggerIcon({ icon, active }: { icon: ReactNode; active: boolean }) {
   const { icons } = useTabs();
-  const reduce = useReducedMotion();
-  if (icons === "always") {
-    return (
-      <span aria-hidden="true" className="mr-1.5 inline-flex shrink-0 items-center">
-        {icon}
-      </span>
-    );
-  }
-  return (
-    <motion.span
-      aria-hidden="true"
-      data-tabs-icon=""
-      initial={false}
-      animate={{
-        width: active ? "auto" : 0,
-        marginRight: active ? ICON_GAP : 0,
-        opacity: active ? 1 : 0,
-        scale: active ? 1 : 0.6,
-      }}
-      transition={reduce ? { duration: 0 } : SPRING_SWAP}
-      className="inline-flex shrink-0 items-center justify-center overflow-hidden"
-    >
-      {icon}
-    </motion.span>
-  );
+  if (icons === "selected" && !active) return null;
+  return <span aria-hidden="true" className="mr-1.5 inline-flex shrink-0 items-center">{icon}</span>;
 }
 
 export function TabsTrigger({
@@ -497,11 +323,7 @@ export function TabsTrigger({
   const {
     value: current,
     setValue,
-    layoutId,
     variant,
-    icons,
-    track,
-    placed,
     tabStop,
     registerTab,
     unregisterTab,
@@ -528,9 +350,6 @@ export function TabsTrigger({
   ) : (
     children
   );
-  // React owns the initial mask only; TabsList synchronizes subsequent masks.
-  const [initialClip] = useState(() => active ? "inset(0)" : "inset(0 100% 0 0)");
-
   if (variant === "underline") {
     return (
       <button
@@ -552,9 +371,7 @@ export function TabsTrigger({
       >
         {content}
         {active ? (
-        <motion.span
-          layoutId={layoutId}
-          layout
+        <span
           className={cn(
             "absolute bottom-0 left-0 right-0 h-px bg-primary",
             indicatorClassName,
@@ -566,37 +383,9 @@ export function TabsTrigger({
   }
 
   const radius = variant === "pill" ? "rounded-full" : "rounded-md";
-  // Tracked pills are placed in the list, so this wrapper must not be their
-  // containing block. Server HTML can't measure, so until the first
-  // measurement the pill fills the selected tab with CSS, like the others.
-  const tracked = icons === "selected" && placed;
-
   return (
-    <div className={cn("shrink-0", !tracked && "relative")}>
-      {/* Distinct keys: reused across the swap, the CSS pill's leftover
-          `transform: none` would hide the tracked pill's offset until the
-          next value change. */}
-      {active && tracked ? (
-        <motion.span
-          key="tracked"
-          data-tabs-indicator=""
-          style={{ ...track, borderRadius: variant === "pill" ? 9999 : 8 }}
-          className={cn("absolute top-0 left-0 bg-primary", radius, indicatorClassName)}
-        />
-      ) : active ? (
-        <motion.span
-          key="layout"
-          data-tabs-indicator=""
-          layoutId={layoutId}
-          layout
-          style={{ borderRadius: variant === "pill" ? 9999 : 8 }}
-          className={cn(
-            "absolute inset-0 bg-primary",
-            radius,
-            indicatorClassName,
-          )}
-        />
-      ) : null}
+    <div className="shrink-0 relative">
+      {active && <span data-tabs-indicator="" className={cn("absolute inset-0 bg-primary", radius, indicatorClassName)} />}
       <button
         // Consumer ids and wiring win, e.g. several tabs sharing one panel.
         {...a11y}
@@ -611,21 +400,12 @@ export function TabsTrigger({
         }}
         className={cn(
           "relative z-10 inline-flex items-center justify-center whitespace-nowrap bg-transparent px-3.5 py-1.5 text-sm font-medium outline-none",
-          "text-muted-foreground hover:text-foreground",
+          active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
           radius,
           className,
         )}
       >
         {content}
-        <span
-          data-tabs-label=""
-          aria-hidden="true"
-          inert
-          className="pointer-events-none absolute inset-0 inline-flex items-center justify-center text-primary-foreground [gap:inherit] [padding:inherit]"
-          style={{ clipPath: initialClip }}
-        >
-          {content}
-        </span>
       </button>
     </div>
   );
@@ -633,39 +413,23 @@ export function TabsTrigger({
 
 export function TabsContent({ value, children, className }: { value: string; children: ReactNode; className?: string }) {
   const { value: current, registerPanel, unregisterPanel, tabId, panelId } = useTabs();
-  const reduce = useReducedMotion();
   const active = current === value;
   useLayoutEffect(() => {
     registerPanel(value);
     return () => unregisterPanel(value);
   }, [registerPanel, unregisterPanel, value]);
-  const a11y = {
-    id: panelId(value),
-    role: "tabpanel",
-    "aria-labelledby": tabId(value),
-  } as const;
-  // Inactive panels stay mounted but hidden, so their content (e.g. source
-  // code) is present in the server-rendered HTML for crawlers and assistive
-  // tech, instead of being dropped from the DOM.
-  if (!active) {
-    return (
-      <div {...a11y} hidden className={className}>
-        {children}
-      </div>
-    );
-  }
+  // Content must be visible on commit, even when a native WebView pauses frames.
+  // Keep the same element mounted across selection changes to preserve form state.
   return (
-    <motion.div
-      {...a11y}
-      // Reachable with Tab so a panel without controls can still be read.
-      tabIndex={0}
-      key={value}
-      initial={{ opacity: 0, y: reduce ? 0 : 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: EASE_OUT }}
-      className={cn("mt-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-md", className)}
+    <div
+      id={panelId(value)}
+      role="tabpanel"
+      aria-labelledby={tabId(value)}
+      hidden={!active}
+      tabIndex={active ? 0 : undefined}
+      className={cn("mt-4 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring rounded-md", className)}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

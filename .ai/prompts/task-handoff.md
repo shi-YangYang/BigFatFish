@@ -4,7 +4,25 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。此前「每完成一个阶段就本地 commit」的持续授权已撤销。今后只有用户对相应任务明确要求 commit 时才可提交，开发完成或验收通过不构成提交授权；不得沿用下方历史阶段中的自动提交授权。此次仅更新交接记录，不暂存、不提交，也不改写已存在的提交。
 
-## 当前任务：Spec036 刷新 QQ 好友与群聊已完成
+## 当前任务：Spec038 网站完整人设卡与工具适配
+
+用户本轮明确要求「本地commit；之后删除设定里的版本记录功能」。本次提交授权仅覆盖已经完成的 Spec037/038 及应用记录；删除版本记录属于提交后的新修改，不包含在此次提交中，不恢复自动提交授权。
+
+用户已回复「现在启用（推荐）」，已执行所授权的开发版启动、schema7→8新增笔记表、内置QQ插件更新及网站女儿版切换。当前女儿版 v5，原 v4 哈希与身份/偏好读回一致；Git禁止自动提交不变。用户扫码确认后已读回QQ组件与渠道均online，enabled=true、replyEnabled=true，登录账号与已保存配置一致；没有主动发送测试消息。
+
+用户要求直接基于 aigengtu.com/persona 完整卡，且仅「女儿版 · 孺慕」→女儿版、「QQ 群友版（官方默认人设）」→傲娇版，缺少工具补齐。默认仍女儿版，完整来源卡与适配差异可追溯，不再从零仿写。Spec038 / Decision020 已建立，/root/investigate_persona_tools 实施报告已完整读取：17个相关检查+类型通过，真实免费Bing搜索成功，完整卡UI预览已确认；首轮独立FAIL已读，新的/root/rework_source_persona_cards 修R1畸形跳转和R2主历史遗漏，5项新定向+Node类型PASS。新的/root/accept_persona_card_rework 在acceptance-r1.md PASS，全部完整报告已读、无运行Agent或待返工，不追加验证。代码与真实数据应用已完成；真实模型口吻和QQ外发未实测。没有 commit/stage/push 授权。
+
+dev/f321344，Spec037 全部未提交变更保留。已确认前快照为build/persona-cards/before-schema8.sqlite(0600)，旧 schema7/v4 元信息在application-before.json。正常npm run desktop:dev运行于exec session69374，Runtime与原生窗口已启动，保留供用户使用；不要操作历史PID。apply-current.mjs --approved已执行一次成功，不能再次应用旧版本断言；application-result.json与application-status.json记录schema8/persona v5/旧历史保留/插件更新及QQ状态。已安装原内置插件经API更新、相同权限和配置保留；随后经/v1/channels/qq/start恢复现有托管连接；用户扫码后已核实online、自动回复启用，女儿版仍v5。完整原卡抓取仍在忽略目录build/persona-cards/，正文hash在Plan。UI隔离tab9和session82172已清理。
+
+## 历史任务：Spec037 自然用图与 Desktop 易用性已完成
+
+EXISTING，dev 基线 f321344（Spec036 已本地提交），本轮开始干净。用户选择日常更活泼配图、尽量少重复，并要求联网研究和全面原生截图检查。Spec037 Done；A 实施/root/investigate_lively_stickers、新独立/root/accept_lively_stickers PASS。B 实施/root/implement_desktop_usability，首验/root/accept_desktop_usability FAIL；新/root/rework_desktop_states修共享Checkbox、模型焦点、空计划暂停控制及原生新发现的Menu裁切，新独立/root/accept_desktop_states在acceptance-r1.md PASS关闭R1–R4。全部完整报告已读取，无待返工。
+
+原生截图使用忽略目录 build/desktop-ux-audit/BigFatFishAudit.app（当前 debug binary，仅额外 UI），before/after覆盖聊天、我的鱼5页、三平台与设置7页及重点表单；原生900×680，坐标缩放noWindowsAvailable，380×820仅浏览器响应证据。31–34为返工定向截图。A一次Node类型/8项回归、B apps类型与相关UI/DTO通过，返工仅1项定向通过，未全量测试或构建、未重复已通过未改检查。后台缺新readOnly，QQ只读/默认本地以隔离fixture证明，新Runtime配图和元信息下次正常desktop:dev加载。真实云模型频率、Windows/登录外发未验。
+
+临时tab7关闭、viewport恢复、fixture61203/session29850结束exit130、Audit窗口关闭；原supervisor96490/Runtime96520/Desktop96805仍在，未重启QQ或改用户数据。当前dev改动全未暂存/commit/push；远端未刷新，不推断PR状态。满足停止条件，不追加探索或验证；只有用户明确要求才commit。下方为已完成历史。
+
+## 历史任务：Spec036 刷新 QQ 好友与群聊已完成
 
 EXISTING，dev基线ccb4623；保留已有未提交Git授权撤销记录。用户要求新增好友/群后可点刷新icon，根因是ManagedQQ仅登录时读取、轮询只读缓存。Spec036 Done：回复设置标题右侧40×40图标显式刷新主人/好友/群列表；保留草稿/选择与同账号失败旧列表，新增联系人不自动授权，处理重复、账号切换和迟到响应。
 

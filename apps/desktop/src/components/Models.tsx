@@ -1,7 +1,7 @@
 import { useModelConnection } from "./useModelConnection";
 import { reasoningEfforts } from "../../../runtime/src/ai/model-options";
 import type { ReasoningEffort } from "../../../runtime/src/ai/types";
-import { Disclosure } from "./Surfaces";
+import { Card } from "./Surfaces";
 import {
   Button,
   Field,
@@ -30,6 +30,8 @@ export function Models({
   fail: (e: unknown) => void;
 }) {
   const [form, setForm] = useState(blank),
+    [editorOpen, setEditorOpen] = useState(false),
+    [hasDraft, setHasDraft] = useState(false),
     [key, setKey] = useState(""),
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
@@ -60,6 +62,8 @@ export function Models({
       setKey("");
       await reload();
       setSaved("配置已保存");
+      setHasDraft(false);
+      setEditorOpen(false);
     } catch (e) {
       fail(e);
     } finally {
@@ -70,9 +74,15 @@ export function Models({
     <section>
       <div className="section-heading">
         <h2>模型</h2>
+        <ActionRow>
+        {!editorOpen && hasDraft && <Button disabled={waiting} onClick={() => setEditorOpen(true)}>继续编辑</Button>}
         <Button
           type="button"
+          disabled={waiting}
           onClick={() => {
+            setEditorOpen(true);
+            setHasDraft(true);
+            setPurpose("chat");
             setForm(blank);
             setKey("");
             setSaved("");
@@ -80,6 +90,7 @@ export function Models({
         >
           新建配置
         </Button>
+        </ActionRow>
       </div>
       {models.length > 0 && (
         <div className="model-list">
@@ -88,7 +99,10 @@ export function Models({
               <Button
                 type="button"
                 className="model-name"
+                disabled={waiting}
                 onClick={() => {
+                  setEditorOpen(true);
+                  setHasDraft(true);
                   setForm({ id: m.id, label: m.model, provider: m.provider, baseURL: m.baseURL, model: m.model, reasoningEffort: m.reasoningEffort });
                   setPurpose((Object.keys(purposes) as ModelPurpose[]).find(p => routes[p] === m.id) ?? "chat");
                   setKey("");
@@ -97,13 +111,15 @@ export function Models({
               >
                 {m.label}
                 {m.label !== m.model && <small>{m.model}</small>}
+                <small>{(Object.keys(purposes) as ModelPurpose[]).filter(p => routes[p] === m.id).map(p => purposes[p]).join(" · ") || "尚未设为默认用途"}</small>
               </Button>
               <span>{m.hasKey ? "密钥已设置" : "未设置密钥"}</span>
               <Button
                 type="button"
+                disabled={waiting}
                 onClick={() =>
                   void api("/v1/models/" + m.id, "DELETE")
-                    .then(reload)
+                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setHasDraft(false); setForm(blank); } await reload(); })
                     .catch(fail)
                 }
               >
@@ -113,6 +129,10 @@ export function Models({
           ))}
         </div>
       )}
+      {!models.length && !editorOpen && <p className="muted">还没有模型，添加配置后就能开始聊天。</p>}
+      {saved && <p role="status">{saved}</p>}
+      {editorOpen && <Card className="model-editor">
+      <h3>{form.id ? "编辑模型" : "新建模型"}</h3>
       <form onSubmit={save} className="model-form">
         <div className="form-section">
           <Field>模型用途<Select value={purpose} onValueChange={value => {
@@ -205,17 +225,19 @@ export function Models({
           <Button variant="primary" type="submit" disabled={waiting}>
             保存模型
           </Button>
-          <span role="status">{saved}</span>
+          <Button disabled={waiting} onClick={() => setEditorOpen(false)}>收起</Button>
         </ActionRow>
       </form>
-      {models.length > 0 && <Disclosure title={<>默认模型</>}>
+      </Card>}
+      {models.length > 0 && <Card>
+        <h3>默认用途</h3>
         <div className="model-defaults">
           {(Object.keys(purposes) as ModelPurpose[]).map(p => <Field key={p}>{purposes[p]}<Select disabled={waiting} value={routes[p] ?? ""} onValueChange={id => {
             setBusy(true); const next = { ...routes }; if (id) next[p] = id; else delete next[p];
             void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes", "PUT", next).then(value => { setRoutes(value); setSaved("默认模型已更新"); return reload(); }).catch(fail).finally(() => setBusy(false));
           }}><option value="">未设置</option>{models.filter(m => p === "chat" || m.provider === "openai").map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</Select></Field>)}
         </div>
-      </Disclosure>}
+      </Card>}
     </section>
   );
 }

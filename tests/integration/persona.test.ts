@@ -24,7 +24,8 @@ it('keeps existing personas verbatim and preserves version conflicts and history
   const p = paths(mkdtempSync(join(tmpdir(), 'bff persona compatibility ')));
   preparePaths(p);
   const db = openDatabase(p.database);
-  const existing = { ...defaultPersona, role: '旧版自己的设定', traits: '好奇、友善', style: '自然简洁', boundaries: '旧规则', version: 4 };
+  const {cardPrompt:_card,cardId:_cardId,...legacyPersona}=defaultPersona;
+  const existing = { ...legacyPersona, role: '旧版自己的设定', traits: '好奇、友善', style: '自然简洁', boundaries: '旧规则', version: 4 };
   try {
     db.prepare('INSERT INTO personas(version,config,created_at) VALUES(?,?,?)').run(4, JSON.stringify(existing), new Date().toISOString());
     const config = new Configuration(db, p);
@@ -52,9 +53,10 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
     const first = chat.send(conversation.id, { requestId: 'first', content: '你好，我喜欢茉莉花茶，记住蓝色标记' });
     expect((await settled(() => chat.message(first.id))).status).toBe('completed');
     expect(lastSystem()).toContain(defaultPersona.traits);
+    expect(lastSystem()).toContain(JSON.stringify(defaultPersona.cardPrompt).slice(1,-1));
     expect(lastSystem()).toContain('已确认的主人会话');
 
-    const cheeky = chat.config.savePersona(applyPersonaPreset({ ...chat.config.persona(), name: '小蓝' }, personaPresets.find(preset => preset.id === 'cheeky')!));
+    const cheeky = chat.config.savePersona(applyPersonaPreset({ ...chat.config.persona(), name: '小蓝' }, personaPresets.find(preset => preset.id === 'tsundere')!));
     const next = chat.send(conversation.id, { requestId: 'next', content: '继续聊蓝色标记' });
     const reply = await settled(() => chat.message(next.id));
     expect(reply.status, reply.error ?? '').toBe('completed');
@@ -76,7 +78,7 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
     expect(result.status, JSON.stringify(result)).toBe('completed');
     expect(lastSystem()).toContain('当前是后台任务');
     expect(lastSystem()).not.toContain('口吻示例');
-    expect(lastSystem()).not.toContain(cheeky.style);
+    expect(lastSystem()).not.toContain(cheeky.cardPrompt);
   } finally { await chat.close(); await fixture.close(); db.close(); rmSync(p.root, { recursive: true, force: true }); }
 }, 60000);
 
@@ -100,7 +102,7 @@ it('keeps conversational persona out of activity-selection requests while retain
     const textOf = (message: typeof messages[number]) => typeof message.content === 'string'
       ? message.content : message.content.filter(part => part.type === 'text').map(part => part.text ?? '').join('\n');
     const wireText = messages.map(textOf).join('\n');
-    for (const key of ['role', 'traits', 'style'] as const) expect(wireText).not.toContain(persona[key]);
+    for (const key of ['role', 'traits', 'cardPrompt'] as const) expect(wireText).not.toContain(persona[key]);
     expect(wireText).not.toContain('口吻示例');
     const prompt = textOf(messages.find(message => message.role === 'user' && textOf(message).includes('BFF_ACTIVITY_CHOOSE\n'))!);
     expect(prompt).toContain(`候选：${JSON.stringify(choices)}`);

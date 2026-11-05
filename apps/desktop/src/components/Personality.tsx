@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ContentScroll, Disclosure, Loading } from "./Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "./Controls";
 import type { Persona } from "../../../runtime/src/ai/types";
-import { applyPersonaPreset, matchPersonaPreset, personaPresets } from "../../../runtime/src/ai/persona-presets";
+import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../runtime/src/ai/persona-presets";
 import { api } from "../api";
 
 const detailLabels = {
@@ -65,6 +65,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
 
   if (!persona) return <Loading>正在加载设定…</Loading>;
   const preset = matchPersonaPreset(persona);
+  const source=personaCards.find(card=>card.id===persona.cardId);
   return (
     <section className="personality-settings">
       <h2>鱼的设定</h2>
@@ -86,13 +87,15 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
             </Select>
           </Field>
         </FormGrid>
+        {source && <a href={source.sourceURL} target="_blank" rel="noreferrer">{source.title} · {source.author}</a>}
+        {persona.cardPrompt !== undefined && <Disclosure title="编辑完整人设"><Field>完整人设<Textarea value={persona.cardPrompt} rows={12} maxLength={32000} disabled={saving} onChange={event=>change({...persona,cardPrompt:event.target.value})}/></Field></Disclosure>}
         {preset && <div className="persona-example">
           <span>口吻示例</span>
           <p>{preset.example}</p>
         </div>}
         <Disclosure title="编辑详细设定">
           <FormGrid>
-            {(Object.keys(detailLabels) as (keyof typeof detailLabels)[]).map(key => (
+            {(Object.keys(detailLabels) as (keyof typeof detailLabels)[]).filter(key=>!persona.cardPrompt||!['role','traits','style','likes','dislikes'].includes(key)).map(key => (
               <Field key={key} className={key === "style" || key === "avatar" ? "persona-wide-field" : undefined}>
                 {detailLabels[key]}
                 {key === "avatar"
@@ -116,6 +119,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
         <ContentScroll label="版本记录">
         {historyLoading ? <Loading /> : history?.map(item => (
           <Disclosure key={item.version} title={`版本 ${item.version} · ${item.name}`}>
+            {item.cardPrompt && <p className="persona-history-text">{item.cardPrompt}</p>}
             <p>{item.role}</p>
             <p>{item.traits}</p>
             <p className="persona-history-text">{item.style}</p>

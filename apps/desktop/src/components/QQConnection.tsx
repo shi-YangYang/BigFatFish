@@ -3,7 +3,7 @@ import {QQStickers} from './QQStickers';
 import {Tabs} from './UI';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import { api } from '../api';
-import { ContentScroll, Card,Badge,Alert,Loading } from './Surfaces';
+import { ContentScroll, Disclosure, Card,Badge,Alert,Loading } from './Surfaces';
 import { Button,Field,Input,Checkbox,Select,ActionRow,FormGrid } from './Controls';
 import type { ChannelStatus,QQConfig } from '../../../runtime/src/channels/types';
 import type { ManagedQQStatus,QQContact } from '../../../runtime/src/channels/managed/types';
@@ -60,12 +60,12 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
  const matchingAccount=channel?.config?.mode==='managed'&&channel.config.accountId===component?.account?.id;
  const switchMode=()=>{draftMode.current=mode==='managed'?'external':'managed';setMode(draftMode.current);setTab('回复设置');editing.current=false;savePending.current=undefined;setToken('');setForm(initial);setManualFriends('');setManualGroups('');void refresh().catch(fail);};
  return <section className="qq-connection">
-  <div className="section-heading"><h2>QQ</h2><Badge>{channel?.config?healthLabels[channel.health.state]:'未连接'}</Badge></div>
+
   {channel?.health.error&&<Alert>{healthErrors[channel.health.error]??'QQ 连接异常，请检查服务状态。'}</Alert>}
   {loadError&&<Alert>暂时无法读取连接状态。<Button size="compact" onClick={()=>void refresh().catch(fail)}>重试</Button></Alert>}
   {mode==='managed'&&<>
-   <Card className="qq-account-card">
-    <div className="qq-account-heading"><div><h3>{component?.account?.name??'登录 QQ'}</h3>{component?.account&&<p className="muted">{component.account.id}</p>}</div><Badge>{phaseLabels[component?.phase??'missing']}</Badge></div>
+   <Card className={`qq-account-card${component?.phase==='online'?' qq-account-online':''}`}>
+    <div className="qq-account-heading"><div><h2>QQ{component?.account?.name && <span className="account-name"> · {component.account.name}</span>}</h2>{component?.account&&<p className="muted">{component.account.id}</p>}</div><div className="account-status"><Badge>{channel?.config?healthLabels[channel.health.state]:'未连接'}</Badge><small className="muted">{phaseLabels[component?.phase??'missing']}</small></div></div>
     {(component?.error||component?.operationError)&&<Alert>{errors[component.error??component.operationError!]??'QQ 组件操作失败，请重试。'}</Alert>}
     {component&&!component.supported&&<Alert>此系统暂不支持内置组件，请使用已有服务。</Alert>}
     {component?.busy&&<Loading>{phaseLabels[component.phase]}</Loading>}
@@ -76,12 +76,13 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
      {component?.phase==='online'&&matchingAccount&&!channel?.config?.enabled&&<Button variant="primary" disabled={locked} onClick={()=>void act(endpoint+'/connect')}>重新连接</Button>}
      {component?.phase==='login'&&<Button disabled={locked} onClick={()=>void act(endpoint+'/refresh')}>刷新二维码</Button>}
      {component&&['starting','login','online','error','installing'].includes(component.phase)&&<Button disabled={busy||component.phase==='stopping'} onClick={()=>void act(endpoint+'/stop')}>{component.busy?'取消连接':'断开连接'}</Button>}
-     {!component?.busy&&<Button variant="ghost" disabled={busy} onClick={switchMode}>连接已有服务</Button>}
+     {!component?.busy&&component?.phase!=='online'&&<Button variant="ghost" disabled={busy} onClick={switchMode}>连接已有服务</Button>}
+     {component?.phase==='online'&&<Disclosure title="连接选项" className="secondary-options"><Button variant="ghost" disabled={locked} onClick={switchMode}>连接已有服务</Button></Disclosure>}
     </ActionRow>
     {component?.phase==='missing'&&<p className="muted">首次连接需下载 QQ 组件。{component.engine==='docker'?'请先启动 Docker。':''}</p>}
    </Card>
   </>}
-  {mode==='external'&&<div className="qq-method-heading"><h3>连接已有 NapCat</h3><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>}
+  {mode==='external'&&<div className="qq-method-heading"><div><h2>QQ</h2><Badge>{channel?.config?healthLabels[channel.health.state]:'未连接'}</Badge></div><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>}
   <Tabs items={['回复设置','表情','消息']} value={tab} onChange={setTab} label="QQ 设置">
    {tab==='回复设置'&&(mode==='managed'?<>
    {component?.account&&component.phase==='online'&&<Card className="qq-reply-card"><form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,friendIds:form.friendIds??[],groupReplyMode:form.groupReplyMode??'all',groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>

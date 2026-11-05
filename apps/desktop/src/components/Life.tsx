@@ -1,5 +1,5 @@
 import { ContentScroll, Card, Disclosure , Alert, Loading} from "./Surfaces";
-import { Button, Field, Input, FormGrid } from "./Controls";
+import { Button, Field, Input, ActionRow } from "./Controls";
 import { FishAvatar } from "./UI";
 import { usePoll, activityState, type ActivityOverview } from "./Douyin";
 import { useCallback, useEffect, useState } from "react";
@@ -56,23 +56,10 @@ export function useLifeRefresh(
 }
 function CurrentActivities() {
   const [data, setData] = useState<ActivityOverview>(),
-    [connections, setConnections] = useState(""),
     [error, setError] = useState("");
   const load = useCallback(async () => {
     try {
-      const [a, d, b, q, approvals] = await Promise.all([
-        api<ActivityOverview>("/v1/activities"),
-        api<{ config: { enabled: boolean }; accountState: string }>(
-          "/v1/douyin",
-        ),
-        api<{ enabled: boolean; accountState: string }>("/v1/bilibili"),
-        api<{ health: { state: string } }>("/v1/channels/qq"),
-        api<unknown[]>("/v1/douyin/approvals"),
-      ]);
-      setData(a);
-      setConnections(
-        `抖音${d.config.enabled ? (d.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · B站${b.enabled ? (b.accountState === "verified" ? "账号已验证" : "账号未验证") : "未启用"} · QQ ${q.health.state === "online" ? "在线" : "未连接"} · 待审批 ${approvals.filter((v) => (v as { status: string }).status === "pending").length}`,
-      );
+      setData(await api<ActivityOverview>("/v1/activities"));
       setError("");
     } catch (e) {
       setError(errorText(e));
@@ -93,11 +80,10 @@ function CurrentActivities() {
               ? "抖音"
               : t.platform === "bilibili"
                 ? "B站"
-                : "调度"}
+                : "活动"}
             ：{activityState[t.status]}
           </p>
         ))}
-      <p>{connections}</p>
     </>
   );
 }
@@ -128,13 +114,11 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
         )}
         <div>
           <h2>{data.persona.name}</h2>
-          <p>{data.persona.role}</p>
           <p>
             {data.mood
               ? `${data.mood.mood} · ${data.mood.reason}`
               : "平静 · 等待第一次聊天"}
           </p>
-          <small>心情为活动驱动的模拟状态</small>
         </div>
       </div>
       <div className="life-grid">
@@ -152,38 +136,25 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
                   .join("；")
               : data.chattingCount
                 ? "正在聊天"
-                : "暂无聊天或整理任务"}
+                : "暂无聊天或记忆整理"}
           </p>
           <p>已确认 {data.confirmedCount} 条记忆</p>
           </ContentScroll>
           {navigate && (
             <p>
               <Button type="button" onClick={() => navigate("任务")}>
-                查看任务
+                查看活动计划
               </Button>
             </p>
           )}
         </Card>
-        <Card>
-          <h3>兴趣</h3>
-          <ContentScroll label="兴趣">
-          {data.interests.length ? (
-            data.interests.map((m) => <p key={m.id}>{m.content}</p>)
-          ) : (
-            <p>还没有确认的兴趣。在记忆页添加或确认。</p>
-          )}
+        {(data.interests.length > 0 || data.relationships.length > 0) && <Card>
+          <h3>兴趣与关系</h3>
+          <ContentScroll label="兴趣与关系">
+          {data.interests.map((m) => <p key={m.id}>{m.content}</p>)}
+          {data.relationships.map((m) => <p key={m.id}>{m.content}</p>)}
           </ContentScroll>
-        </Card>
-        <Card>
-          <h3>关系</h3>
-          <ContentScroll label="关系">
-          {data.relationships.length ? (
-            data.relationships.map((m) => <p key={m.id}>{m.content}</p>)
-          ) : (
-            <p>还没有确认的关系。</p>
-          )}
-          </ContentScroll>
-        </Card>
+        </Card>}
         <Card>
           <h3>最近经历</h3>
           <ContentScroll label="最近经历">
@@ -210,7 +181,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
           </Card>
         ))
       ) : (
-        <p>暂无日记，可在生活页整理当天经历。</p>
+        <p className="muted">还没有日记。<Button variant="ghost" onClick={() => navigate?.("经历")}>去写第一篇</Button></p>
       )}
       </ContentScroll>
     </section>
@@ -289,7 +260,6 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
   return (
     <section>
       <h2>经历与日记</h2>
-      <CurrentActivities />
       {refreshError && (
         <Alert role="alert" className="error">
           {refreshError}
@@ -301,7 +271,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           void generate();
         }}
       >
-        <FormGrid>
+        <ActionRow className="diary-controls">
           <Field>
             日记日期
             <Input
@@ -311,18 +281,16 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
               required
             />
           </Field>
+          <Button type="submit" variant="primary" disabled={busy}>
+            生成或更新日记
+          </Button>
+        </ActionRow>
+        <Disclosure title="日期设置" className="secondary-options">
           <Field>
             时区
-            <Input
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              required
-            />
+            <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} required />
           </Field>
-        </FormGrid>
-        <Button type="submit" variant="primary" disabled={busy}>
-          生成或更新日记
-        </Button>
+        </Disclosure>
       </form>
       <TaskList
         tasks={tasks.filter((t) => t.kind === "diary")}
@@ -364,10 +332,10 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       {!timeline.length && <p>暂无经历，开始聊天后会记录实际活动。</p>}
       <ContentScroll label="经历时间线" className="content-scroll-list">
       {timeline.map((a) => (
-        <Card key={a.id}>
+        <div className="timeline-entry" key={a.id}>
           <time>{new Date(a.occurredAt).toLocaleString()}</time>
           <p>{a.summary}</p>
-        </Card>
+        </div>
       ))}
       </ContentScroll>
     </section>

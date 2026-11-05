@@ -42,6 +42,8 @@ export interface AnimatedBadgeProps extends Omit<
   showIcon?: boolean;
   pulse?: boolean;
   contentKey?: string | number;
+  /** Essential status labels may opt out of frame-dependent transitions. */
+  animated?: boolean;
 }
 
 const STATUS_CLASS: Record<AnimatedBadgeStatus, string> = {
@@ -124,6 +126,7 @@ export function AnimatedBadge({
   showIcon = true,
   pulse = status === "loading",
   contentKey,
+  animated = true,
   className,
   style,
   ...rest
@@ -141,6 +144,16 @@ export function AnimatedBadge({
     (typeof children === "string" || typeof children === "number"
       ? children
       : status);
+
+  if (!animated) return (
+    <motion.span initial={false} style={style} className={cn(
+      "relative inline-flex shrink-0 items-center whitespace-nowrap rounded-full border font-medium tabular-nums",
+      STATUS_CLASS[status], SIZE_CLASS[size], className,
+    )} {...rest}>
+      {showIcon && <span aria-hidden data-badge-icon>{icon ?? <Icon className={ICON_CLASS[size]} />}</span>}
+      {hasLabel && <span data-badge-label>{children}</span>}
+    </motion.span>
+  );
 
   return (
     <motion.span

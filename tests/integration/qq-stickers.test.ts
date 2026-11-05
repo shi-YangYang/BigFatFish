@@ -40,7 +40,7 @@ it('validates/persists the local library, backups and old schema archives',async
   const db=new DatabaseSync(restored.database);const library=new StickerLibrary(db);expect(library.info(item.id)).toMatchObject({name:item.name,enabled:false});expect(library.options().networkEnabled).toBe(false);library.remove(item.id);expect(()=>library.image(item.id)).toThrow('STICKER_NOT_FOUND');db.close();
   // A valid schema-6 archive has no sticker tables. Its data restores without inventing rows.
   const envelope=JSON.parse(readFileSync(archive,'utf8')),payload=JSON.parse(Buffer.from(envelope.files[0].content,'base64').toString());payload.schema=6;delete payload.tables.qq_stickers;delete payload.tables.qq_sticker_options;const bytes=Buffer.from(JSON.stringify(payload));envelope.files[0]={path:'data.json',content:bytes.toString('base64'),size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};const legacy=join(root,'legacy.json');writeFileSync(legacy,JSON.stringify(envelope));const legacyP=paths(join(root,'legacy'));await restoreArchive(legacyP,legacy);const old=new DatabaseSync(legacyP.database);expect(new StickerLibrary(old).list()).toHaveLength(0);old.close();
-  const migration=new DatabaseSync(':memory:');migrate(migration,migrations.slice(0,6));migrate(migration);expect(migration.prepare('PRAGMA user_version').get()?.user_version).toBe(7);migration.close();
+  const migration=new DatabaseSync(':memory:');migrate(migration,migrations.slice(0,6));migrate(migration);expect(migration.prepare('PRAGMA user_version').get()?.user_version).toBe(8);migration.close();
  }finally{if(!stopped)await rt.stop();rmSync(root,{recursive:true,force:true});}
 });
 
@@ -62,7 +62,7 @@ it('restricts network sources, decodes real image bytes and revokes pending loca
  }finally{db.close();}
 });
 
-it('real DSH sees actual tool image pixels and sends one image with the QQ text',async()=>{
+it('real DSH sees actual tool image pixels and sends separate image and text QQ bubbles',async()=>{
  const p=paths(mkdtempSync(join(tmpdir(),'bff-sticker-dsh-'))),fixture=await fixtureModel(),bot=await onebotFixture(),runtime=await startRuntime(p);
  const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body);
  try{
@@ -70,11 +70,15 @@ it('real DSH sees actual tool image pixels and sends one image with the QQ text'
   const data=(await png()).toString('base64'),item=await call<StickerInfo>('/v1/channels/qq/stickers','POST',{name:'开心',description:'开心聊天',data});fixture.controls.sticker=item.id;
   await call('/v1/channels/qq/sticker-options','PUT',{networkEnabled:false,revision:'initial'});
   await call('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:'20002',groups:[],enabled:true,replyEnabled:true,proactiveEnabled:false,token:'fixture-token',revision:''});await wait(()=>call<ChannelStatus>('/v1/channels/qq'),s=>s.health.state==='online');
-  bot.event(incoming('1'));const deliveries=await wait(()=>call<{id:string;status:string;error:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id.endsWith(':1')&&!['queued','generating','sending'].includes(d.status)));expect(deliveries[0]).toMatchObject({status:'sent'});
-  const sends=bot.requests.filter(r=>r.action.startsWith('send_'));expect(sends).toHaveLength(1);expect(sends[0]!.params.message).toEqual([{type:'text',data:{text:'好耶，给你看看我的表情！'}},{type:'image',data:{file:'base64://'+data}}]);
+  bot.event({...incoming('1'),message:[{type:'text',data:{text:'今天真开心'}}]});const deliveries=await wait(()=>call<{id:string;status:string;error:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id==='10001:private:20002:1'&&!['queued','generating','sending'].includes(d.status)));expect(deliveries[0]).toMatchObject({status:'sent'});
+  const sends=bot.requests.filter(r=>r.action.startsWith('send_'));expect(sends).toHaveLength(2);expect(sends[0]!.params.message).toEqual([{type:'text',data:{text:'好耶，给你看看我的表情！'}}]);expect(sends[1]!.params.message).toEqual([{type:'image',data:{file:'base64://'+data}}]);
   expect(JSON.stringify(fixture.requests)).toContain('data:image/png;base64,');expect(JSON.stringify(fixture.requests)).toContain('queued_for_reply');
-  fixture.controls.sticker=undefined;bot.event(incoming('2'));await wait(()=>call<{id:string;status:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id.endsWith(':2')&&d.status==='sent'));expect(JSON.stringify(bot.requests.filter(r=>r.action.startsWith('send_')).at(-1)!.params.message)).not.toContain('base64://');
-  bot.controls.send='disconnect';bot.event(incoming('3'));await wait(()=>call<{id:string;status:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id.endsWith(':3')&&d.status==='unknown'));await delay(100);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(3);
+  const firstRequest=fixture.requests[0]!.body.messages as {role:string;content:unknown}[];
+  expect(JSON.stringify(firstRequest.filter(message=>message.role==='system'))).toContain('日常闲聊经常主动配一张贴切表情');
+  expect(JSON.stringify(firstRequest.filter(message=>message.role==='user'))).toContain('今天真开心');
+  expect(JSON.stringify(firstRequest.filter(message=>message.role==='user'))).not.toContain('QQ 本轮表情表达');
+  fixture.controls.sticker=undefined;bot.event(incoming('2'));await wait(()=>call<{id:string;status:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id==='10001:private:20002:2'&&d.status==='sent'));expect(JSON.stringify(bot.requests.filter(r=>r.action.startsWith('send_')).at(-1)!.params.message)).not.toContain('base64://');
+  bot.controls.send='disconnect';bot.event(incoming('3'));await wait(()=>call<{id:string;status:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id==='10001:private:20002:3'&&d.status==='unknown'));await delay(100);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(4);
  }finally{await runtime.stop();await bot.close();await fixture.close();rmSync(p.root,{recursive:true,force:true});}
 },45000);
 

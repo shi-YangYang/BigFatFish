@@ -44,7 +44,9 @@ export function segments(input:unknown,outbound=false):Segment[] {
 }
 export function messageId(value:unknown){const id=typeof value==='number'&&Number.isSafeInteger(value)?String(value):string(value,64);if(!/^-?[0-9]+$/.test(id))throw new InputError('INVALID_MESSAGE_ID');return id;}
 export function inbound(input:unknown,config:QQConfig) {
-  const b=object(input);if(b.post_type!=='message'||!['private','group'].includes(String(b.message_type)))return null;
+  const b=object(input);
+  if(b.post_type==='notice'&&b.notice_type==='notify'&&b.sub_type==='poke'){if(stableId(b.self_id)!==config.accountId||stableId(b.target_id)!==config.accountId)return null;const author=stableId(b.user_id);if(author===config.accountId)return null;const to:Target={kind:b.group_id?'group':'private',id:b.group_id?stableId(b.group_id):author};if(!allowsTarget(config,to)||!Number.isSafeInteger(b.time))return null;return {id:`poke-${b.time}-${author}`,author,target:to,parts:[{type:'text',data:{text:'[拍一拍]'}}] as Segment[],text:'[拍一拍]'};}
+  if(b.post_type!=='message'||!['private','group'].includes(String(b.message_type)))return null;
   if(stableId(b.self_id)!==config.accountId)return null;
   const author=stableId(b.user_id);if(author===config.accountId)return null;
   const to:Target={kind:b.message_type as Target['kind'],id:b.message_type==='group'?stableId(b.group_id):author};
@@ -54,5 +56,8 @@ export function inbound(input:unknown,config:QQConfig) {
   if(to.kind==='group'&&config.groupReplyMode==='mention'&&!parts.some(s=>s.type==='at'&&s.data.qq===config.accountId))return null;
   const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片]':s.type==='record'?'[语音]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
   if(!text)return null;
-  return {id:messageId(b.message_id),author,target:to,parts,text};
+  const sender=b.sender&&typeof b.sender==='object'?b.sender as Record<string,unknown>:{};
+  const nickname=typeof sender.card==='string'&&sender.card?sender.card:typeof sender.nickname==='string'?sender.nickname:'';
+  const identity={author,nickname:nickname.slice(0,100),mentioned:parts.some(s=>s.type==='at'&&s.data.qq===config.accountId),replyToMessageId:parts.find(s=>s.type==='reply')?.data.id??null};
+  return {id:messageId(b.message_id),author,target:to,parts,text,identity};
 }

@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {InputError,object,string} from '../ai/types.js';
 import {STICKER_LIMITS,validateStickerImage} from './stickers.js';
+import {stickerRecency} from './sticker-history.js';
 const catalogURL='https://aigengtu.com/gallery-index.json';
 export function stickerURL(value:string,catalog=false){
  const url=new URL(value);if(url.protocol!=='https:'||url.port||url.username||url.password||url.search||url.hash||url.href!==(catalog?catalogURL:value))throw new InputError('STICKER_SOURCE_INVALID');
@@ -22,7 +23,7 @@ interface NetworkSticker {id:string;name:string;description:string;url:string}
 export class NetworkStickers {
  private cached?:{at:number;items:NetworkSticker[]};
  constructor(private fetchBytes=fetchStickerBytes){}
- async search(query:string,signal:AbortSignal){
+ async search(query:string,signal:AbortSignal,recent:readonly string[]=[]){
   query=string(query,80).toLowerCase();
   if(!this.cached||Date.now()-this.cached.at>15*60*1000){
    const bytes=await this.fetchBytes(catalogURL,signal,true),payload=object(JSON.parse(bytes.toString('utf8'))),gallery=object(payload.gallery),group=object(gallery['DeepSeek娘']);
@@ -34,7 +35,7 @@ export class NetworkStickers {
    }catch{/* malformed entries cannot become download targets */}}
    this.cached={at:Date.now(),items};
   }
-  signal.throwIfAborted();const terms=query.split(/[\s，,]+/).filter(Boolean);return this.cached.items.map(item=>({item,score:terms.reduce((n,t)=>n+(item.name.toLowerCase().includes(t)?3:0)+(item.description.toLowerCase().includes(t)?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.item);
+  signal.throwIfAborted();const terms=query.split(/[\s，,]+/).filter(Boolean);return this.cached.items.map(item=>({item,score:terms.reduce((n,t)=>n+(item.name.toLowerCase().includes(t)?3:0)+(item.description.toLowerCase().includes(t)?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||stickerRecency(a.item.id,recent)-stickerRecency(b.item.id,recent)).slice(0,8).map(x=>x.item);
  }
  async image(item:NetworkSticker,signal:AbortSignal){const raw=await this.fetchBytes(item.url,signal),decoder=sharp(raw,{limitInputPixels:STICKER_LIMITS.pixels,failOn:'warning'}),meta=await decoder.metadata();if(!['png','jpeg','webp'].includes(meta.format??'')||(meta.pages??1)!==1)throw new InputError('INVALID_STICKER_IMAGE');const png=await decoder.resize({width:768,height:768,fit:'inside',withoutEnlargement:true}).png().toBuffer();signal.throwIfAborted();return validateStickerImage(png.toString('base64'));}
 }

@@ -73,3 +73,7 @@
 - [Spec 035：QQ 图片、无引用回复与人设](spec-035-qq-media-persona/spec.md)：[独立验收PASS](spec-035-qq-media-persona/acceptance.md)；修复托管图片内容返回，强化女儿感与鱼粮梗。
 
 - [Spec 036：刷新 QQ 好友与群聊](spec-036-qq-contact-refresh/spec.md)：[PASS](spec-036-qq-contact-refresh/acceptance-r1.md)；显式刷新联系人并保留回复设置草稿，补齐慢请求超时。
+
+- [Spec 037：自然用图与 Desktop 易用性](spec-037-lively-desktop/spec.md)：[返工独立 PASS](spec-037-lively-desktop/acceptance-r1.md)；主动考虑贴切配图与近期避重复，列表优先、共享状态同步及全面原生页面审计。
+
+- [Spec 038：网站完整人设卡与工具适配](spec-038-source-persona-cards/spec.md)：[PASS](spec-038-source-persona-cards/acceptance-r1.md)；两张来源卡全文与 QQ/记忆/联网工具已启用，当前女儿版 v5，QQ 已在线且自动回复启用。

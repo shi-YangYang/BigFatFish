@@ -108,3 +108,11 @@ Mac/Linux 使用本机 Docker（固定 amd64/arm64 manifest digest、回环映�
 ## QQ 对话与直接发送（Spec025）
 
 QQConfig保留唯一ownerId，新增friendIds与groupReplyMode；旧配置分别按空好友列表及all读取。Runtime统一目标允许范围，主人私聊与好友/群受众分开，好友仅使用共享记忆。QQ主动消息使用`POST /v1/channels/qq/send`直接发送，B站分享、CLI和新插件channel.send共用服务，保留最终撤权、媒体与交付状态检查。旧审批接口及channel.propose明确废弃，不重放历史项；旧插件提案权限不自动升级。共用ApprovalStore继续用于抖音，无schema变化。实际本轮检查与限制见Spec025 Plan。
+
+## 完整人设卡与聊天工具（Spec038）
+
+人格 JSON 增加可选完整卡正文与来源标识，Desktop/Web 共享两张来源预设，后台结构化任务不使用闲聊卡。卡原文和作者来源保留，平台差异在提示构建及回合工具中适配，不作为代码指令或权限来源。
+
+Runtime 按可信会话注入只读网页及范围记忆工具；网页搜索使用无需账号的 Bing RSS，网页正文限公开 HTTPS、有界并固定已校验的 DNS 地址。QQ 回复动作先暂存、完成后在当前目标逐项授权投递，图文分开；拍一拍由原版 NapCat `send_poke` 完成，内置插件沿原更新 API 分发，不新增插件管理权限。
+
+独立自动笔记为 schema 8 新增 `conversation_notes` 表/索引，以账号与私聊/群范围隔离，包含来源与引用，不覆盖主人确认记忆。memories 逻辑归档包含笔记；原 schema 6/7 归档仍可恢复。此处描述代码契约，真实数据应用及验证结果见 Spec038。

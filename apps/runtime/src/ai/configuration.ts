@@ -68,6 +68,8 @@ export class Configuration {
     if (value.version !== old.version) throw new InputError('PERSONA_VERSION_CONFLICT', 409);
     const next = { ...old, version: old.version + 1 };
     for (const key of ['name','avatar','role','traits','style','likes','dislikes','boundaries','schedule','autonomy'] as const) next[key] = string(value[key], key === 'name' ? 100 : 4000, key !== 'name');
+    if (value.cardPrompt !== undefined) next.cardPrompt = string(value.cardPrompt, 32000, true);
+    if (value.cardId !== undefined) next.cardId = string(value.cardId, 100, true);
     if (next.avatar && !/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/.test(next.avatar)) throw new InputError('INVALID_AVATAR');
     this.db.prepare('INSERT INTO personas(version, config, created_at) VALUES(?,?,?)').run(next.version, JSON.stringify(next), new Date().toISOString()); return next;
   }

@@ -1,3 +1,4 @@
+import {ConversationNotes} from '../memory/notes.js';
 import {StickerLibrary} from '../channels/stickers.js';
 import {validateBundle,hash as pluginHash} from '../plugins/package.js';
 import { backup, DatabaseSync, type SQLInputValue } from "node:sqlite";
@@ -44,7 +45,7 @@ export const groups = {
     "channel_sessions",
     "channel_deliveries",
   ],
-  memories: ["memories", "memory_links", "interests", "relationships"],
+  memories: ["memories", "memory_links", "interests", "relationships", "conversation_notes"],
   life: [
     "activity_records",
     "experiences",
@@ -156,7 +157,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || ![6, SCHEMA_VERSION].includes(payload.schema))
+  if (payload.version !== 1 || ![6, 7, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -334,6 +335,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
         }
       }
       await new StickerLibrary(db).validateStored();
+      new ConversationNotes(db).validateStored();
       // Canonical message history will seed a fresh DSH session, excluding old hidden context and host paths.
       for (const row of db.prepare("SELECT id FROM conversations").all())
         db.prepare(

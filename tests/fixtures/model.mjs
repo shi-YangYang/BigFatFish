@@ -1,7 +1,7 @@
 import {Buffer} from 'node:buffer';
 import { createServer } from 'node:http';
 export async function fixtureModel() {
-  const requests = [], controls = { memoryResponse: undefined, slowMemory: false, tool: false, sticker: undefined };
+  const requests = [], controls = { memoryResponse: undefined, slowMemory: false, tool: false, sticker: undefined, replyTools: undefined };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     if(req.url==='/v1/audio/transcriptions'){requests.push({url:req.url,raw});res.setHeader('content-type','application/json');res.end(JSON.stringify({text:'隔离音轨转写：海洋里的鱼'}));return;}
@@ -22,6 +22,7 @@ export async function fixtureModel() {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'fixture-1', object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     emit({ role: 'assistant' });
+    if(controls.replyTools&&body.tools?.length){const completed=body.messages.slice(body.messages.findLastIndex(m=>m.role==='user')+1).filter(m=>m.role==='assistant').flatMap(m=>m.tool_calls??[]).map(t=>t.function.name);const step=controls.replyTools.find(s=>!completed.includes(s.name));if(step){emit({tool_calls:[{index:0,id:'call-'+step.name,type:'function',function:{name:step.name,arguments:JSON.stringify(step.args)}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}emit({},'stop');res.end('data: [DONE]\n\n');return;}
     if(controls.sticker&&body.tools?.length){
       const names=['list_stickers','get_sticker_image','send_sticker'];
       const completed=body.messages.filter(m=>m.role==='assistant').flatMap(m=>m.tool_calls??[]).map(t=>t.function.name);

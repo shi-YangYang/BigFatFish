@@ -56,8 +56,10 @@ export function Chat({
     drafts = useRef(new Map<string, string>()),
     textRef = useRef(text),
     fileInput = useRef<HTMLInputElement>(null);
-  const locked = readOnly.includes(selected);
-  const sessionModel = sessions.find(session => session.id === selected)?.modelId;
+  const currentSession = sessions.find(session => session.id === selected);
+  const locked = readOnly.includes(selected) || currentSession?.readOnly === true;
+  const senderLabel = locked ? "对方" : "你";
+  const sessionModel = currentSession?.modelId;
   const canChat = models.some(model => model.id === (selected ? sessionModel : chatModel));
   function updateText(value: string) {
     draftVersion.current++;
@@ -98,7 +100,7 @@ export function Chat({
         if (!live) return;
         setSessions(items);
         if (currentSelection.current === origin && draftVersion.current === 0)
-          selectSession(items[0]?.id ?? "");
+          selectSession(items.find(session => !session.readOnly)?.id ?? "");
       })
       .catch((e) => {
         if (live) fail(e);
@@ -248,7 +250,23 @@ export function Chat({
       if (mounted.current) setMediaBusy(false);
     }
   }
-  const title = sessions.find((s) => s.id === selected)?.title ?? "新对话";
+  const title = currentSession?.title ?? "新对话";
+  const voiceOptions = (
+<Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" align="start" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
+
+                  <Field>
+                    声音名称
+                    <Input
+                      value={voice}
+                      placeholder="例如 alloy"
+                      onChange={(e) => {
+                        setVoice(e.target.value);
+                        localStorage.setItem("bff-voice", e.target.value);
+                      }}
+                    />
+                  </Field>
+                </Menu>
+  );
   return (
     <section className="chat">
       {active && renderHeader(
@@ -293,7 +311,7 @@ export function Chat({
                   onClick={() => selectSession(s.id)}
                 >
                   <span>{s.title}</span>
-                  <small>{new Date(s.createdAt).toLocaleDateString()}</small>
+                  <small>{s.readOnly || readOnly.includes(s.id) ? "QQ · 只读" : "本地聊天"} · {new Date(s.createdAt).toLocaleDateString()}</small>
                 </Button>
               ))
             ) : (
@@ -309,11 +327,11 @@ export function Chat({
               <div className="chat-welcome">
                 <FishAvatar />
                 <h2>
-                  {canChat
+                  {locked ? "QQ 会话记录" : canChat
                     ? "今天想聊些什么？"
                     : "先为大肥鱼添加一个模型"}
                 </h2>
-                {!canChat ? (
+                {locked ? <p>请在 QQ 中继续对话。</p> : !canChat ? (
                   <Button type="button" onClick={configureModel}>
                     添加聊天模型
                   </Button>
@@ -323,12 +341,12 @@ export function Chat({
               </div>
             )}
             {messages.map((m) => (
-              <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? "你的消息" : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
+              <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? `${senderLabel}的消息` : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
                 <MessageAvatar className="message-avatar">
-                  {m.role === "assistant" ? <FishAvatar /> : <span>你</span>}
+                  {m.role === "assistant" ? <FishAvatar /> : <span>{locked ? "QQ" : "你"}</span>}
                 </MessageAvatar>
                 <MessageContent className="message-content items-start">
-                  <strong>{m.role === "user" ? "你" : "大肥鱼"}</strong>
+                  <strong>{m.role === "user" ? senderLabel : "大肥鱼"}</strong>
                   <MessageBubble align="start" variant={m.role === "assistant" ? "ghost" : "soft"} className="chat-bubble"><MessageBubbleContent className="max-w-full text-[15px] leading-[1.85]">
                     {m.content ||
                       (["queued", "running"].includes(m.status)
@@ -393,8 +411,8 @@ export function Chat({
           )}
           <div className="composer-area">
             {streamOffline && <p role="status" className="stream-status">聊天连接已断开，已有回复已保留。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
-            {locked && <p className="muted">此会话仅供查看，请从 QQ 继续。</p>}
-            <PromptInput className="composer" onSubmit={() => send()}
+            {locked && <div className="readonly-chat"><span>QQ 会话 · 只读，请在 QQ 中继续对话。</span>{voiceOptions}<Button onClick={() => selectSession("")}>开始本地对话</Button></div>}
+            {!locked && <PromptInput className="composer" onSubmit={() => send()}
               aria-label="消息" value={text} onValueChange={updateText}
               placeholder="和大肥鱼聊聊…" disabled={locked || !canChat}
               submitDisabled={busy || !connected} footer={
@@ -415,26 +433,13 @@ export function Chat({
                 >
                   {mediaBusy ? "处理中…" : "上传音频"}
                 </Button>
-                <Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" align="start" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
-
-                  <Field>
-                    声音名称
-                    <Input
-                      value={voice}
-                      placeholder="例如 alloy"
-                      onChange={(e) => {
-                        setVoice(e.target.value);
-                        localStorage.setItem("bff-voice", e.target.value);
-                      }}
-                    />
-                  </Field>
-                </Menu>
+                {voiceOptions}
                 <Button variant="primary" className="send-button" type="submit"
                   disabled={busy || locked || !connected || !canChat || !text.trim()}>
                   {busy ? "发送中…" : "发送"}
                 </Button>
               </div>
-            } />
+            } />}
           </div>
         </div>
       </div>

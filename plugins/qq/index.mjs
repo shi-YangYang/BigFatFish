@@ -68,7 +68,7 @@ export class QQPlugin {
       this.socket.send(JSON.stringify({action,params,echo}),error=>{if(error){clearTimeout(timer);this.pending.delete(echo);reject(new Error('SEND_UNKNOWN'));}});
     });
   }
-  async send(kind,id,message,guard) {
+  async readyToSend(guard) {
     const generation=this.generation;
     try {
       const login=await this.request('get_login_info',{}),status=await this.request('get_status',{});
@@ -78,6 +78,11 @@ export class QQPlugin {
       // Last synchronous step before external I/O, after every asynchronous check.
       guard();
     }catch(error){throw new Error('SEND_NOT_STARTED',{cause:error});}
+  }
+  beforeIo(guard){try{guard();}catch(error){throw new Error('SEND_NOT_STARTED',{cause:error});}}
+  async poke(kind,id,userId,guard){await this.readyToSend(guard);this.beforeIo(guard);await this.request('send_poke',{user_id:userId,...(kind==='group'?{group_id:id}:{})});}
+  async send(kind,id,message,guard) {
+    await this.readyToSend(guard);this.beforeIo(guard);
     if(message.length===1&&message[0].type==='file'){const part=message[0];const result=await this.request(kind==='group'?'upload_group_file':'upload_private_file',{[kind==='group'?'group_id':'user_id']:id,file:part.data.file,name:part.data.name},30000);if(typeof result?.file_id!=='string'||!result.file_id)throw new Error('SEND_UNKNOWN');return {messageId:result.file_id};}
     const result=await this.request(kind==='group'?'send_group_msg':'send_private_msg',{[kind==='group'?'group_id':'user_id']:id,message});
     const mid=typeof result?.message_id==='string'?result.message_id:Number.isSafeInteger(result?.message_id)?String(result.message_id):'';

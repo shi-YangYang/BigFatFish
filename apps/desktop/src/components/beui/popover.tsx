@@ -212,6 +212,7 @@ interface PopoverContextValue {
   gap: number;
   panelRadius: number;
   gooStrength: number;
+  animated: boolean;
   reduce: boolean;
   gooId: string;
   contentId: string;
@@ -247,6 +248,8 @@ export interface PopoverProps {
   panelRadius?: number;
   /** Blur radius feeding the goo filter — higher melts more. Default 8. */
   gooStrength?: number;
+  /** Essential menus can render open/closed state without animation frames. */
+  animated?: boolean;
   className?: string;
 }
 
@@ -261,6 +264,7 @@ export function Popover({
   sideOffset = 14,
   panelRadius = 16,
   gooStrength = 8,
+  animated = true,
   className,
 }: PopoverProps) {
   const reduce = useReducedMotion() ?? false;
@@ -307,6 +311,7 @@ export function Popover({
   useEffect(() => () => cancelClose(), [cancelClose]);
 
   useEffect(() => {
+    if (!animated) return;
     const animation = animate(
       progress,
       open ? 1 : 0,
@@ -317,7 +322,7 @@ export function Popover({
           : GOO_CLOSE_SPRING,
     );
     return () => animation.stop();
-  }, [open, progress, reduce]);
+  }, [animated, open, progress, reduce]);
 
   // The panel is a `role="dialog"` and goes inert the moment it closes, so
   // focus cannot be left sitting inside it: Escape hands it back to the
@@ -355,6 +360,7 @@ export function Popover({
       gap: sideOffset,
       panelRadius,
       gooStrength,
+      animated,
       reduce,
       gooId,
       contentId,
@@ -374,6 +380,7 @@ export function Popover({
       sideOffset,
       panelRadius,
       gooStrength,
+      animated,
       reduce,
       gooId,
       contentId,
@@ -510,6 +517,7 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
     gap,
     panelRadius,
     gooStrength,
+    animated,
     reduce,
     gooId,
     contentId,
@@ -573,10 +581,12 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
         "shape(from 0px 0px, line to 1px 1px, close)",
       );
     geoRef.current = geo;
-    render(geo, progress.get());
-  }, [geo, progress, render]);
+    render(geo, animated ? progress.get() : Number(open));
+  }, [animated, geo, open, progress, render]);
 
-  useMotionValueEvent(progress, "change", (p) => render(geoRef.current, p));
+  useMotionValueEvent(progress, "change", (p) => {
+    if (animated) render(geoRef.current, p);
+  });
 
   // While closed, the layer still paints its copy of the trigger pill, and the
   // cutout's antialiased edge leaves a faint rim around the real trigger. It
@@ -600,13 +610,14 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
   // Match the server and first client render, then attach the portal after
   // hydration. This preserves SSR without regenerating the page on the client.
   if (!portalReady) return null;
+  const displayProgress = animated ? progress.get() : Number(open);
 
   return createPortal(
     <div
       data-popover-portal=""
       className="pointer-events-none fixed left-0 top-0 z-[9999] isolate size-0"
       style={{
-        visibility: layout && !closedAtRest ? "visible" : "hidden",
+        visibility: layout && (animated ? !closedAtRest : open) ? "visible" : "hidden",
         transform: `translate3d(${layout?.trigger.left ?? 0}px, ${layout?.trigger.top ?? 0}px, 0)`,
       }}
     >
@@ -659,7 +670,7 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
           ref={blobRef}
           className="absolute inset-0 bg-popover"
           style={{
-            clipPath: clipForProgress(geo, progress.get(), false),
+            clipPath: clipForProgress(geo, displayProgress, false),
           }}
         />
       </div>
@@ -680,7 +691,7 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
           inert={!open}
           className="absolute inset-0"
           style={{
-            clipPath: clipForProgress(geo, progress.get(), false),
+            clipPath: clipForProgress(geo, displayProgress, false),
             pointerEvents: open ? "auto" : "none",
           }}
         >

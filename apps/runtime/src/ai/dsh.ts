@@ -24,7 +24,7 @@ export class DSHAdapter implements AgentEngine {
     }
     const token = randomBytes(32).toString('hex');
     let childPort = 0, text = '', attempt = '', revision = 0;
-    let modelRequest=0,modelError:string|undefined;
+    let modelRequest=0,modelError:string|undefined,toolFailed=false;
     const imageResults = new Map<string,{tool:EngineTool;value:unknown;presented:boolean}>();
     const bridge = createServer(async (req, res) => {
       if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${token}` || req.headers.origin) { res.writeHead(403).end(); return; }
@@ -39,7 +39,7 @@ export class DSHAdapter implements AgentEngine {
         if(data.imageReceipt && data.sessionId===input.sessionId){
           const pending=imageResults.get(data.imageReceipt);if(!pending||typeof data.presented!=='boolean')throw new Error();
           if(data.presented&&pending.presented)throw new Error(); // Success is accepted only once; a later transport failure may still revoke it.
-          const success=data.presented&&!input.signal.aborted;
+          const success=data.presented&&!input.signal.aborted;if(!success)toolFailed=true;
           pending.presented=success;if(!success)imageResults.delete(data.imageReceipt);
           try{pending.tool.onImageResult?.(pending.value,success);input.onTool?.({name:pending.tool.name,state:success?'completed':'failed'});}
           catch{imageResults.delete(data.imageReceipt);pending.tool.onImageResult?.(pending.value,false);input.onTool?.({name:pending.tool.name,state:'failed'});throw new Error();}
@@ -54,7 +54,7 @@ export class DSHAdapter implements AgentEngine {
             const result=JSON.stringify({result:value,...(imageReceipt?{imageReceipt}:{})});if(result.length>(imageReceipt?2_800_000:65536))throw new Error();
             if(imageReceipt)imageResults.set(imageReceipt,{tool,value,presented:false});else input.onTool?.({name:tool.name,state:'completed'});
             res.end(result);return;
-          }catch{input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}
+          }catch{toolFailed=true;input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}
         }
         if (data.ready === true && Number.isInteger(data.port) && data.port > 0 && data.port < 65536) childPort = data.port;
         else if (data.sessionId === input.sessionId && !input.signal.aborted) {
@@ -104,10 +104,13 @@ export class DSHAdapter implements AgentEngine {
       if (childPort) { const flushed = await fetch(`http://127.0.0.1:${childPort}/flush`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) }); if (!flushed.ok) throw new Error('BRIDGE_FAILED'); }
       if (input.signal.aborted) throw new Error('CANCELLED');
       const end = result.events.filter(event => event.type === 'turn/end').at(-1);
-      const reason = (end?.data as { reason?: { kind?: string } } | undefined)?.reason?.kind;
-      if (reason && !['completed','complete','success','stop'].includes(reason)) throw modelError?new InputError(modelError):new Error('MODEL_RUN_FAILED');
-      if (!result.finalResponse) throw modelError?new InputError(modelError):new Error('EMPTY_MODEL_RESPONSE');
-      resultText = result.finalResponse;
+      const reason = (end?.data as { reason?: { kind?: string; error?:{code?:string} } } | undefined)?.reason;
+      // Fixed SDK labels a successful no-text stop as EMPTY_RESPONSE. Only explicit
+      // Runtime-owned reply actions/silence may complete without a textual final.
+      const explicitEmpty=reason?.kind==='error'&&reason.error?.code==='EMPTY_RESPONSE'&&!modelError&&!toolFailed&&input.acceptEmpty?.();
+      if (reason && !['completed','complete','success','stop'].includes(reason.kind??'')&&!explicitEmpty) throw modelError?new InputError(modelError):new Error('MODEL_RUN_FAILED');
+      if (!result.finalResponse && !input.acceptEmpty?.()) throw modelError?new InputError(modelError):new Error('EMPTY_MODEL_RESPONSE');
+      resultText = result.finalResponse ?? '';
     } catch (error) {
       // SDK errors may embed provider response bodies or keys. Never expose them.
       runError = input.signal.aborted ? new Error('CANCELLED', { cause: error })

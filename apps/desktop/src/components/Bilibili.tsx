@@ -31,9 +31,9 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
  const connection=status.connection,connecting=['connecting','login'].includes(connection?.phase??''),connected=status.enabled&&status.accountState==='verified';
  const locked=busy||connecting,login=connection?.login;
  return <section className="platform-connection">
-  <div className="section-heading"><h2>B站</h2><Badge>{connected?'已连接':connecting?'连接中':status.enabled?'未登录':'未连接'}</Badge></div>
+
   <Card className="platform-account-card">
-   <div className="platform-account-heading"><div><h3>{status.account?.name||'登录 B站'}</h3>{status.account&&<p className="muted">{status.account.mid}</p>}</div></div>
+   <div className="platform-account-heading"><div><h2>B站{status.account?.name && <span className="account-name"> · {status.account.name}</span>}</h2>{status.account&&<p className="muted">{status.account.mid}</p>}</div><Badge>{connected?'已连接':connecting?'连接中':status.enabled?'未登录':'未连接'}</Badge></div>
    {status.health.error&&<Alert>{errorText(status.health.error)}</Alert>}
    {connection?.error&&<Alert>{errorText(connection.error)}</Alert>}
    {connection?.phase==='connecting'&&<Loading>正在连接…</Loading>}
