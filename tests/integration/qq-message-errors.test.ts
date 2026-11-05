@@ -11,7 +11,8 @@ import {requestRuntime} from '../../apps/runtime/src/connection.js';
 import type {ChatMessage} from '../../apps/runtime/src/ai/types.js';
 import type {ChannelStatus,SendResult} from '../../apps/runtime/src/channels/types.js';
 import {onebotFixture} from '../fixtures/onebot.js';
-import {deliveryFeedback,sendFailureFeedback,qqAuditText,type QQDelivery} from '../../apps/desktop/src/components/qq-feedback.js';
+import {qqAuditText} from '../../apps/desktop/src/components/qq-feedback.js';
+type DeliveryRecord=SendResult&{error?:string|null};
 const until=async<T>(read:()=>Promise<T>,done:(v:T)=>boolean)=>{let v=await read();for(let i=0;i<300&&!done(v);i++){await delay(50);v=await read();}expect(done(v),JSON.stringify(v)).toBe(true);return v;};
 const event=(id:string)=>({post_type:'message',message_type:'private',self_id:'10001',user_id:'20002',message_id:id,message:[{type:'text',data:{text:'你好'}}]});
 it('keeps real model failure causes through DSH, Chat and QQ without claiming permission rejection or resending',async()=>{
@@ -20,14 +21,14 @@ it('keeps real model failure causes through DSH, Chat and QQ without claiming pe
  model.listen(0,'127.0.0.1');await once(model,'listening');
  const p=paths(mkdtempSync(join(tmpdir(),'bff-qq-errors-'))),bot=await onebotFixture(),runtime=await startRuntime(p);
  const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body);
- const deliveries=()=>call<QQDelivery[]>('/v1/channels/qq/deliveries');
+ const deliveries=()=>call<DeliveryRecord[]>('/v1/channels/qq/deliveries');
  const terminal=async(id:string)=>(await until(deliveries,items=>items.some(v=>v.id.endsWith(':'+id)&&!['queued','generating','sending'].includes(v.status)))).find(v=>v.id.endsWith(':'+id))!;
  try{
   await call('/v1/models','POST',{id:'fixture',label:'fixture',provider:'openai',baseURL:`http://127.0.0.1:${(model.address() as {port:number}).port}/v1`,model:'fixture',apiKey:'fixture-key'});await call('/v1/model-routes','PUT',{chat:'fixture'});
   await call('/v1/channels/qq','PUT',{revision:'',url:bot.url,token:'fixture-token',accountId:'10001',ownerId:'20002',groups:[],enabled:true,replyEnabled:true,proactiveEnabled:true});
   await until(()=>call<ChannelStatus>('/v1/channels/qq'),s=>s.health.state==='online');
   for(const [i,setting,code] of [['1',502,'MODEL_HTTP_502'],['2',401,'MODEL_HTTP_401'],['3',429,'MODEL_HTTP_429'],['4','network','MODEL_NETWORK_ERROR']] as const){
-   mode=setting;bot.event(event(i));const item=await terminal(i);expect(item).toMatchObject({status:'failed',error:code});expect(deliveryFeedback(item).label).toBe('回复生成失败');
+   mode=setting;bot.event(event(i));const item=await terminal(i);expect(item).toMatchObject({status:'failed',error:code});
   }
   const conversations=await call<{id:string}[]>('/v1/conversations');
   const messages=(await Promise.all(conversations.map(c=>call<ChatMessage[]>('/v1/conversations/'+c.id+'/messages')))).flat();
@@ -44,13 +45,6 @@ it('keeps real model failure causes through DSH, Chat and QQ without claiming pe
   expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(sentCount);
  }finally{await runtime.stop();await bot.close();model.closeAllConnections();await new Promise<void>(r=>model.close(()=>r()));rmSync(p.root,{recursive:true,force:true});}
 },60000);
-it('explains legacy delivery causes and definite failures without leaking raw errors or suggesting duplicate sends',()=>{
- expect(deliveryFeedback({status:'blocked',error:'MODEL_RUN_FAILED',proactive:false})).toEqual({label:'回复生成失败',detail:'模型未能完成回复，具体原因未记录。'});
- expect(deliveryFeedback({status:'blocked',error:'PERMISSION_REVOKED',proactive:false}).label).toBe('未发送');
- expect(deliveryFeedback({status:'failed',error:'ACTION_REJECTED',proactive:true}).detail).toContain('QQ 服务');
- expect(deliveryFeedback({status:'unknown',proactive:true}).detail).toContain('避免重复发送');
- expect(deliveryFeedback({status:'blocked',error:'SECRET_RAW_ERROR',proactive:false}).detail).not.toContain('SECRET_RAW_ERROR');
- expect(sendFailureFeedback(new Error('PERMISSION_REVOKED'))).toEqual(sendFailureFeedback('PERMISSION_REVOKED'));
- expect(sendFailureFeedback('PERMISSION_REVOKED')).toContain('未发送');expect(sendFailureFeedback(new TypeError('Failed to fetch'))).toContain('核实');expect(sendFailureFeedback('SEND_UNKNOWN')).not.toContain('未发送：');expect(sendFailureFeedback('RUNTIME_RESTARTED')).toContain('核实');
+it('shows readable audit actions without exposing internal event identifiers',()=>{
  expect(qqAuditText('qq.blocked:10001:private:20002:123')).toBe('消息未发送');expect(qqAuditText('qq.legacy:private-id')).toBe('历史操作记录');
 });

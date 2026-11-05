@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec033 QQ消息页仅操作记录已完成
+
+EXISTING，dev基线3b922f3、开始干净。Spec033 Done：QQ消息页仅操作记录，删除发送表单、自动回复/主动发送记录及其页面请求/状态、组件、帮助函数、样式；文档/测试失效引用同步。保留自动回复与后台服务、历史数据。实施/root/implement_qq_audit_only、新独立/root/accept_qq_audit_only均完成，完整报告已读，PASS无返工。S1一次apps类型检查+diff通过；未UI/真实账号/后端或全量验证。持续阶段本地commit授权有效，由root提交、确切hash见git log；无push，远端未刷新。满足停止条件，不追加检查。下方为历史。
+
 ## 当前任务：Spec032 同类长内容卡片内部滚动已完成
 
 EXISTING，dev基线d94065d、开始干净。Spec032 Done：ContentScroll显式接入B站/抖音、生活/记忆、版本、日志和QQ记录/联系人/表情，单个受限滚动层、主要标题表单在外。实施/root/implement_card_content_scroll完成，S2一次apps类型检查+diff通过；首验/root/accept_card_content_scroll仅FAIL负margin裁切。新/root/rework_card_scroll_bounds用margin0及内侧outline作S0返工，新独立/root/accept_card_scroll_bounds PASS关闭R1，全部报告已读，无待返工。未全量测试/build/UI/真实服务验证，不把静态证据称为设备实测。持续阶段本地commit授权有效，root提交、确切hash见git log；无push，远端未刷新。满足停止条件，不追加验证。下方为已完成历史。

@@ -1049,10 +1049,6 @@ audio {
 .qq-reply-actions { border-top: 1px solid var(--border); padding-top: 12px; }
 .qq-history { display: grid; gap: 12px; }
 .qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-.qq-delivery-body { display: grid; gap: 4px; min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; }
-.qq-delivery-body strong { font-weight: 600; }
-.qq-delivery-body .muted, .qq-delivery-reason { font-size: 13px; }
-.qq-delivery-body .qq-delivery-reason { margin: 0; color: var(--muted); }
 .qq-history time { color: var(--muted); font-size: 12px; }
 @media (max-width: 480px) { .qq-account-heading { align-items: flex-start; flex-wrap: wrap; } }
 
