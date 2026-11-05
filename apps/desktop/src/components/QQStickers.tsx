@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {api} from '../api';
-import {Card,Loading} from './Surfaces';
+import { ContentScroll, Card,Loading} from './Surfaces';
 import {ActionRow,Button,Checkbox,Field,FormGrid,Input} from './Controls';
 import type {StickerInfo} from '../../../runtime/src/channels/stickers';
 const endpoint='/v1/channels/qq/stickers';
@@ -21,10 +21,10 @@ function StickerManager({fail}:{fail:(e:unknown)=>void}){
    <FormGrid><Field>名称<Input required maxLength={40} value={name} onChange={e=>setName(e.target.value)}/></Field><Field>适用场景<Input maxLength={200} placeholder="例如：开心、求夸夸" value={description} onChange={e=>setDescription(e.target.value)}/></Field></FormGrid>
    <ActionRow><span className="muted">PNG、JPG，最大 2 MB</span><Button type="submit" variant="primary" disabled={!file}>添加</Button></ActionRow>
   </fieldset></form>}
-  {!items?<Loading/>:items.length?<div className="sticker-grid">{items.map(item=><div className="sticker-item" key={item.id}>
+  {!items?<Loading/>:items.length?<ContentScroll label="本地表情" className="sticker-grid">{items.map(item=><div className="sticker-item" key={item.id}>
    <StickerPreview item={item}/><div className="sticker-caption"><strong>{item.name}</strong><span className="muted">{item.description||'自定义表情'}</span></div>
    <div className="sticker-item-actions"><Field className="check"><Checkbox checked={item.enabled} disabled={busy} onCheckedChange={enabled=>void act(()=>api(endpoint+'/'+encodeURIComponent(item.id),'PUT',{revision:item.revision,enabled}))}/>启用</Field>{!item.builtin&&<Button size="compact" variant="ghost" disabled={busy} aria-label={'删除'+item.name} onClick={()=>void act(()=>api(endpoint+'/'+encodeURIComponent(item.id),'DELETE'))}>删除</Button>}</div>
-  </div>)}</div>:<p className="muted">还没有本地表情</p>}
+  </div>)}</ContentScroll>:<p className="muted">还没有本地表情</p>}
  </div>;
 }
 function StickerPreview({item}:{item:StickerInfo}){

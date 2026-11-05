@@ -1,4 +1,4 @@
-import { Card, Disclosure , Alert, Loading} from "./Surfaces";
+import { ContentScroll, Card, Disclosure , Alert, Loading} from "./Surfaces";
 import { Button, Field, Input, FormGrid } from "./Controls";
 import { FishAvatar } from "./UI";
 import { usePoll, activityState, type ActivityOverview } from "./Douyin";
@@ -140,14 +140,8 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
       <div className="life-grid">
         <Card>
           <h3>当前活动</h3>
+          <ContentScroll label="当前活动">
           <CurrentActivities />
-          {navigate && (
-            <p>
-              <Button type="button" onClick={() => navigate("任务")}>
-                查看任务
-              </Button>
-            </p>
-          )}
           <p>
             {data.activity.length
               ? data.activity
@@ -161,25 +155,38 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
                 : "暂无聊天或整理任务"}
           </p>
           <p>已确认 {data.confirmedCount} 条记忆</p>
+          </ContentScroll>
+          {navigate && (
+            <p>
+              <Button type="button" onClick={() => navigate("任务")}>
+                查看任务
+              </Button>
+            </p>
+          )}
         </Card>
         <Card>
           <h3>兴趣</h3>
+          <ContentScroll label="兴趣">
           {data.interests.length ? (
             data.interests.map((m) => <p key={m.id}>{m.content}</p>)
           ) : (
             <p>还没有确认的兴趣。在记忆页添加或确认。</p>
           )}
+          </ContentScroll>
         </Card>
         <Card>
           <h3>关系</h3>
+          <ContentScroll label="关系">
           {data.relationships.length ? (
             data.relationships.map((m) => <p key={m.id}>{m.content}</p>)
           ) : (
             <p>还没有确认的关系。</p>
           )}
+          </ContentScroll>
         </Card>
         <Card>
           <h3>最近经历</h3>
+          <ContentScroll label="最近经历">
           {data.recent.length ? (
             data.recent.map((a) => (
               <p key={a.id}>
@@ -190,9 +197,11 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
           ) : (
             <p>开始聊天，留下第一段经历。</p>
           )}
+          </ContentScroll>
         </Card>
       </div>
       <h3>最近日记</h3>
+      <ContentScroll label="最近日记" className="content-scroll-list">
       {data.diaries.length ? (
         data.diaries.map((d) => (
           <Card key={d.id}>
@@ -203,6 +212,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
       ) : (
         <p>暂无日记，可在生活页整理当天经历。</p>
       )}
+      </ContentScroll>
     </section>
   );
 }
@@ -216,7 +226,7 @@ export function TaskList({
   fail: (e: unknown) => void;
 }) {
   return (
-    <div>
+    <ContentScroll label="整理任务">
       {tasks.slice(0, 8).map((t) => (
         <div className="task-row" key={t.id}>
           {t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]} ·{" "}
@@ -236,7 +246,7 @@ export function TaskList({
           )}
         </div>
       ))}
-    </div>
+    </ContentScroll>
   );
 }
 export function Life({ fail }: { fail: (e: unknown) => void }) {
@@ -321,6 +331,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       />
       <h3>日记</h3>
       {!diaries.length && <p>暂无日记。完成聊天后，选择日期生成。</p>}
+      <ContentScroll label="日记" className="content-scroll-list">
       {diaries.map((d) => (
         <Card key={d.id}>
           <h3>
@@ -348,14 +359,17 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           </Button>
         </Card>
       ))}
+      </ContentScroll>
       <h3>经历时间线</h3>
       {!timeline.length && <p>暂无经历，开始聊天后会记录实际活动。</p>}
+      <ContentScroll label="经历时间线" className="content-scroll-list">
       {timeline.map((a) => (
         <Card key={a.id}>
           <time>{new Date(a.occurredAt).toLocaleString()}</time>
           <p>{a.summary}</p>
         </Card>
       ))}
+      </ContentScroll>
     </section>
   );
 }
@@ -374,7 +388,7 @@ export function Sources({
   }>();
   return (
     <Disclosure  title={<>查看来源（{sources.length}）</>}>
-
+      <ContentScroll label="来源记录">
       {sources.map((s) => (
         <p key={s.type + s.id}>
           {s.quote}
@@ -416,6 +430,7 @@ export function Sources({
           </Button>
         </Card>
       )}
+      </ContentScroll>
     </Disclosure>
   );
 }

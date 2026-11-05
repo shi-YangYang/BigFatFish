@@ -82,6 +82,23 @@ select {
 .business-card { overflow-wrap: anywhere; margin: var(--form-gap) 0; }
 .business-card:has(form, fieldset, .ui-field) { padding: var(--surface-padding); }
 .business-card > :is(h2, h3, h4) { margin: 0; }
+.content-scroll {
+  min-width: 0;
+  min-height: 0;
+  max-height: min(var(--content-scroll-max, 360px), 50vh);
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  overflow-wrap: anywhere;
+  padding: 6px;
+  margin: 0;
+}
+.content-scroll:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 6px; }
+.content-scroll-list { display: grid; gap: var(--form-gap); }
+.content-scroll-list > .business-card { margin: 0; }
+.content-scroll > :first-child { margin-top: 0; }
+.content-scroll > :last-child { margin-bottom: 0; }
+.content-scroll-nested { min-width: 0; }
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -1018,7 +1035,7 @@ audio {
 .qq-login-code { display: grid; justify-items: center; gap: 8px; padding: 12px 0; }
 .qq-login-code img { width: 220px; max-width: 100%; height: auto; border-radius: 8px; }
 .qq-login-code p { margin: 0; text-align: center; }
-.qq-group-list { max-height: 240px; overflow: auto; display: grid; gap: 8px; }
+.qq-group-list { --content-scroll-max: 240px; display: grid; gap: 8px; }
 .qq-group-list .ui-field { overflow-wrap: anywhere; }
 .qq-reply-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .qq-reply-heading h3 { margin: 0; font-size: 16px; }
@@ -1030,7 +1047,7 @@ audio {
 .qq-reply-options > .qq-proactive-row { border-top: 1px solid var(--border); padding-top: 16px; }
 .qq-setting-hint { color: var(--muted); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .qq-reply-actions { border-top: 1px solid var(--border); padding-top: 12px; }
-.qq-history { display: grid; gap: 12px; max-height: min(360px, 50vh); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+.qq-history { display: grid; gap: 12px; }
 .qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .qq-delivery-body { display: grid; gap: 4px; min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; }
 .qq-delivery-body strong { font-weight: 600; }

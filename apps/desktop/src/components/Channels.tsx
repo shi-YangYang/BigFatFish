@@ -1,6 +1,6 @@
 import {QQDeliveryHistory} from './QQDeliveryHistory';
 import {deliveryFeedback,qqAuditText,sendFailureFeedback,type QQDelivery} from './qq-feedback';
-import { Card, Alert } from "./Surfaces";
+import { ContentScroll, Card, Alert } from "./Surfaces";
 import { Field, Input, Button, Select, Textarea } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
@@ -71,6 +71,6 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
     </form>
     {result&&<Alert role="status">{result}</Alert>}
     </Card><Card><h3>主动发送记录</h3><QQDeliveryHistory items={items.filter(item=>item.proactive)} empty="暂无主动消息"/></Card>
-    <Card><h3>操作记录</h3><div className="qq-history">{audit.map((item,index)=><div key={index}><span>{qqAuditText(item.event)}</span><time>{new Date(item.at).toLocaleString()}</time></div>)}</div>{!audit.length&&<p className="muted">暂无操作记录</p>}</Card>
+    <Card><h3>操作记录</h3><ContentScroll label="操作记录" className="qq-history">{audit.map((item,index)=><div key={index}><span>{qqAuditText(item.event)}</span><time>{new Date(item.at).toLocaleString()}</time></div>)}</ContentScroll>{!audit.length&&<p className="muted">暂无操作记录</p>}</Card>
   </>;
 }

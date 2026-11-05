@@ -1,4 +1,4 @@
-import { Card, Alert, Badge, Loading } from "./Surfaces";
+import { ContentScroll, Card, Alert, Badge, Loading } from "./Surfaces";
 import { Button, Field, Input, Select, ActionRow, FormGrid } from "./Controls";
 import { Tabs } from './UI';
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -62,7 +62,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
           </Button>
         </ActionRow>
         {results && (
-          <div>
+          <ContentScroll label="搜索结果" className="content-scroll-list">
             {results.length === 0 ? (
               <p>没有找到视频。</p>
             ) : (
@@ -77,7 +77,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
                 </Card>
               ))
             )}
-          </div>
+          </ContentScroll>
         )}
         <ActionRow className="video-query-row">
           <Field>
@@ -102,6 +102,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
   </Card>}
   {tab==='记录'&&<div className="platform-records">
       <h3>观看记录</h3>
+      <ContentScroll label="观看记录" className="content-scroll-list">
       {tasks.map((t) => (
         <Card key={t.id}>
           <h4>{t.result?.evidence.title ?? t.bvid}</h4>
@@ -157,6 +158,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
           )}
         </Card>
       ))}
+      </ContentScroll>
       <FormGrid>
         <Field>
           QQ 分享对象

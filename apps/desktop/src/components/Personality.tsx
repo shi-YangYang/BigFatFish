@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Disclosure, Loading } from "./Surfaces";
+import { ContentScroll, Disclosure, Loading } from "./Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "./Controls";
 import type { Persona } from "../../../runtime/src/ai/types";
 import { applyPersonaPreset, matchPersonaPreset, personaPresets } from "../../../runtime/src/ai/persona-presets";
@@ -113,6 +113,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
         setHistoryOpen(open);
         if (open) void loadHistory();
       }}>
+        <ContentScroll label="版本记录">
         {historyLoading ? <Loading /> : history?.map(item => (
           <Disclosure key={item.version} title={`版本 ${item.version} · ${item.name}`}>
             <p>{item.role}</p>
@@ -121,6 +122,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
             <p>边界：{item.boundaries}</p>
           </Disclosure>
         ))}
+        </ContentScroll>
       </Disclosure>
     </section>
   );

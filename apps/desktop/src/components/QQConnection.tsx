@@ -2,7 +2,7 @@ import {QQStickers} from './QQStickers';
 import {Tabs} from './UI';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
 import { api } from '../api';
-import { Card,Badge,Alert,Loading } from './Surfaces';
+import { ContentScroll, Card,Badge,Alert,Loading } from './Surfaces';
 import { Button,Field,Input,Checkbox,Select,ActionRow,FormGrid } from './Controls';
 import type { ChannelStatus,QQConfig } from '../../../runtime/src/channels/types';
 import type { ManagedQQStatus,QQContact } from '../../../runtime/src/channels/managed/types';
@@ -85,12 +85,12 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
      </div>
      <div className="qq-reply-options">
       <section className="qq-settings-group"><div className="qq-group-heading"><h4>可私聊的好友</h4><span className="qq-setting-hint">已选 {(form.friendIds??[]).filter(id=>id!==form.ownerId).length} 位</span></div>
-       {lists.friends.length>0&&!manualFriendsMode?<div className="qq-group-list">{lists.friends.filter(friend=>friend.id!==form.ownerId&&friend.id!==component?.account?.id).map(friend=><Field className="check" key={friend.id}><Checkbox checked={(form.friendIds??[]).includes(friend.id)} onCheckedChange={checked=>changeFriends(checked?[...(form.friendIds??[]),friend.id]:(form.friendIds??[]).filter(id=>id!==friend.id))}/>{friend.name} · {friend.id}</Field>)}</div>:<Field>可私聊的 QQ 号<Input placeholder="多个 QQ 号用逗号分隔，可留空" value={manualFriends} onChange={e=>changeFriends(e.target.value)}/></Field>}
+       {lists.friends.length>0&&!manualFriendsMode?<ContentScroll label="可私聊的好友" className="qq-group-list">{lists.friends.filter(friend=>friend.id!==form.ownerId&&friend.id!==component?.account?.id).map(friend=><Field className="check" key={friend.id}><Checkbox checked={(form.friendIds??[]).includes(friend.id)} onCheckedChange={checked=>changeFriends(checked?[...(form.friendIds??[]),friend.id]:(form.friendIds??[]).filter(id=>id!==friend.id))}/>{friend.name} · {friend.id}</Field>)}</ContentScroll>:<Field>可私聊的 QQ 号<Input placeholder="多个 QQ 号用逗号分隔，可留空" value={manualFriends} onChange={e=>changeFriends(e.target.value)}/></Field>}
        {lists.friends.length>0&&<Button className="qq-friends-manual-toggle" variant="ghost" onClick={()=>setManualFriendsMode(!manualFriendsMode)}>{manualFriendsMode?'从好友列表选择':'手动填写好友 QQ 号'}</Button>}
       </section>
       <section className="qq-settings-group"><div className="qq-group-heading"><h4>群聊回复</h4><span className="qq-setting-hint">{form.groups.length?`已选 ${form.groups.length} 个群`:'未选择'}</span></div>
        <Field>群聊触发方式<Select value={form.groupReplyMode??'all'} onValueChange={value=>change({groupReplyMode:value as QQConfig['groupReplyMode']})}><option value="all">普通消息也回复</option><option value="mention">仅被 @ 时回复</option></Select></Field>
-       {lists.groups.length?<div className="qq-group-list">{lists.groups.map(group=><Field className="check" key={group.id}><Checkbox checked={form.groups.includes(group.id)} onCheckedChange={checked=>change({groups:checked?[...form.groups,group.id]:form.groups.filter(id=>id!==group.id)})}/>{group.name} · {group.id}</Field>)}</div>:<Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={event=>{setManualGroups(event.target.value);change({groups:event.target.value.split(/[,，\s]+/).filter(Boolean)});}}/></Field>}
+       {lists.groups.length?<ContentScroll label="允许回复的群" className="qq-group-list">{lists.groups.map(group=><Field className="check" key={group.id}><Checkbox checked={form.groups.includes(group.id)} onCheckedChange={checked=>change({groups:checked?[...form.groups,group.id]:form.groups.filter(id=>id!==group.id)})}/>{group.name} · {group.id}</Field>)}</ContentScroll>:<Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={event=>{setManualGroups(event.target.value);change({groups:event.target.value.split(/[,，\s]+/).filter(Boolean)});}}/></Field>}
        {lists.error&&<p className="muted">暂时无法读取群列表，可填写群号。</p>}
       </section>
       <div className="qq-proactive-row"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许主动消息</Field></div>

@@ -1,4 +1,4 @@
-import { Card, Badge, Loading, Alert} from "./Surfaces";
+import { ContentScroll, Card, Badge, Loading, Alert} from "./Surfaces";
 import {
   Field,
   Checkbox,
@@ -328,7 +328,7 @@ export function ActivityRows({
   onVideo?: (id: string) => void;
 }) {
   return (
-    <>
+    <ContentScroll label="任务记录" className="content-scroll-list">
       {tasks.map((t) => (
         <Card key={t.id}>
           <p>
@@ -409,7 +409,7 @@ export function ActivityRows({
           )}
         </Card>
       ))}
-    </>
+    </ContentScroll>
   );
 }
 export function DouyinApprovals({ fail }: { fail: (e: unknown) => void }) {

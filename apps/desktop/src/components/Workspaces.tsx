@@ -1,4 +1,4 @@
-import { Disclosure, Card, Badge } from "./Surfaces";
+import { ContentScroll, Disclosure, Card, Badge } from "./Surfaces";
 import { Button } from "./Controls";
 import { useCallback, useEffect, useState } from "react";
 import { api, isWeb } from "../api";
@@ -236,7 +236,7 @@ function Logs({ fail }: Fail) {
       <Button type="button" onClick={() => void reload()}>
         刷新日志
       </Button>
-      <pre className="log-output">{lines.join("\n") || "暂无日志"}</pre>
+      <ContentScroll label="运行日志"><pre className="log-output">{lines.join("\n") || "暂无日志"}</pre></ContentScroll>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { Card , Alert} from "./Surfaces";
+import { ContentScroll, Card , Alert} from "./Surfaces";
 import {
   Field,
   Select,
@@ -247,6 +247,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
       </ActionRow>
       {exportPath && <p className="prewrap">导出已保存：{exportPath}</p>}
       {!memories.length && <p>没有符合条件的记忆。可整理对话，或直接添加。</p>}
+      <ContentScroll label="记忆记录" className="content-scroll-list">
       {memories.map((m) => (
         <Card key={m.id}>
           <Field className="check">
@@ -366,6 +367,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           </ActionRow>
         </Card>
       ))}
+      </ContentScroll>
       <ActionRow>
         <Button
           type="button"

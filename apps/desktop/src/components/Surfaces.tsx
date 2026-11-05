@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement, ReactNode } from "react";
+import { Children, createContext, useContext, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { Button } from "./Controls";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent, CollapsibleIndicator } from "./beui/collapsible";
 import { Popover, PopoverTrigger, PopoverContent } from "./beui/popover";
@@ -27,6 +27,17 @@ export function Menu({ trigger, children, className, side = "bottom", align = "e
 }
 export function Card({ className, ...props }: ComponentProps<typeof BeCard>) {
   return <BeCard role="article" {...props} className={cn("business-card border-solid rounded-[12px] p-[20px] gap-[12px]", className)} />;
+}
+const ContentScrollContext = createContext(false);
+export function ContentScroll({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+  const nested = useContext(ContentScrollContext);
+  if (!Children.toArray(children).length) return null;
+  return <ContentScrollContext.Provider value={true}>
+    <div className={cn(nested ? "content-scroll-nested" : "content-scroll", className)}
+      role={nested ? undefined : "region"} aria-label={nested ? undefined : label} tabIndex={nested ? undefined : 0}>
+      {children}
+    </div>
+  </ContentScrollContext.Provider>;
 }
 export function Alert({ className, children, variant = "destructive", ...props }: Omit<ComponentProps<typeof BeAlert>, "children"> & { children: ReactNode }) {
   return <BeAlert {...props} variant={variant} className={cn("ui-alert rounded-[8px] border-solid", className)} contentClassName="items-center gap-[10px] px-[12px] py-[10px]">

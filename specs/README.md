@@ -63,3 +63,5 @@
 - [Spec 030：同步 B站与抖音连接体验](spec-030-other-connect-flows/spec.md)：[独立验收PASS](spec-030-other-connect-flows/acceptance-r2.md)；单次连接、自动核验与功能页签。
 
 - [Spec 031：QQ 消息错误诊断与准确反馈](spec-031-qq-message-errors/spec.md)：[独立验收PASS](spec-031-qq-message-errors/acceptance.md)；安全模型错误分类、准确QQ记录与发送反馈。
+
+- [Spec 032：长内容卡片内部滚动](spec-032-card-content-scroll/spec.md)：[返工独立验收PASS](spec-032-card-content-scroll/acceptance-r1.md)；统一同类记录、长文本及列表的内容边界。
