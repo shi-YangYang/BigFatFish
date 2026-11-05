@@ -64,7 +64,7 @@ export class Channels {
   private state(id:string,status:string,error:string|null=null,messageId:string|null=null){this.db.prepare('UPDATE channel_deliveries SET status=?,error=?,message_id=COALESCE(?,message_id) WHERE id=?').run(status,error,messageId,id);}
   private wait(id:string){return new Promise<ChatMessage>(resolve=>{const done=(message:ChatMessage)=>{if(['queued','running'].includes(message.status))return;this.chat.events.off('message',listener);resolve(message);};const listener=(event:ChatEvent)=>{if(event.message.id===id)done(event.message);};this.chat.events.on('message',listener);done(this.chat.message(id));});}
   private async reply(id:string,event:NonNullable<ReturnType<typeof inbound>>,revision:string){
-    let mid:string|undefined;const mediaControl=new AbortController();this.mediaControls.add(mediaControl);
+    let mid:string|undefined;let stage:'generation'|'delivery'='generation';const mediaControl=new AbortController();this.mediaControls.add(mediaControl);
     try{
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
       const owner=event.target.kind==='private'&&event.author===this.config!.ownerId;const principal=`qq-${owner?'owner':'user'}:${event.author}`;
@@ -82,11 +82,16 @@ export class Channels {
       const authorizeReply=this.chat.deliveryGuard(mid);
       const result=await this.wait(mid);if(result.status!=='completed')throw new InputError(result.error??'GENERATION_FAILED');
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
+      stage='delivery';
       if(result.content.length>4000)throw new InputError('MESSAGE_TOO_LONG');
       const image=stickerTurn.segment();
       const parts:Segment[]=[{type:'reply',data:{id:event.id}},{type:'text',data:{text:result.content}},...(image?[image]:[])];
       await this.deliver(id,event.target,segments(parts,true),revision,{kind:'reply',assertScope:()=>{authorizeReply();stickerTurn.assertCurrent();}});
-    }catch(error){this.state(id,'blocked',error instanceof InputError?error.message:'GENERATION_FAILED');this.audit('blocked',id);}finally{this.mediaControls.delete(mediaControl);if(mid)this.running.delete(mid);}
+    }catch(error){
+      const code=mediaControl.signal.aborted?'CANCELLED':error instanceof InputError?error.message:'GENERATION_FAILED';
+      const status=['CANCELLED','RUNTIME_RESTARTED'].includes(code)?'interrupted':stage==='delivery'||['PERMISSION_REVOKED','MEMORY_SCOPE_CHANGED','PLUGIN_DISABLED'].includes(code)?'blocked':'failed';
+      this.state(id,status,code);this.audit(status,id);
+    }finally{this.mediaControls.delete(mediaControl);if(mid)this.running.delete(mid);}
   }
   private async deliver(id:string,to:Target,parts:Segment[],revision:string,authorization:DeliveryAuthorization){
     const proactive=authorization.kind==='proactive';

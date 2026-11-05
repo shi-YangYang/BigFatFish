@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec031 QQ消息错误诊断与准确反馈已完成
+
+EXISTING，dev基线06b9c7e，开始干净。Spec031 Done：安全模型HTTP/网络/流错误贯通DSH→Chat→QQ；QQ生成失败/发送前阻止/协议失败/交付未知/中断准确呈现，历史兼容、简短原因、中文操作记录与统一轮询。只读实际数据5sent+1blocked/MODEL_RUN_FAILED，失败2026-11-05 09:35（Asia/Shanghai），DSH error/SERVER/502 {}；历史来源细节已丢，不能认定百炼端故障或QQ拒绝。实施/root/implement_qq_error_feedback及新独立/root/accept_qq_error_feedback均完成，全部报告已读，PASS无返工。
+
+S2定向5项（真实DSH/Chat/Runtime/OneBot与HTTP隔离夹具）通过、apps-only类型通过；后续取消分类改动仅重跑2项QQ测试通过；主动中断用词S0仅diff。root实际App1280×900/380×820分类、原因、轮询、明确拒绝vsunknown反馈通过，截图build/qq-error-feedback/01–03。tab5关闭/viewportreset，fixture68415/session24814结束exit143。无自动重试、真实消息/付费模型/用户配置变更，无Windows或打包验证。持续阶段本地commit授权有效，由root提交，确切hash见git log；无push/PR/合并，远端未刷新。重新运行npm run desktop:dev加载新Runtime，历史记录原因只做展示兼容。满足停止条件，不追加旧待验工作。下方为历史。
+
 ## 当前任务：Spec030 同步 B站与抖音连接体验已完成
 
 EXISTING，dev 基线 2d28503，开始干净。Spec030/Decision019 Done：B站与抖音 Runtime 单次连接、自动登录核验、两页功能页签；保留B站匿名读取、抖音审批和账号边界。初实施/root/implement_other_connect_flows，首验/root/accept_other_connect_flows发现R1草稿覆盖；新/root/rework_platform_config_ack改为配置保存后确认，新验收/root/accept_platform_config_ack关闭R1并发现R2原生新接口默认5秒；新/root/rework_platform_native_timeout补两个路由进入现有30秒分支，新独立/root/accept_platform_native_timeout最终PASS。全部完整报告已读处理，R1/R2关闭，无待返工。

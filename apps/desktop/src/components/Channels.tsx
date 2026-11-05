@@ -1,13 +1,14 @@
+import {QQDeliveryHistory} from './QQDeliveryHistory';
+import {deliveryFeedback,qqAuditText,sendFailureFeedback,type QQDelivery} from './qq-feedback';
 import { Card, Alert } from "./Surfaces";
 import { Field, Input, Button, Select, Textarea } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { ChannelStatus, Segment, SendResult } from "../../../runtime/src/channels/types";
 export { QQConnection as Channels } from "./QQConnection";
-const labels:Record<string,string>={sent:'已发送',sending:'正在发送',queued:'等待发送',unknown:'发送结果未知，请在 QQ 核实，勿重复发送',failed:'发送失败',blocked:'发送已阻止',revoked:'发送权限已撤销',interrupted:'已中断'};
-interface Delivery {id:string;target:string;status:string;createdAt:string;proactive:boolean}
 export function QQMessages({fail}:{fail:(e:unknown)=>void}){
-  const [items,setItems]=useState<Delivery[]>([]),[audit,setAudit]=useState<{event:string;at:string}[]>([]),[channel,setChannel]=useState<ChannelStatus>(),[target,setTarget]=useState(''),[text,setText]=useState(''),[media,setMedia]=useState<Segment>(),[mediaName,setMediaName]=useState(''),[busy,setBusy]=useState(false),[result,setResult]=useState('');
+  const [items,setItems]=useState<QQDelivery[]>([]),[audit,setAudit]=useState<{event:string;at:string}[]>([]),[channel,setChannel]=useState<ChannelStatus>(),[target,setTarget]=useState(''),[text,setText]=useState(''),[media,setMedia]=useState<Segment>(),[mediaName,setMediaName]=useState(''),[busy,setBusy]=useState(false),[historyError,setHistoryError]=useState(false),[result,setResult]=useState('');
+  const alive=useRef(true),sequence=useRef(0);
   const acting=useRef(false),file=useRef<HTMLInputElement>(null);
   const selectMedia = async (file: File | undefined) => {
     setMedia(undefined);
@@ -36,10 +37,12 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
     if (type === "file") setText("");
   };
   const refresh=useCallback(async()=>{
-    const [c,d,a]=await Promise.all([api<ChannelStatus>('/v1/channels/qq'),api<Delivery[]>('/v1/channels/qq/deliveries'),api<{event:string;at:string}[]>('/v1/channels/qq/audit')]);
-    setChannel(c);setItems(d.filter(item=>item.proactive));setAudit(a);
+    const n=++sequence.current;
+    const [c,d,a]=await Promise.all([api<ChannelStatus>('/v1/channels/qq'),api<QQDelivery[]>('/v1/channels/qq/deliveries'),api<{event:string;at:string}[]>('/v1/channels/qq/audit')]);
+    if(!alive.current||n!==sequence.current)return;
+    setChannel(c);setItems(d);setAudit(a);setHistoryError(false);return d;
   },[]);
-  useEffect(()=>{void refresh().catch(fail);const timer=setInterval(()=>void refresh().catch(fail),3000);return()=>clearInterval(timer);},[refresh,fail]);
+  useEffect(()=>{alive.current=true;let active=true,timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await refresh();}catch{if(active)setHistoryError(true);}finally{if(active)timer=setTimeout(()=>void poll(),3000);}};void poll();return()=>{active=false;alive.current=false;++sequence.current;clearTimeout(timer);};},[refresh]);
   const config=channel?.config;
   const targets=config?[{value:`private:${config.ownerId}`,label:`主人 · ${config.ownerId}`},...(config.friendIds??[]).filter(id=>id!==config.ownerId).map(id=>({value:`private:${id}`,label:`好友 · ${id}`})),...config.groups.map(id=>({value:`group:${id}`,label:`群 · ${id}`}))]:[];
   const selected=targets.some(item=>item.value===target)?target:targets[0]?.value??'';
@@ -48,13 +51,14 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
     try{
       const [kind,id]=selected.split(':');
       const sent=await api<SendResult>('/v1/channels/qq/send','POST',{target:{kind,id},segments:[...(text?[{type:'text',data:{text}}]:[]),...(media?[media]:[])]});
-      setResult(labels[sent.status]??'请查看发送记录');
+      if(!alive.current)return;
+      const feedback=deliveryFeedback({...sent,proactive:true});setResult([feedback.label,feedback.detail].filter(Boolean).join('：'));
       if(sent.status==='sent'){setText('');setMedia(undefined);setMediaName('');if(file.current)file.current.value='';}
-      await refresh();
-    }catch(error){setResult('未取得发送结果，请先查看记录或在 QQ 核实，勿重复发送。');fail(error);}
-    finally{acting.current=false;setBusy(false);}
+      try{const records=await refresh();const record=records?.find(item=>item.id===sent.id);if(record&&alive.current){const shown=deliveryFeedback(record);setResult([shown.label,shown.detail].filter(Boolean).join('：'));}}catch{if(alive.current)setHistoryError(true);}
+    }catch(error){if(alive.current)setResult(sendFailureFeedback(error));}
+    finally{acting.current=false;if(alive.current)setBusy(false);}
   };
-  return <><Card><h3>发送消息</h3>
+  return <>{historyError&&<Alert>暂时无法更新消息记录<Button size="compact" onClick={()=>void refresh().catch(()=>setHistoryError(true))}>刷新</Button></Alert>}<Card><h3>自动回复记录</h3><QQDeliveryHistory items={items.filter(item=>!item.proactive).slice(0,20)} empty="暂无回复记录"/></Card><Card><h3>发送消息</h3>
     {!config?.proactiveEnabled&&<p className="muted">开启「允许主动消息」后可发送。</p>}
     <form onSubmit={event=>{event.preventDefault();void submit();}}>
       <fieldset disabled={busy||!config?.enabled||!config.proactiveEnabled}>
@@ -66,10 +70,7 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
       </fieldset>
     </form>
     {result&&<Alert role="status">{result}</Alert>}
-    </Card><Card><h3>发送记录</h3>
-      {!items.length&&<p className="muted">暂无主动消息</p>}
-      <div className="qq-history">{items.map(item=>{const to=JSON.parse(item.target) as {kind:string;id:string};return <div key={item.id}><span>{to.kind==='group'?'群':'私聊'} {to.id} · {labels[item.status]??item.status}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div>;})}</div>
-    </Card>
-    <Card><h3>操作记录</h3>{audit.map((item,index)=><p key={index}>{item.at} · {item.event}</p>)}</Card>
+    </Card><Card><h3>主动发送记录</h3><QQDeliveryHistory items={items.filter(item=>item.proactive)} empty="暂无主动消息"/></Card>
+    <Card><h3>操作记录</h3><div className="qq-history">{audit.map((item,index)=><div key={index}><span>{qqAuditText(item.event)}</span><time>{new Date(item.at).toLocaleString()}</time></div>)}</div>{!audit.length&&<p className="muted">暂无操作记录</p>}</Card>
   </>;
 }

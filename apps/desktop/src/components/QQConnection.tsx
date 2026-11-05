@@ -112,13 +112,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
    </fieldset>
   </form></Card>)}
    {tab==='表情'&&<QQStickers fail={fail}/>}
-   {tab==='消息'&&<div className="qq-messages-panel"><Card><h3>最近消息</h3><RecentMessages fail={fail}/></Card>{children}</div>}
+   {tab==='消息'&&<div className="qq-messages-panel">{children}</div>}
   </Tabs>
  </section>;
-}
-function RecentMessages({fail}:{fail:(e:unknown)=>void}){
- const [items,setItems]=useState<{id:string;status:string;createdAt:string}[]>([]);
- useEffect(()=>{void api<typeof items>('/v1/channels/qq/deliveries').then(setItems).catch(fail);},[fail]);
- const labels:Record<string,string>={sending:'正在发送',sent:'已发送',unknown:'发送结果未知',failed:'发送失败',blocked:'已阻止',generating:'正在回复',queued:'等待回复',interrupted:'已中断'};
- return items.length?<div className="qq-history">{items.slice(0,20).map(item=><div key={item.id}><span>{labels[item.status]??item.status}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div>:<p className="muted">暂无消息</p>;
 }

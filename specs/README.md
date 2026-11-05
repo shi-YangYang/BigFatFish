@@ -61,3 +61,5 @@
 - [Spec 029：简化 QQ 连接与折叠交互](spec-029-qq-connect-flow/spec.md)：[独立验收PASS](spec-029-qq-connect-flow/acceptance.md)；单次连接与清楚的设置入口。
 
 - [Spec 030：同步 B站与抖音连接体验](spec-030-other-connect-flows/spec.md)：[独立验收PASS](spec-030-other-connect-flows/acceptance-r2.md)；单次连接、自动核验与功能页签。
+
+- [Spec 031：QQ 消息错误诊断与准确反馈](spec-031-qq-message-errors/spec.md)：[独立验收PASS](spec-031-qq-message-errors/acceptance.md)；安全模型错误分类、准确QQ记录与发送反馈。

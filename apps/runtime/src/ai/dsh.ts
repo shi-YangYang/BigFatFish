@@ -1,4 +1,5 @@
-import { forwardModel } from './model-forwarder.js';
+import { forwardModel, modelForwardError } from './model-forwarder.js';
+import { InputError } from './types.js';
 import { buildPersonaPrompt } from './persona-prompt.js';
 import { adapterEffort, openAIModelOptions, MODEL_REQUEST_TIMEOUT_MS } from './model-options.js';
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
@@ -23,10 +24,14 @@ export class DSHAdapter implements AgentEngine {
     }
     const token = randomBytes(32).toString('hex');
     let childPort = 0, text = '', attempt = '', revision = 0;
+    let modelRequest=0,modelError:string|undefined;
     const imageResults = new Map<string,{tool:EngineTool;value:unknown;presented:boolean}>();
     const bridge = createServer(async (req, res) => {
       if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${token}` || req.headers.origin) { res.writeHead(403).end(); return; }
-      if (req.url === '/model/chat/completions' && input.model.provider === 'openai') { await forwardModel(req, res, input.model.baseURL, input.key, input.signal); return; }
+      if (req.url === '/model/chat/completions' && input.model.provider === 'openai') {
+        const request=++modelRequest;modelError=undefined;
+        await forwardModel(req,res,input.model.baseURL,input.key,input.signal,failure=>{if(request===modelRequest)modelError=modelForwardError(failure);});return;
+      }
       if (req.url !== '/') { res.writeHead(404).end('{}'); return; }
       try {
         let body = ''; for await (const chunk of req) { body += chunk; if (body.length > 262144) throw new Error(); }
@@ -100,13 +105,13 @@ export class DSHAdapter implements AgentEngine {
       if (input.signal.aborted) throw new Error('CANCELLED');
       const end = result.events.filter(event => event.type === 'turn/end').at(-1);
       const reason = (end?.data as { reason?: { kind?: string } } | undefined)?.reason?.kind;
-      if (reason && !['completed','complete','success','stop'].includes(reason)) throw new Error('MODEL_RUN_FAILED');
-      if (!result.finalResponse) throw new Error('EMPTY_MODEL_RESPONSE');
+      if (reason && !['completed','complete','success','stop'].includes(reason)) throw modelError?new InputError(modelError):new Error('MODEL_RUN_FAILED');
+      if (!result.finalResponse) throw modelError?new InputError(modelError):new Error('EMPTY_MODEL_RESPONSE');
       resultText = result.finalResponse;
     } catch (error) {
       // SDK errors may embed provider response bodies or keys. Never expose them.
       runError = input.signal.aborted ? new Error('CANCELLED', { cause: error })
-        : error instanceof Error && ['EMPTY_MODEL_RESPONSE','MODEL_RUN_FAILED'].includes(error.message) ? error
+        : modelError ? new InputError(modelError) : error instanceof Error && ['EMPTY_MODEL_RESPONSE','MODEL_RUN_FAILED'].includes(error.message) ? error
         : new Error('ENGINE_REQUEST_FAILED', { cause: error });
     } finally {
       input.signal.removeEventListener('abort', cancel);
