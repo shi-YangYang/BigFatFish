@@ -1,5 +1,19 @@
 # Task Handoff
 
+## 当前 Git 授权（2026-11-05 更新，优先于下方历史）
+
+用户明确要求：「以后，我不让你commit，你就不要commit」。此前「每完成一个阶段就本地 commit」的持续授权已撤销。今后只有用户对相应任务明确要求 commit 时才可提交，开发完成或验收通过不构成提交授权；不得沿用下方历史阶段中的自动提交授权。此次仅更新交接记录，不暂存、不提交，也不改写已存在的提交。
+
+## 当前任务：Spec036 刷新 QQ 好友与群聊已完成
+
+EXISTING，dev基线ccb4623；保留已有未提交Git授权撤销记录。用户要求新增好友/群后可点刷新icon，根因是ManagedQQ仅登录时读取、轮询只读缓存。Spec036 Done：回复设置标题右侧40×40图标显式刷新主人/好友/群列表；保留草稿/选择与同账号失败旧列表，新增联系人不自动授权，处理重复、账号切换和迟到响应。
+
+主实施/root/implement_qq_contact_refresh完成，首验/root/accept_qq_contact_refresh仅FAIL服务端默认5秒超时。新实施/root/rework_qq_refresh_timeout在路由局部延长至20秒、响应前恢复默认；新独立/root/accept_qq_refresh_timeout复验PASS，完整报告已读，原FAIL保留，无剩余返工。S0提示条件只在空群列表读取失败时显示手填提示。
+
+S2一次apps范围类型检查、一个联系人定向回归通过；R1 S1真实HTTP单用例一次通过（成功/失败各5.2秒、响应恢复和随后socket复用），未重复原检查。root实际App隔离桌面/380px检查更新、草稿、pending、失败和重试通过，4次刷新0次配置写入；证据build/qq-contact-refresh/02-narrow-error.png、03-narrow-draft.png及ui-evidence.json。临时tab6/fixture34062已关闭、viewport恢复。没有重启真实会话、调用QQ/模型、修改真实数据或全量构建；真实QQ新增好友/群、Windows原生未实测。下次正常重新运行npm run desktop:dev加载新接口和原生超时。用户已撤销自动commit授权，本轮全部未暂存/commit/push；远端未刷新，状态不作新断言。满足停止条件，不追加验证。下方为已完成历史。
+
+交付后用户明确要求「非常好，local commit」，本次授权仅覆盖 Spec036 已验收改动及其交接记录的本地提交；不包含 push，也不恢复以后自动提交。由协调 Agent 提交到 dev，确切提交号以 git log 为准；沿用已通过的验证，不重复测试。
+
 ## 当前任务：Spec035 QQ 图片、无引用回复与人设已完成
 
 EXISTING，dev基线8754b08、开始干净。Spec035 Done：QQ私聊/群聊自动回复不引用，托管NapCat启用base64修复取图契约，失败反馈准确；daughter新增情绪和token鱼粮梗。实施/root/implement_qq_media_persona、新独立/root/accept_qq_media_persona已完成，报告完整读取，PASS无剩余返工；审阅中S0文档遗漏已同步。S2一次Node构建与12项定向累计通过，两个新增测试写法修正后仅重跑失败项，无全量/发行/UI/真实发送/付费模型。

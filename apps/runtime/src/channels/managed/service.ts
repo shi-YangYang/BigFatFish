@@ -20,6 +20,7 @@ export class ManagedQQ {
  private resumeIntent?:{revision:string;accountId:string};private activationVersion=0;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
  private job?:Promise<void>;private control?:AbortController;private generation=0;private running=false;private closed=false;private timer?:ReturnType<typeof setTimeout>;private configuredAccount='';private qrUrl='';
  private lists:{friends:QQContact[];groups:QQContact[];error?:string}={friends:[],groups:[]};
+ private contactsAccount='';private contactsSequence=0;private contactsJob?:{accountId:string;generation:number;promise:Promise<ReturnType<ManagedQQ['contactList']>>};
  readonly directory:string;private stateFile:string;
  constructor(p:DataPaths,private channels:Channels){
   this.directory=join(p.data,'qq-component');this.stateFile=join(this.directory,'manager.json');
@@ -32,7 +33,39 @@ export class ManagedQQ {
  }
  initialize(){if(!this.stateValid)return;if(this.channels.status().config?.mode==='managed'&&this.channels.status().config?.enabled)this.action('start');}
  status(){return {...this.view};}
- contactList(){return this.lists;}
+ contactList(){return {...this.lists,accountId:this.contactsAccount||undefined};}
+ private clearContacts(){this.contactsSequence++;this.contactsAccount='';this.lists={friends:[],groups:[]};}
+ private async readContacts(accountId:string,generation:number){
+  if(this.contactsAccount!==accountId){this.clearContacts();this.contactsAccount=accountId;}
+  const sequence=++this.contactsSequence,port=this.state.botPort,token=this.state.botToken;
+  const current=()=>!this.closed&&this.running&&generation===this.generation&&sequence===this.contactsSequence&&accountId===this.configuredAccount;
+  const guard=()=>{if(!current())throw new InputError('CANCELLED',409);};
+  const verify=async()=>{
+   const [login,status]=await Promise.all([onebotRead(port,token,'get_login_info'),onebotRead(port,token,'get_status')]) as [{user_id:unknown},{online:boolean}];
+   guard();if(stableId(login.user_id)!==accountId)throw new InputError('QQ_ACCOUNT_CHANGED',409);if(status.online!==true)throw new InputError('CHANNEL_OFFLINE',409);
+  };
+  try{
+   guard();await verify();
+   const [friends,groups]=await Promise.all([onebotRead(port,token,'get_friend_list'),onebotRead(port,token,'get_group_list')]);
+   const next={friends:contacts(friends,'friend'),groups:contacts(groups,'group')};
+   await verify();guard();this.lists=next;return this.contactList();
+  }catch(error){
+   if(!current())throw new InputError('CANCELLED',409);
+   const code=error instanceof InputError?error.message:'';
+   if(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE')this.clearContacts();
+   else this.lists={...this.lists,error:'QQ_CONTACTS_UNAVAILABLE'};
+   throw new InputError(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE'?code:'QQ_CONTACTS_UNAVAILABLE',409);
+  }
+ }
+ refreshContacts(){
+  if(this.closed)throw new InputError('RUNTIME_STOPPING',503);
+  if(this.job)throw new InputError('QQ_COMPONENT_BUSY',409);
+  const accountId=this.view.account?.id,generation=this.generation;
+  if(!this.running||this.view.phase!=='online'||!accountId||this.configuredAccount!==accountId)throw new InputError('CHANNEL_OFFLINE',409);
+  if(this.contactsJob?.accountId===accountId&&this.contactsJob.generation===generation)return this.contactsJob.promise;
+  const promise=this.readContacts(accountId,generation).finally(()=>{if(this.contactsJob?.promise===promise)this.contactsJob=undefined;});
+  this.contactsJob={accountId,generation,promise};return promise;
+ }
  private persist(){writePrivate(this.stateFile,this.state);}
  private error(error:unknown){return error instanceof InputError?error.message:'QQ_COMPONENT_UNAVAILABLE';}
  private launch(phase:ManagedQQStatus['phase'],work:(signal:AbortSignal,generation:number)=>Promise<void>){
@@ -47,7 +80,7 @@ export class ManagedQQ {
    if(this.view.phase==='stopping')return this.status();
    if(this.closed)throw new InputError('RUNTIME_STOPPING',503);
    // Cancel installation/start before queued cleanup, preventing late orphan creation.
-   const pending=this.job;this.control?.abort();this.generation++;this.running=false;clearTimeout(this.timer);this.view={...this.view,phase:'stopping',busy:true,qr:undefined,account:undefined};
+   const pending=this.job;this.control?.abort();this.generation++;this.running=false;this.clearContacts();clearTimeout(this.timer);this.view={...this.view,phase:'stopping',busy:true,qr:undefined,account:undefined};
    this.cancelConnection();const config=this.channels.status();if(config.config?.mode==='managed'&&config.config.enabled)this.channels.enable(false);
    const job=(async()=>{await pending;if(this.state.installed||this.componentTouched)await this.platform.stop();this.componentTouched=false;this.view.phase=this.state.installed?'ready':'missing';this.view.error=undefined;})().catch(error=>{this.view.phase='error';this.view.error=this.error(error);}).finally(()=>{if(this.job===job){this.job=undefined;this.view.busy=false;}});this.job=job;return this.status();
   }
@@ -93,6 +126,7 @@ export class ManagedQQ {
  private async poll(generation:number){
   const status=await this.client!.call('QQLogin/CheckLoginStatus');if(generation!==this.generation||!this.running)return;
   if(status.isLogin!==true||status.coreReady!==true){
+   this.configuredAccount='';this.clearContacts();
    this.view={...this.view,phase:'login',account:undefined,error:status.loginError?'QQ_LOGIN_FAILED':undefined,loginPhase:typeof status.loginPhase==='string'?status.loginPhase:undefined};
    if(typeof status.qrcodeurl==='string'&&status.qrcodeurl.length<4096&&status.qrcodeurl!==this.qrUrl){const qr=await qrcode.toDataURL(status.qrcodeurl,{width:240,margin:2});if(generation!==this.generation)return;this.qrUrl=status.qrcodeurl;this.view.qr=qr;}
    return;
@@ -102,11 +136,13 @@ export class ManagedQQ {
   const existing=this.channels.status();
   if(existing.config?.mode==='managed'&&existing.config.accountId!==id&&existing.config.enabled)this.channels.enable(false);
   if(this.configuredAccount!==id){
+   this.clearContacts();
    await this.client!.call('OB11Config/SetConfig',{config:JSON.stringify(onebotConfig(this.state,this.platform.native))});
    if(generation!==this.generation)return;
    const login=await onebotRead(this.state.botPort,this.state.botToken,'get_login_info') as {user_id:unknown};if(stableId(login.user_id)!==id)throw new InputError('QQ_ACCOUNT_CHANGED',409);
    if(generation!==this.generation)return;this.configuredAccount=id;
-   try{const [friends,groups]=await Promise.all([onebotRead(this.state.botPort,this.state.botToken,'get_friend_list'),onebotRead(this.state.botPort,this.state.botToken,'get_group_list')]);if(generation!==this.generation)return;this.lists={friends:contacts(friends,'friend'),groups:contacts(groups,'group')};}catch{this.lists={friends:[],groups:[],error:'QQ_CONTACTS_UNAVAILABLE'};}
+   try{await this.readContacts(id,generation);}catch(error){if(error instanceof InputError&&error.message!=='QQ_CONTACTS_UNAVAILABLE')throw error;}
+
   }
   if(generation!==this.generation)return;
   const intent=this.resumeIntent,saved=this.channels.status();
@@ -134,11 +170,16 @@ export class ManagedQQ {
  }
  resume(){const config=this.channels.status();if(!config.config||config.config.mode!=='managed')throw new InputError('CHANNEL_NOT_CONFIGURED',409);return this.connect();}
  async stopAndWait(){this.action('stop');await this.job;}
- async close(){this.cancelConnection();this.closed=true;this.running=false;this.generation++;clearTimeout(this.timer);this.control?.abort();await this.job;if(this.componentTouched&&this.stateValid){await this.platform.stop();this.componentTouched=false;}}
+ async close(){this.cancelConnection();this.closed=true;this.running=false;this.generation++;this.clearContacts();clearTimeout(this.timer);this.control?.abort();await this.job;if(this.componentTouched&&this.stateValid){await this.platform.stop();this.componentTouched=false;}}
 }
 export function registerManagedQQ(app:FastifyInstance,managed:ManagedQQ){
  app.get('/v1/channels/qq/component',async()=>managed.status());
  app.get('/v1/channels/qq/component/contacts',async()=>managed.contactList());
+ app.post('/v1/channels/qq/component/contacts/refresh',{
+  // Three bounded OneBot rounds can outlast the default connection timeout.
+  preHandler:async req=>{req.raw.socket.setTimeout(20000);},
+  onSend:async(req,_reply,payload)=>{req.raw.socket.setTimeout(app.initialConfig.connectionTimeout??0);return payload;},
+ },async()=>managed.refreshContacts());
  for(const action of ['install','start','stop','refresh'] as const)app.post(`/v1/channels/qq/component/${action}`,async()=>managed.action(action));
  app.post('/v1/channels/qq/component/connect',async()=>managed.connect());
  app.put('/v1/channels/qq/component/settings',async req=>managed.configure(req.body));

@@ -1038,6 +1038,7 @@ audio {
 .qq-group-list { --content-scroll-max: 240px; display: grid; gap: 8px; }
 .qq-group-list .ui-field { overflow-wrap: anywhere; }
 .qq-reply-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.qq-reply-heading-actions { display: flex; align-items: center; gap: 12px; }
 .qq-reply-heading h3 { margin: 0; font-size: 16px; }
 .qq-owner-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .qq-owner-row > .ui-button { padding-inline: 10px; white-space: nowrap; }

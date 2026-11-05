@@ -71,3 +71,5 @@
 - [Spec 034：精简视频平台手动观看与记录](spec-034-platform-operation-records/spec.md)：[独立验收PASS](spec-034-platform-operation-records/acceptance.md)；移除手动观看，保留分享互动，统一操作记录。
 
 - [Spec 035：QQ 图片、无引用回复与人设](spec-035-qq-media-persona/spec.md)：[独立验收PASS](spec-035-qq-media-persona/acceptance.md)；修复托管图片内容返回，强化女儿感与鱼粮梗。
+
+- [Spec 036：刷新 QQ 好友与群聊](spec-036-qq-contact-refresh/spec.md)：[PASS](spec-036-qq-contact-refresh/acceptance-r1.md)；显式刷新联系人并保留回复设置草稿，补齐慢请求超时。

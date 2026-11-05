@@ -23,7 +23,7 @@ it('WebUI authenticates and renews once, rejects logical failures without leakin
  try{const client=new NapCatClient((server.address() as {port:number}).port,'test-token');expect(await client.call('QQLogin/CheckLoginStatus')).toEqual({isLogin:false});expect(logins).toBe(2);await expect(client.call('QQLogin/CheckLoginStatus')).rejects.toThrow('QQ_COMPONENT_REQUEST_FAILED');expect(logins).toBe(2);}finally{await new Promise<void>(r=>server.close(()=>r()));}
 });
 it('one-action connection prepares, logs in and resumes only the saved account and revision through real Runtime API',async()=>{
- const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-qq-')));let account='',server:ReturnType<typeof createServer>|undefined,ws:WebSocketServer|undefined;let state:ManagedState|undefined;const calls:string[]=[];let statusGate:Promise<void>|undefined,statusRequested:(()=>void)|undefined;
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-qq-')));let account='',server:ReturnType<typeof createServer>|undefined,ws:WebSocketServer|undefined;let state:ManagedState|undefined;const calls:string[]=[];let friends=[{user_id:'20002',nickname:'主人'}],groups=[{group_id:'30003',group_name:'测试群'}],contactsFail=false;let contactGate:Promise<void>|undefined,contactRequested:(()=>void)|undefined;let statusGate:Promise<void>|undefined,statusRequested:(()=>void)|undefined;
  const install=vi.spyOn(ComponentPlatform.prototype,'install').mockRejectedValueOnce(new Error('fixture download unavailable')).mockImplementation(async()=>{await delay(20);});
  vi.spyOn(ComponentPlatform.prototype,'check').mockResolvedValue();
  vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async function(this:ComponentPlatform){
@@ -38,7 +38,7 @@ it('one-action connection prepares, logs in and resumes only the saved account a
    res.end(JSON.stringify({code:0,data:result}));
   });await new Promise<void>(r=>server!.listen(state!.webPort,'127.0.0.1',r));
   ws=new WebSocketServer({port:state!.botPort,host:'127.0.0.1'});await new Promise<void>(r=>ws!.once('listening',r));
-  ws.on('connection',(socket,req)=>{expect(req.headers.authorization).toBe(`Bearer ${state!.botToken}`);socket.on('message',async raw=>{const request=JSON.parse(raw.toString());calls.push(request.action);if(request.action==='get_status'&&statusGate){statusRequested?.();await statusGate;}const data=request.action==='get_login_info'?{user_id:account}:request.action==='get_status'?{online:true}:request.action==='get_friend_list'?[{user_id:'20002',nickname:'主人'}]:request.action==='get_group_list'?[{group_id:'30003',group_name:'测试群'}]:{};socket.send(JSON.stringify({echo:request.echo,status:'ok',retcode:0,data}));});});
+  ws.on('connection',(socket,req)=>{expect(req.headers.authorization).toBe(`Bearer ${state!.botToken}`);socket.on('message',async raw=>{const request=JSON.parse(raw.toString());calls.push(request.action);if(request.action==='get_status'&&statusGate){statusRequested?.();await statusGate;}const data=request.action==='get_login_info'?{user_id:account}:request.action==='get_status'?{online:true}:request.action==='get_friend_list'?friends:request.action==='get_group_list'?groups:{};if(request.action==='get_friend_list'&&contactGate){const gate=contactGate;contactGate=undefined;contactRequested?.();await gate;}const failed=contactsFail&&request.action==='get_friend_list';if(socket.readyState===1)socket.send(JSON.stringify({echo:request.echo,status:failed?'failed':'ok',retcode:failed?1200:0,data}));});});
  });
  const stop=vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{if(ws){for(const client of ws.clients)client.terminate();await new Promise<void>(r=>ws!.close(()=>r()));ws=undefined;}if(server){await new Promise<void>(r=>server!.close(()=>r()));server=undefined;}});
  const runtime=await startRuntime(p);const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body),base='/v1/channels/qq/component',status=()=>call<ManagedQQStatus>(base);
@@ -55,6 +55,26 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   await until(status,s=>!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();expect((await status()).operationError).toBe('CANCELLED');
   await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
   await call(base+'/settings','PUT',settings);await until(status,s=>!s.busy);const channel=await call<ChannelStatus>('/v1/channels/qq');expect(channel.config).toMatchObject({mode:'managed',accountId:'10001',ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],enabled:true});expect(JSON.stringify(channel)).not.toContain(state!.botToken);
+  // Explicit refresh reads new contacts without changing saved scope; concurrent clicks share the read.
+  const contactList=()=>call<{friends:{id:string;name:string}[];groups:{id:string;name:string}[];accountId?:string;error?:string}>(base+'/contacts');
+  const scopeBefore={config:channel.config,revision:channel.revision};
+  friends=[...friends,{user_id:'20005',nickname:'新好友'}];groups=[...groups,{group_id:'30005',group_name:'新群聊'}];
+  expect((await contactList()).friends).toHaveLength(1);
+  let releaseContacts!:()=>void;contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});let reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const readsBefore=calls.filter(x=>x==='get_friend_list').length;
+  const firstRefresh=call(base+'/contacts/refresh','POST');await reachedContacts;const duplicateRefresh=call(base+'/contacts/refresh','POST');
+  await delay(25);expect(calls.filter(x=>x==='get_friend_list')).toHaveLength(readsBefore+1);releaseContacts();
+  const [firstList,duplicateList]=await Promise.all([firstRefresh,duplicateRefresh]);expect(firstList).toEqual(duplicateList);
+  expect(await contactList()).toMatchObject({accountId:'10001',friends:[{id:'20002'},{id:'20005'}],groups:[{id:'30003'},{id:'30005'}]});
+  const afterRefresh=await call<ChannelStatus>('/v1/channels/qq');expect({config:afterRefresh.config,revision:afterRefresh.revision}).toEqual(scopeBefore);
+  contactsFail=true;await expect(call(base+'/contacts/refresh','POST')).rejects.toThrow('QQ_CONTACTS_UNAVAILABLE');
+  expect(await contactList()).toMatchObject({accountId:'10001',error:'QQ_CONTACTS_UNAVAILABLE'});expect((await contactList()).friends).toHaveLength(2);
+  contactsFail=false;friends=[];groups=[];await call(base+'/contacts/refresh','POST');expect(await contactList()).toEqual({accountId:'10001',friends:[],groups:[]});
+  friends=[{user_id:'20002',nickname:'主人'}];groups=[{group_id:'30003',group_name:'测试群'}];await call(base+'/contacts/refresh','POST');
+  // An account switch while contacts are in flight cannot publish the old account's response.
+  contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const switchedRefresh=call(base+'/contacts/refresh','POST');const switchedResult=expect(switchedRefresh).rejects.toThrow(/QQ_ACCOUNT_CHANGED|CANCELLED/);await reachedContacts;account='40004';releaseContacts();await switchedResult;
+  expect(await contactList()).toEqual({friends:[],groups:[]});account='10001';await call(base+'/contacts/refresh','POST');
   await expect(call(base+'/settings','PUT',settings)).rejects.toThrow('CHANNEL_VERSION_CONFLICT');
   await expect(call('/v1/channels/qq','PUT',{...channel.config,revision:channel.revision})).rejects.toThrow('QQ_MANAGED_CONFIGURATION_REQUIRED');
   // An already logged-in paused account reconnects without a second settings save.
@@ -80,6 +100,9 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   account='40004';await call(base+'/refresh','POST');await until(status,s=>s.account?.id==='40004'&&!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(false);
   expect(calls.some(x=>x.startsWith('send_'))).toBe(false);
   await call(base+'/stop','POST');await until(status,s=>s.phase==='ready'&&!s.busy);expect(stop).toHaveBeenCalled();account='10001';await call('/v1/channels/qq/start','POST');await until(status,s=>s.phase==='online'&&!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(true);expect((await call<{state:string}>('/v1/status')).state).toBe('running');
+  contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const stoppingRefresh=call(base+'/contacts/refresh','POST'),cancelledRefresh=expect(stoppingRefresh).rejects.toThrow('CANCELLED');await reachedContacts;
+  await call(base+'/stop','POST');releaseContacts();await cancelledRefresh;await until(status,s=>s.phase==='ready'&&!s.busy);expect(await contactList()).toEqual({friends:[],groups:[]});
  }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
 },25000);
 it('stop cancels a pending install without late success and invalid component state does not prevent local Runtime',async()=>{
