@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec035 QQ 图片、无引用回复与人设已完成
+
+EXISTING，dev基线8754b08、开始干净。Spec035 Done：QQ私聊/群聊自动回复不引用，托管NapCat启用base64修复取图契约，失败反馈准确；daughter新增情绪和token鱼粮梗。实施/root/implement_qq_media_persona、新独立/root/accept_qq_media_persona已完成，报告完整读取，PASS无剩余返工；审阅中S0文档遗漏已同步。S2一次Node构建与12项定向累计通过，两个新增测试写法修正后仅重跑失败项，无全量/发行/UI/真实发送/付费模型。
+
+root已通过原API保存当前匹配旧daughter的人格v3→v4，五个非预设字段/历史保留。正常重启本项目desktop:dev；当前owned exec session54454、Runtime39037、原生程序启动。QQ重启需扫码，用户确认后实测enabled=true/health=online/component online，原范围恢复；托管配置已true。旧图片标识只读get_image返回failed/1200，不宣称实际图片识别通过，真实新图与主观口吻待用户聊天确认。Plan和忽略目录build/qq-media-persona/live-evidence.json有证据。已安装旧QQ插件保持，get_file与固定NapCat的get_image同实现；未为别名覆盖插件。阶段本地commit持续授权有效，root提交hash见git log；不push，远端未刷新，无origin/dev缓存，origin/main仅本地缓存。达到停止条件，不追加探索或验证。下方是已完成历史。
+
 ## 当前任务：Spec034 同步精简B站与抖音已完成
 
 EXISTING，dev基线0ae89c3、开始干净。用户澄清「删除手动观看这种，分享这种还是要保留」。Spec034 Done：连接页去掉手动搜索/观看，默认单卡片操作记录内部滚动；保留B站分享到QQ、抖音点赞/评论及全局审批，后台/CLI/计划不改。共用OperationRecords呈现现有真实任务，连接/记录读取错误独立；详细任务页只删除失效onVideo。实施/root/implement_platform_operation_records、新独立/root/accept_platform_operation_records已完成，完整报告已读，PASS无返工。S2一次apps类型检查和diff检查通过；文档/旧UI测试入口同步，未运行UI集成/真实平台/全量或构建验证。持续阶段本地commit授权有效，由root提交、确切hash见git log；无push，远端未刷新。满足停止条件，不追加检查。下方为已完成历史。

@@ -11,7 +11,8 @@ import {requestRuntime} from '../../apps/runtime/src/connection.js';
 import {fixtureModel} from '../fixtures/model.mjs';
 import {onebotFixture} from '../fixtures/onebot.js';
 import type {ChannelStatus,SendResult} from '../../apps/runtime/src/channels/types.js';
-it('real ASR/TTS media and QQ approved file upload plus inbound vision/audio',async()=>{
+import {onebotConfig} from '../../apps/runtime/src/channels/managed/service.js';
+it('real ASR/TTS media and QQ file upload plus configured image bytes, failure context and cancellation',async()=>{
  const p=paths(mkdtempSync(join(tmpdir(),'bff-media-'))),fixture=await fixtureModel(),bot=await onebotFixture(),runtime=await startRuntime(p);
  const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body);
  const wait=async(read:()=>Promise<boolean>)=>{for(let i=0;i<200;i++){if(await read())return;await delay(50);}throw new Error('CONDITION_TIMEOUT');};
@@ -26,9 +27,22 @@ it('real ASR/TTS media and QQ approved file upload plus inbound vision/audio',as
   await expect(call('/v1/channels/qq/send','POST',{target:{kind:'private',id:'20002'},segments:[{type:'file',data:{file:'base64://'+Buffer.alloc(2_000_001).toString('base64'),name:'large.txt'}}]})).rejects.toThrow('UNSAFE_MEDIA_REFERENCE');
   const proposal=await call<SendResult>('/v1/channels/qq/send','POST',{target:{kind:'private',id:'20002'},segments:[{type:'file',data:{file:'base64://'+Buffer.from('真实文档'.repeat(20000)).toString('base64'),name:'fish.txt'}}]});expect(proposal.status).toBe('sent');expect(bot.requests.filter(r=>r.action==='upload_private_file')).toHaveLength(1);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(0);
   const png=realPNG();expect(png.length).toBeGreaterThan(32768);expect(Buffer.from(speech.data,'base64').length).toBeGreaterThan(32768);
+  const mediaEvent=(id:string,file='a'.repeat(32))=>({post_type:'message',message_type:'private',self_id:'10001',user_id:'20002',message_id:id,message:[{type:'reply',data:{id:'99'}},{type:'image',data:{file}}]});
+  const terminal=(id:string)=>wait(async()=>(await call<{id:string;status:string}[]>('/v1/channels/qq/deliveries')).some(d=>d.id.endsWith(':'+id)&&!['queued','generating','sending'].includes(d.status)));
+  const lastInput=async()=>{const conversations=await call<{id:string}[]>('/v1/conversations');const messages=await call<{role:string;content:string}[]>('/v1/conversations/'+conversations[0]!.id+'/messages');return messages.filter(m=>m.role==='user').at(-1)!.content;};
+  const imageRequests=()=>fixture.requests.filter(r=>JSON.stringify(r.body??{}).includes('image_url'));
+  bot.controls.media=png.toString('base64');bot.event(mediaEvent('10'));await terminal('10');
+  expect(await lastInput()).toContain('图片已收到，但未能取得可读取的内容');expect(await lastInput()).toContain('引用消息 99，未读取原文');expect(imageRequests()).toHaveLength(0);
+  bot.controls.inlineMedia=onebotConfig({id:'fixture',botToken:'fixture-token',webToken:'fixture-web',botPort:3001,webPort:6099,installed:true},false).enableLocalFile2Url;
   for(const [i,kind,data]of [[1,'image',png.toString('base64')],[2,'record',speech.data]] as const){bot.controls.media=data;bot.event({post_type:'message',message_type:'private',self_id:'10001',user_id:'20002',message_id:String(i),message:[{type:kind,data:{file:'a'.repeat(32)}}]});await wait(async()=>(await call<{id:string;status:string}[]>('/v1/channels/qq/deliveries')).some(d=>d.id.endsWith(':'+i)&&d.status==='sent'));}
-  expect(bot.requests.some(r=>r.action==='get_file')).toBe(true);expect(bot.requests.some(r=>r.action==='get_record'&&r.params.out_format==='wav')).toBe(true);expect(JSON.stringify(fixture.requests)).toContain('image_url');expect(JSON.stringify(fixture.requests)).toContain('隔离音轨转写');
+  expect(bot.requests.some(r=>r.action==='get_image')).toBe(true);expect(bot.requests.some(r=>r.action==='get_file')).toBe(false);expect(bot.requests.some(r=>r.action==='get_record'&&r.params.out_format==='wav')).toBe(true);expect(imageRequests()).toHaveLength(1);expect(JSON.stringify(fixture.requests)).toContain('本条图片已读取');expect(await lastInput()).toContain('隔离音轨转写');
+  bot.controls.media=Buffer.from('not an image').toString('base64');bot.event(mediaEvent('11'));await terminal('11');expect(await lastInput()).toContain('图片已收到，但格式暂不支持');
+  bot.controls.media=Buffer.alloc(2_000_001).toString('base64');bot.event(mediaEvent('12'));await terminal('12');expect(await lastInput()).toContain('图片已收到，但超过读取大小限制');expect(imageRequests()).toHaveLength(1);
+  const beforeMedia=bot.requests.filter(r=>r.action==='get_image').length;
+  bot.event(mediaEvent('13','/etc/passwd'));await terminal('13');expect(await lastInput()).toContain('图片已收到，但未能取得可读取的内容');expect(bot.requests.filter(r=>r.action==='get_image')).toHaveLength(beforeMedia);
+  const beforeSend=bot.requests.filter(r=>r.action.startsWith('send_')).length,beforeModel=fixture.requests.length,gate=bot.pauseNextMedia();bot.controls.media=png.toString('base64');bot.event(mediaEvent('14'));await gate.reached;
   await call('/v1/plugins/qq/disable','POST');expect((await call<ChannelStatus>('/v1/channels/qq')).health.state).toBe('stopped');await expect(call('/v1/channels/qq/start','POST')).rejects.toThrow('PLUGIN_DISABLED');
+  gate.release();await terminal('14');expect((await call<{id:string;status:string;error:string}[]>('/v1/channels/qq/deliveries')).find(d=>d.id.endsWith(':14'))).toMatchObject({status:'interrupted',error:'CANCELLED'});expect(fixture.requests).toHaveLength(beforeModel);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(beforeSend);
  }finally{await runtime.stop();await bot.close();await fixture.close();rmSync(p.root,{recursive:true,force:true});}
 },45000);
 

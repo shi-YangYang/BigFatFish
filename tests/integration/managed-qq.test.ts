@@ -28,12 +28,13 @@ it('one-action connection prepares, logs in and resumes only the saved account a
  vi.spyOn(ComponentPlatform.prototype,'check').mockResolvedValue();
  vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async function(this:ComponentPlatform){
   state=JSON.parse(readFileSync(join(this.directory,'manager.json'),'utf8'));
+  expect(JSON.parse(readFileSync(join(this.directory,'work','config','onebot11.json'),'utf8')).enableLocalFile2Url).toBe(true);
   server=createServer(async(req,res)=>{let data='';for await(const chunk of req)data+=chunk;res.setHeader('Content-Type','application/json');
    if(req.url==='/api/auth/login'){expect(JSON.parse(data).hash).toBe(createHash('sha256').update(state!.webToken+'.napcat').digest('hex'));res.end(JSON.stringify({code:0,data:{Credential:'fixture-credential'}}));return;}
    expect(req.headers.authorization).toBe('Bearer fixture-credential');let result:unknown={};
    if(req.url?.endsWith('CheckLoginStatus'))result={isLogin:!!account,coreReady:!!account,loginPhase:'qrcode',qrcodeurl:'https://example.invalid/fixture-qr'};
    if(req.url?.endsWith('GetQQLoginInfo'))result={uin:account,nick:'测试QQ',online:true};
-   if(req.url?.endsWith('SetConfig')){const config=JSON.parse(JSON.parse(data).config);expect(config.network.websocketServers[0].token).toBe(state!.botToken);expect(config.network.websocketClients).toEqual([]);}
+   if(req.url?.endsWith('SetConfig')){const config=JSON.parse(JSON.parse(data).config);expect(config.network.websocketServers[0].token).toBe(state!.botToken);expect(config.network.websocketClients).toEqual([]);expect(config.enableLocalFile2Url).toBe(true);}
    res.end(JSON.stringify({code:0,data:result}));
   });await new Promise<void>(r=>server!.listen(state!.webPort,'127.0.0.1',r));
   ws=new WebSocketServer({port:state!.botPort,host:'127.0.0.1'});await new Promise<void>(r=>ws!.once('listening',r));

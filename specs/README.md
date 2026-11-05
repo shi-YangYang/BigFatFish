@@ -69,3 +69,5 @@
 - [Spec 033：QQ 消息页仅保留操作记录](spec-033-qq-audit-only/spec.md)：[独立验收PASS](spec-033-qq-audit-only/acceptance.md)；删除发送表单及投递记录展示。
 
 - [Spec 034：精简视频平台手动观看与记录](spec-034-platform-operation-records/spec.md)：[独立验收PASS](spec-034-platform-operation-records/acceptance.md)；移除手动观看，保留分享互动，统一操作记录。
+
+- [Spec 035：QQ 图片、无引用回复与人设](spec-035-qq-media-persona/spec.md)：[独立验收PASS](spec-035-qq-media-persona/acceptance.md)；修复托管图片内容返回，强化女儿感与鱼粮梗。

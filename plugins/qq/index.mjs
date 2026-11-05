@@ -88,7 +88,7 @@ export class QQPlugin {
     if(!/^[a-fA-F0-9]{32}(\.[a-zA-Z0-9]{1,8})?$/.test(file))throw new Error('MEDIA_REFERENCE_UNSUPPORTED');
     const generation=this.generation;const login=await this.request('get_login_info',{}),status=await this.request('get_status',{});
     if(generation!==this.generation||String(login?.user_id)!==this.config.accountId||status?.online!==true)throw new Error('NOT_CONNECTED');guard();
-    const result=await this.request(kind==='record'?'get_record':'get_file',kind==='record'?{file,out_format:'wav'}:{file},30000);
+    const result=await this.request(kind==='record'?'get_record':'get_image',kind==='record'?{file,out_format:'wav'}:{file},30000);
     guard();if(generation!==this.generation||typeof result?.base64!=='string'||result.base64.length>2_800_000||!/^[A-Za-z0-9+/]+={0,2}$/.test(result.base64))throw new Error('MEDIA_BYTES_UNAVAILABLE');return result.base64;
   }
   rejectPending() { for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(new Error('SEND_UNKNOWN'));}this.pending.clear(); }

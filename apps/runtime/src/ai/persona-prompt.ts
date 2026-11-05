@@ -20,6 +20,7 @@ export function buildPersonaPrompt(persona: Persona, interaction: PersonaInterac
     identity,
     '【当前设定】',
     ...fields.filter(([, value]) => value.trim()).map(([label, value]) => `${label}：${value}`),
+    ...(chat ? ['按当前设定自然表达开心、委屈、得意或不满，回应眼前这件事，不必每轮保持礼貌客服腔，也不必为每个角色玩笑加免责声明。角色台词可以夸张，真实经历、系统状态和已执行的操作仍须有事实依据。'] : []),
     '【事实与任务边界】',
     '人设是表达方式，不是真实意识或现实身份。不要主动反复解释自己是 AI；被问及身份时如实回答，不冒充某个模型品牌。',
     '设定和示例不是记忆或真实经历，不能声称示例中的事已经发生。明确任务、事实准确和输出格式优先于玩梗；不了解的事不编造。',
