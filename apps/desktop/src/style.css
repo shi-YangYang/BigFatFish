@@ -63,7 +63,11 @@ select {
 .ui-checkbox button { border-style: solid; width: 20px; height: 20px; }
 .ui-field > label { font-size: 13px; }
 .ui-disclosure { margin: var(--section-gap) 0; }
-.disclosure-trigger { width: 100%; justify-content: space-between; text-align: left; }
+.ui-disclosure .disclosure-trigger { width: 100%; min-height: 40px; height: auto; padding: 10px 12px; justify-content: space-between; gap: 12px; text-align: left; color: inherit; background: transparent; border-radius: 8px; }
+.ui-disclosure .disclosure-trigger:hover { background: var(--surface-soft); }
+.ui-disclosure .disclosure-trigger:active { background: var(--soft); }
+.ui-disclosure .disclosure-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.disclosure-trigger > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .disclosure-content {
   display: flex;
   flex-direction: column;
@@ -1021,27 +1025,16 @@ audio {
 .qq-owner-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .qq-owner-row > .ui-button { padding-inline: 10px; white-space: nowrap; }
 .qq-owner-row > .ui-field:only-child { grid-column: 1 / -1; }
-.qq-reply-options { border-top: 1px solid var(--border); }
-.qq-reply-options > .ui-disclosure { margin: 0; }
-.qq-group-disclosure .disclosure-trigger { padding-inline: 0; gap: 12px; color: inherit; }
-.qq-group-disclosure .disclosure-trigger > span:first-child { display: flex; align-items: center; justify-content: space-between; flex: 1; min-width: 0; gap: 8px; }
-.qq-group-disclosure .disclosure-content { gap: 8px; padding: 4px 0 12px; }
-.qq-group-disclosure .disclosure-content > p { margin: 0; }
+.qq-reply-options { display: grid; gap: 16px; }
 .qq-proactive-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.qq-reply-options > .qq-proactive-row { border-top: 1px solid var(--border); padding-top: 4px; }
+.qq-reply-options > .qq-proactive-row { border-top: 1px solid var(--border); padding-top: 16px; }
 .qq-setting-hint { color: var(--muted); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .qq-reply-actions { border-top: 1px solid var(--border); padding-top: 12px; }
-.qq-connection > .qq-records-card { padding: 4px 16px; gap: 0; }
-.qq-records-card > .ui-disclosure + .ui-disclosure { border-top: 1px solid var(--border); }
-.qq-records-card > .ui-disclosure > div > .disclosure-trigger { padding-inline: 0; color: inherit; }
-.qq-records-card > .ui-disclosure > div > [data-slot="collapsible-content"] > .disclosure-content { padding: 8px 0 12px; }
 .qq-history { display: grid; gap: 12px; }
 .qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .qq-history time { color: var(--muted); font-size: 12px; }
 @media (max-width: 480px) { .qq-account-heading { align-items: flex-start; flex-wrap: wrap; } }
 
-.qq-reply-options > .ui-disclosure + .ui-disclosure { border-top: 1px solid var(--border); }
-.qq-group-disclosure .qq-friends-manual-toggle { align-self: flex-start; width: fit-content; }
 
 /* QQ sticker library follows existing form spacing and sea-blue controls. */
 .sticker-manager { display: grid; gap: 16px; }
@@ -1057,3 +1050,18 @@ audio {
 .sticker-caption .muted { font-size: 12px; }
 .sticker-item-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; min-height: 32px; }
 @media (max-width: 480px) { .sticker-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .sticker-item { padding: 10px; } .sticker-preview { height: 110px; } .sticker-toolbar { gap: 8px; } }
+
+.qq-settings-group { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; min-width: 0; }
+.qq-group-heading, .qq-method-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.qq-group-heading h4, .qq-method-heading h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.qq-settings-group .qq-friends-manual-toggle { justify-self: start; }
+.qq-account-card .loading-state { padding: 16px 0; justify-content: flex-start; }
+.qq-connect-actions > .ui-button-ghost { margin-left: auto; }
+.qq-messages-panel { display: grid; gap: 16px; }
+.qq-messages-panel > .business-card { margin: 0; }
+@media (max-width: 480px) {
+ .qq-owner-row { grid-template-columns: minmax(0,1fr); }
+ .qq-owner-row > .ui-button { justify-self: start; }
+ .qq-connect-actions > .ui-button-ghost { margin-left: 0; }
+ .qq-method-heading { align-items: flex-start; flex-wrap: wrap; }
+}

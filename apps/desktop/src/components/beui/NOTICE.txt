@@ -52,6 +52,9 @@ Local adaptations:
   (or body). Anchor measurement follows scrolling/resizing; hidden lists stay inert.
 - Checkbox label accepts ReactNode and always names the control from the label
   text rather than including its decorative SVG title; the product Field adapter avoids nested labels.
+- Collapsible uses measured-height transitions without layout projection, preserving
+  keyboard, focus return and inert semantics. Product disclosure triggers use a
+  fixed press scale of 1, no ripple, and a subtle sea-blue hover surface.
 - Chinese tab/panel ids use encodeURIComponent so different labels cannot collide.
   TabsList scrolling accessible labels are localized for the Chinese interface.
 - Drawer close label is localized. Focus-trap candidates exclude hidden/inert

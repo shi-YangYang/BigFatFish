@@ -114,7 +114,7 @@ export function Collapsible({
     <CollapsibleContext.Provider value={context}>
       <motion.div
         {...props}
-        layout={!reduce}
+        layout={false}
         transition={{ layout: SPRING_LAYOUT }}
         data-slot="collapsible"
         data-state={open ? "open" : "closed"}
@@ -123,7 +123,7 @@ export function Collapsible({
         style={{ ...style, originY: 0 }}
       >
         <motion.div
-          layout={reduce ? false : "position"}
+          layout={false}
           transition={{ layout: SPRING_LAYOUT }}
           style={{ originY: 0 }}
           className={cn("min-w-0", contentClassName)}
@@ -197,7 +197,7 @@ export function CollapsibleTrigger({
       {...props}
       {...triggerProps}
       style={style}
-      layout={context.reduce ? false : "position"}
+      layout={false}
       transition={{ layout: SPRING_LAYOUT }}
       className={cn(
         "flex min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
@@ -256,16 +256,15 @@ export function CollapsibleContent({
       data-slot="collapsible-content"
       data-state={context.open ? "open" : "closed"}
       initial={false}
-      layout={!context.reduce}
-      transition={{ layout: SPRING_LAYOUT }}
-      // A one-pixel closed box keeps transform projection continuous at zero.
-      // Geometry changes once; the inner layout projection keeps text sharp.
-      style={{ ...style, height: context.open ? height || "auto" : 1, originY: 0 }}
+      layout={false}
+      animate={{ height: context.open ? height || "auto" : 0 }}
+      transition={{ duration: context.reduce ? 0 : 0.18, ease: EASE_OUT }}
+      style={style}
       className={cn("overflow-hidden", className)}
     >
       <motion.div
         ref={innerRef}
-        layout={!context.reduce}
+        layout={false}
         style={{ originY: 0 }}
         initial={false}
         animate={{ opacity: context.open ? 1 : 0 }}

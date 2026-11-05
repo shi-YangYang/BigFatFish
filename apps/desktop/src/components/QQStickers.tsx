@@ -1,13 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
 import {api} from '../api';
-import {Card,Disclosure,Loading} from './Surfaces';
+import {Card,Loading} from './Surfaces';
 import {ActionRow,Button,Checkbox,Field,FormGrid,Input} from './Controls';
 import type {StickerInfo} from '../../../runtime/src/channels/stickers';
 const endpoint='/v1/channels/qq/stickers';
 type Options={networkEnabled:boolean;revision:string};
 export function QQStickers({fail}:{fail:(e:unknown)=>void}){
- const [open,setOpen]=useState(false);
- return <Card className="qq-stickers"><Disclosure title="表情" open={open} onOpenChange={setOpen}>{open&&<StickerManager fail={fail}/>}</Disclosure></Card>;
+ return <Card className="qq-stickers"><StickerManager fail={fail}/></Card>;
 }
 function StickerManager({fail}:{fail:(e:unknown)=>void}){
  const [items,setItems]=useState<StickerInfo[]>(),[options,setOptions]=useState<Options>(),[adding,setAdding]=useState(false),[name,setName]=useState(''),[description,setDescription]=useState(''),[file,setFile]=useState<File>(),[busy,setBusy]=useState(false);

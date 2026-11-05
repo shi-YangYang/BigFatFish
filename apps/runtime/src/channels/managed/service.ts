@@ -17,7 +17,7 @@ const qrcode=createRequire(import.meta.url)('qrcode') as {toDataURL:(text:string
 async function freePort(){const server=createServer();await new Promise<void>((r,j)=>{server.once('error',j);server.listen(0,'127.0.0.1',r);});const address=server.address() as {port:number};await new Promise<void>((r,j)=>server.close(e=>e?j(e):r()));return address.port;}
 export function onebotConfig(state:ManagedState,native:boolean){return {network:{httpServers:[],httpSseServers:[],httpClients:[],websocketClients:[],plugins:[],websocketServers:[{name:'bigfatfish',enable:true,host:native?'127.0.0.1':'0.0.0.0',port:native?state.botPort:3001,messagePostFormat:'array',reportSelfMessage:false,token:state.botToken,enableForcePushEvent:true,debug:false,heartInterval:30000}]},musicSignUrl:'',enableLocalFile2Url:false,parseMultMsg:false,imageDownloadProxy:''};}
 export class ManagedQQ {
- private resumeOnLogin=false;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
+ private resumeIntent?:{revision:string;accountId:string};private activationVersion=0;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
  private job?:Promise<void>;private control?:AbortController;private generation=0;private running=false;private closed=false;private timer?:ReturnType<typeof setTimeout>;private configuredAccount='';private qrUrl='';
  private lists:{friends:QQContact[];groups:QQContact[];error?:string}={friends:[],groups:[]};
  readonly directory:string;private stateFile:string;
@@ -37,8 +37,8 @@ export class ManagedQQ {
  private error(error:unknown){return error instanceof InputError?error.message:'QQ_COMPONENT_UNAVAILABLE';}
  private launch(phase:ManagedQQStatus['phase'],work:(signal:AbortSignal,generation:number)=>Promise<void>){
   if(this.closed)throw new InputError('RUNTIME_STOPPING',503);if(!this.stateValid)throw new InputError('QQ_COMPONENT_STATE_INVALID');if(this.job)throw new InputError('QQ_COMPONENT_BUSY',409);
-  const generation=++this.generation;this.control=new AbortController();this.view={...this.view,phase,busy:true,error:undefined,operationError:undefined};
-  const job=work(this.control.signal,generation).catch(error=>{if(generation===this.generation)this.view={...this.view,phase:'error',error:this.error(error),operationError:this.error(error),qr:undefined};}).finally(()=>{if(this.job===job){this.job=undefined;this.view.busy=false;}});this.job=job;
+  clearTimeout(this.timer);const generation=++this.generation;this.control=new AbortController();this.view={...this.view,phase,busy:true,error:undefined,operationError:undefined};
+  const job=work(this.control.signal,generation).catch(error=>{if(generation===this.generation)this.view={...this.view,phase:'error',error:this.error(error),operationError:this.error(error),qr:undefined};}).finally(()=>{if(this.job===job){this.job=undefined;this.view.busy=false;this.schedule();}});this.job=job;
   return this.status();
  }
  action(action:'install'|'start'|'stop'|'refresh'){
@@ -48,14 +48,35 @@ export class ManagedQQ {
    if(this.closed)throw new InputError('RUNTIME_STOPPING',503);
    // Cancel installation/start before queued cleanup, preventing late orphan creation.
    const pending=this.job;this.control?.abort();this.generation++;this.running=false;clearTimeout(this.timer);this.view={...this.view,phase:'stopping',busy:true,qr:undefined,account:undefined};
-   this.resumeOnLogin=false;const config=this.channels.status();if(config.config?.mode==='managed'&&config.config.enabled)this.channels.enable(false);
+   this.cancelConnection();const config=this.channels.status();if(config.config?.mode==='managed'&&config.config.enabled)this.channels.enable(false);
    const job=(async()=>{await pending;if(this.state.installed||this.componentTouched)await this.platform.stop();this.componentTouched=false;this.view.phase=this.state.installed?'ready':'missing';this.view.error=undefined;})().catch(error=>{this.view.phase='error';this.view.error=this.error(error);}).finally(()=>{if(this.job===job){this.job=undefined;this.view.busy=false;}});this.job=job;return this.status();
   }
   if(action==='install'&&this.running)throw new InputError('QQ_COMPONENT_BUSY',409);
   if(action==='install')return this.launch('installing',async(signal)=>{await this.platform.install(signal);signal.throwIfAborted();this.state.installed=true;this.persist();this.view.phase='ready';});
   if(action==='refresh')return this.launch('login',async()=>{if(!this.running||!this.client)throw new InputError('QQ_COMPONENT_NOT_STARTED',409);await this.client.call('QQLogin/RefreshQRcode');this.qrUrl='';await this.poll(this.generation);});
   if(this.running)throw new InputError('QQ_COMPONENT_BUSY',409);
-  return this.launch('starting',async(signal,generation)=>{
+  const current=this.channels.status();
+  this.resumeIntent=current.config?.mode==='managed'&&current.config.enabled?{revision:current.revision,accountId:current.config.accountId}:undefined;
+  return this.launch('starting',(signal,generation)=>this.startComponent(signal,generation));
+ }
+ /** One user intent owns preparation, login and restoration of the saved scope. */
+ connect(){
+  if(this.closed)throw new InputError('RUNTIME_STOPPING',503);
+  if(!this.stateValid)throw new InputError('QQ_COMPONENT_STATE_INVALID');
+  if(this.job)throw new InputError('QQ_COMPONENT_BUSY',409);
+  const current=this.channels.status();
+  if(current.config?.enabled&&current.config.mode!=='managed')throw new InputError('QQ_EXTERNAL_ACTIVE',409);
+  this.resumeIntent=current.config?.mode==='managed'?{revision:current.revision,accountId:current.config.accountId}:undefined;
+  return this.launch(this.running?this.view.phase:this.state.installed?'starting':'installing',async(signal,generation)=>{
+   if(!this.state.installed){await this.platform.install(signal);signal.throwIfAborted();this.state.installed=true;this.persist();}
+   signal.throwIfAborted();
+   if(this.running){await this.poll(generation);return;}
+   this.view.phase='starting';await this.startComponent(signal,generation);
+  });
+ }
+ cancelConnection(){this.resumeIntent=undefined;this.activationVersion++;}
+ pause(){this.cancelConnection();return this.channels.status().config?this.channels.enable(false):this.channels.status();}
+ private async startComponent(signal:AbortSignal,generation:number){
    if(!this.state.installed)throw new InputError('QQ_COMPONENT_NOT_INSTALLED',409);
    const current=this.channels.status();if(current.config?.enabled&&current.config.mode!=='managed')throw new InputError('QQ_EXTERNAL_ACTIVE',409);
    for(const path of ['qq','work','work/config','work/plugins'])privateDirectory(join(this.directory,path));
@@ -64,11 +85,11 @@ export class ManagedQQ {
    writePrivate(join(this.directory,'work','config','onebot11.json'),onebotConfig(this.state,this.platform.native));
    signal.throwIfAborted();
    try{this.componentTouched=true;await this.platform.start();signal.throwIfAborted();this.running=true;this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
-   for(let attempt=0;attempt<60;attempt++){signal.throwIfAborted();try{await this.poll(generation);this.schedule();return;}catch{await delay(1000,undefined,{signal});}}throw new InputError('QQ_COMPONENT_START_FAILED');}
+   for(let attempt=0;attempt<60;attempt++){signal.throwIfAborted();try{await this.poll(generation);return;}catch{await delay(1000,undefined,{signal});}}throw new InputError('QQ_COMPONENT_START_FAILED');}
    catch(error){this.running=false;await this.platform.stop();this.componentTouched=false;throw error;}
-  });
+
  }
- private schedule(){clearTimeout(this.timer);if(!this.running||this.closed)return;this.timer=setTimeout(()=>{const generation=this.generation;void this.poll(generation).catch(error=>{if(generation===this.generation){this.view.error=this.error(error);this.view.phase='error';this.view.qr=undefined;}}).finally(()=>this.schedule());},3000);}
+ private schedule(){clearTimeout(this.timer);if(!this.running||this.closed||this.job)return;this.timer=setTimeout(()=>{const generation=this.generation;void this.poll(generation).catch(error=>{if(generation===this.generation){this.view.error=this.error(error);this.view.phase='error';this.view.qr=undefined;}}).finally(()=>this.schedule());},3000);}
  private async poll(generation:number){
   const status=await this.client!.call('QQLogin/CheckLoginStatus');if(generation!==this.generation||!this.running)return;
   if(status.isLogin!==true||status.coreReady!==true){
@@ -86,9 +107,14 @@ export class ManagedQQ {
    const login=await onebotRead(this.state.botPort,this.state.botToken,'get_login_info') as {user_id:unknown};if(stableId(login.user_id)!==id)throw new InputError('QQ_ACCOUNT_CHANGED',409);
    if(generation!==this.generation)return;this.configuredAccount=id;
    try{const [friends,groups]=await Promise.all([onebotRead(this.state.botPort,this.state.botToken,'get_friend_list'),onebotRead(this.state.botPort,this.state.botToken,'get_group_list')]);if(generation!==this.generation)return;this.lists={friends:contacts(friends,'friend'),groups:contacts(groups,'group')};}catch{this.lists={friends:[],groups:[],error:'QQ_CONTACTS_UNAVAILABLE'};}
-   const saved=this.channels.status();if(generation===this.generation&&saved.config?.mode==='managed'&&(saved.config.enabled||this.resumeOnLogin)&&saved.config.accountId===id)this.channels.save({...saved.config,enabled:true,revision:saved.revision,url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken});
   }
-  this.resumeOnLogin=false;if(generation!==this.generation)return;this.view={...this.view,phase:'online',account:{id,name:String(info.nick??id).slice(0,100)},qr:undefined,error:undefined,loginPhase:undefined};
+  if(generation!==this.generation)return;
+  const intent=this.resumeIntent,saved=this.channels.status();
+  this.resumeIntent=undefined;
+  if(intent&&intent.accountId===id&&intent.revision===saved.revision&&saved.config?.mode==='managed'&&saved.config.accountId===id){
+   this.channels.save({...saved.config,enabled:true,revision:intent.revision,url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken});
+  }
+  this.view={...this.view,phase:'online',account:{id,name:String(info.nick??id).slice(0,100)},qr:undefined,error:undefined,loginPhase:undefined};
  }
  configure(input:unknown){
   const body=object(input),current=this.channels.status();
@@ -98,20 +124,22 @@ export class ManagedQQ {
   if(!Array.isArray(body.groups)||body.groups.length>100||typeof body.replyEnabled!=='boolean'||typeof body.proactiveEnabled!=='boolean')throw new InputError('INVALID_REQUEST');
   const groups=body.groups.map(stableId);
   configuration({...body,url:`ws://127.0.0.1:${this.state.botPort}`,enabled:true});
+  const activationVersion=this.activationVersion;
   return this.launch('online',async(_signal,generation)=>{
    const login=await onebotRead(this.state.botPort,this.state.botToken,'get_login_info') as {user_id:unknown};const status=await onebotRead(this.state.botPort,this.state.botToken,'get_status') as {online:boolean};
-   if(generation!==this.generation)throw new InputError('CANCELLED');
+   if(generation!==this.generation||activationVersion!==this.activationVersion)throw new InputError('CANCELLED');
    if(stableId(login.user_id)!==id||status.online!==true)throw new InputError('QQ_ACCOUNT_CHANGED',409);
    this.channels.save({mode:'managed',url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken,accountId:id,ownerId:owner,friendIds:body.friendIds,groupReplyMode:body.groupReplyMode,groups,enabled:true,replyEnabled:body.replyEnabled,proactiveEnabled:body.proactiveEnabled,revision:body.revision});
   });
  }
- resume(){const config=this.channels.status();if(!config.config||config.config.mode!=='managed')throw new InputError('CHANNEL_NOT_CONFIGURED',409);if(this.running)return this.configure({...config.config,revision:config.revision});this.resumeOnLogin=true;try{return this.action('start');}catch(error){this.resumeOnLogin=false;throw error;}}
+ resume(){const config=this.channels.status();if(!config.config||config.config.mode!=='managed')throw new InputError('CHANNEL_NOT_CONFIGURED',409);return this.connect();}
  async stopAndWait(){this.action('stop');await this.job;}
- async close(){this.closed=true;this.running=false;this.generation++;clearTimeout(this.timer);this.control?.abort();await this.job;if(this.componentTouched&&this.stateValid){await this.platform.stop();this.componentTouched=false;}}
+ async close(){this.cancelConnection();this.closed=true;this.running=false;this.generation++;clearTimeout(this.timer);this.control?.abort();await this.job;if(this.componentTouched&&this.stateValid){await this.platform.stop();this.componentTouched=false;}}
 }
 export function registerManagedQQ(app:FastifyInstance,managed:ManagedQQ){
  app.get('/v1/channels/qq/component',async()=>managed.status());
  app.get('/v1/channels/qq/component/contacts',async()=>managed.contactList());
  for(const action of ['install','start','stop','refresh'] as const)app.post(`/v1/channels/qq/component/${action}`,async()=>managed.action(action));
+ app.post('/v1/channels/qq/component/connect',async()=>managed.connect());
  app.put('/v1/channels/qq/component/settings',async req=>managed.configure(req.body));
 }

@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec029 简化 QQ 连接与折叠交互已完成
+
+EXISTING，dev 基线 191ab88，工作区开始干净。用户要求本地commit（上一阶段已提交，无需空commit），再修折叠悬浮/点击和QQ重复启动。Spec029/Decision018 Done：Runtime单次connect编排安装/启动，同账号已存范围恢复，取消/暂停/账号和revision变动阻止迟到启用；首次保存并连接；QQ回复/表情/消息页签，共用Disclosure无缩放变形。实施/root/implement_qq_connect_flow、新独立/root/accept_qq_connect_flow均完成，完整报告已读取处理，PASS无返工。
+
+S3相关4项managed-qq集成、Node编译、apps-only类型通过；root隔离实际App 1280/380px检查草稿保留、单次到QR、首次保存连接、已有服务入口、折叠点击/Enter收起及AX隐藏，截图build/qq-connect-flow/01–04。临时tab3关闭、viewportreset、fixture5397终止并确认exit143。无真实QQ/Docker/用户数据变更、云模型调用、Windows或重打包。每阶段本地commit持续授权有效，由root提交，hash以git log为准；无push/PR/合并，远端未刷新。使用新后端需重新运行npm run desktop:dev。满足停止条件，不追加验证。下方为历史。
+
 ## 当前任务：Spec028 QQ 表情回复已完成
 
 EXISTING，dev 基线 f39d9cc，开始干净。用户要求实际发图并明确网络与内置并用。Spec028/Decision017 Done：内置三张原创大肥鱼娘PNG、上传库、固定梗鲸网络搜索/看图/单张回复；普通插件权限不变，使用现有QQ最终guard。初实施/root/implement_qq_stickers报告已完整读取，20项相关检查分阶段通过。root三图复制/目视、实际App隔离1280/380px增删启停通过，证据build/qq-stickers/01–03；fixture67525/tab12已关闭、viewport恢复。

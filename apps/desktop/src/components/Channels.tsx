@@ -1,4 +1,4 @@
-import { Disclosure, Alert } from "./Surfaces";
+import { Card, Alert } from "./Surfaces";
 import { Field, Input, Button, Select, Textarea } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
@@ -54,7 +54,7 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
     }catch(error){setResult('未取得发送结果，请先查看记录或在 QQ 核实，勿重复发送。');fail(error);}
     finally{acting.current=false;setBusy(false);}
   };
-  return <section>
+  return <><Card><h3>发送消息</h3>
     {!config?.proactiveEnabled&&<p className="muted">开启「允许主动消息」后可发送。</p>}
     <form onSubmit={event=>{event.preventDefault();void submit();}}>
       <fieldset disabled={busy||!config?.enabled||!config.proactiveEnabled}>
@@ -66,10 +66,10 @@ export function QQMessages({fail}:{fail:(e:unknown)=>void}){
       </fieldset>
     </form>
     {result&&<Alert role="status">{result}</Alert>}
-    <Disclosure title="发送记录">
+    </Card><Card><h3>发送记录</h3>
       {!items.length&&<p className="muted">暂无主动消息</p>}
       <div className="qq-history">{items.map(item=>{const to=JSON.parse(item.target) as {kind:string;id:string};return <div key={item.id}><span>{to.kind==='group'?'群':'私聊'} {to.id} · {labels[item.status]??item.status}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div>;})}</div>
-    </Disclosure>
-    <Disclosure title="操作记录">{audit.map((item,index)=><p key={index}>{item.at} · {item.event}</p>)}</Disclosure>
-  </section>;
+    </Card>
+    <Card><h3>操作记录</h3>{audit.map((item,index)=><p key={index}>{item.at} · {item.event}</p>)}</Card>
+  </>;
 }

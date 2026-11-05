@@ -10,10 +10,10 @@ import { cn } from "./beui/utils";
 
 export function Disclosure({ title, children, className, ...props }: Omit<ComponentProps<typeof Collapsible>, "title"> & { title: ReactNode }) {
   return <Collapsible {...props} className={cn("ui-disclosure", className)}>
-    <CollapsibleTrigger render={<Button variant="ghost" className="disclosure-trigger" />}>
+    <CollapsibleTrigger render={<Button variant="ghost" pressScale={1} ripple={false} className="disclosure-trigger" />}>
       <span>{title}</span><CollapsibleIndicator />
     </CollapsibleTrigger>
-    <CollapsibleContent className="data-[state=open]:overflow-visible" contentClassName="disclosure-content">{children}</CollapsibleContent>
+    <CollapsibleContent contentClassName="disclosure-content">{children}</CollapsibleContent>
   </Collapsible>;
 }
 export function Menu({ trigger, children, className, side = "bottom", align = "end", open, onOpenChange }: {

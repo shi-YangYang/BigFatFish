@@ -121,9 +121,7 @@ export function Connections({ fail }: Fail) {
         {tab === "QQ" ? (
           <div className="qq-workspace">
             <Channels fail={fail}>
-              <Disclosure title="主动发送与操作记录">
-                <QQMessages fail={fail} />
-              </Disclosure>
+              <QQMessages fail={fail} />
             </Channels>
           </div>
         ) : tab === "B站" ? (
