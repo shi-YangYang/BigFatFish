@@ -60,3 +60,14 @@ dev基线06b9c7e，持续每阶段本地commit授权有效；新独立验收PASS
 
 ### UI 后文案补充
 root 已完成隔离 UI 分类/原因/自动更新/明确拒绝与未知/380px检查，指出主动发送历史的 interrupted 不应称为回复。仅按 proactive 将该分支区分为「发送已中断」或「回复已中断」，取消/重启/通用原因使用对应称呼；其它状态和布局不变。S0，仅查看该差异，未追加或重跑测试、build、类型检查。
+
+## 记录卡片滚动补充（2026-11-05）
+dev 基线22e2041，工作区干净。原因是 `.qq-history` 只有 grid/gap，无高度限制，记录直接撑开卡片。在这一共享的 QQ 列表样式中设置随视口受限的最大高度、内部纵向滚动和 overscroll containment；不限制整个页面，也不裁掉记录。S0，仅差异审阅；实施与新的独立验收分开，不运行测试/build/lint/typecheck/UI，不操作真实服务。验收后按既有持续授权本地提交，不推送。
+
+### Implementation Report：卡片内部滚动
+- Summary / Root Cause：QQ 记录列表缺少高度边界，长列表撑高父卡片和页面。在共用 `.qq-history` 展示层修复，覆盖自动回复、主动发送与操作记录；数据和发送流程不变。
+- Files Changed：`apps/desktop/src/style.css` 与本 Plan 的实施记录。
+- Important Decisions：最大高度取 `min(360px, 50vh)`，少量记录自然收缩，超出部分由 `overflow-y: auto` 在列表内部滚动；`overscroll-behavior-y: contain` 阻止列表边缘向页面传递滚动，`scrollbar-gutter: stable` 避免传统滚动条出现时内容宽度跳变。标题和表单位于列表外，长原因的原换行样式保留。
+- Validation：S0，仅审阅本次 CSS / 报告 diff；未运行测试、build、lint、typecheck 或 UI，未操作实际 QQ / Runtime。独立验收由新的验收 Agent 执行。
+- Known Limitations：本轮为静态差异审阅，不声称做过浏览器或桌面交互实测。
+- Remaining Questions：无。

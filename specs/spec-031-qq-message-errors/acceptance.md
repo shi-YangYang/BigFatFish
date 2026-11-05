@@ -31,3 +31,19 @@ PASS
 
 ## Required Rework
 无。满足本轮停止条件，由root更新阶段状态并执行已有授权内的本地提交。
+
+## 补充验收：记录卡片内部滚动（2026-11-05）
+
+### Result
+PASS。独立验收：`/root/accept_qq_history_scroll`。
+
+### Spec Coverage
+`.qq-history` 的最大高度为 `min(360px, 50vh)`，记录超出后在卡片列表内纵向滚动；`overscroll-behavior-y: contain` 将边缘滚动限制在列表内。只设置最大高度，少量记录保持自然高度；`scrollbar-gutter: stable` 预留滚动条空间。自动回复、主动发送、操作记录共用此样式，卡片标题和发送表单均在列表外，空态、原换行规则和业务行为保持不变，未锁定外层页面。
+
+### Validation
+- Risk Level: S0。
+- Evidence Reviewed / Checks Performed：读取本轮 Spec/Plan 补充与实施报告、交接、规则和实际 diff；核对 QQDeliveryHistory 与 Channels 的直接使用位置，仅局部 CSS 变更，无数据或逻辑修改。
+- 未运行测试、build、lint、typecheck 或浏览器/桌面交互验证，未修改业务代码或提交；不把静态验收称为 UI 实测。
+
+### Issues / Regression Risks / Required Rework
+未发现阻断问题，无需返工。实际设备滚动体验未在本轮实测；验证范围按 S0 保持差异审阅，满足停止条件。

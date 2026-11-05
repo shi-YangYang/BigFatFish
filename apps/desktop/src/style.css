@@ -1030,7 +1030,7 @@ audio {
 .qq-reply-options > .qq-proactive-row { border-top: 1px solid var(--border); padding-top: 16px; }
 .qq-setting-hint { color: var(--muted); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .qq-reply-actions { border-top: 1px solid var(--border); padding-top: 12px; }
-.qq-history { display: grid; gap: 12px; }
+.qq-history { display: grid; gap: 12px; max-height: min(360px, 50vh); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
 .qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .qq-delivery-body { display: grid; gap: 4px; min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; }
 .qq-delivery-body strong { font-weight: 600; }

@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec031 记录卡片内部滚动补充已完成
+
+用户要求 QQ 失败记录在卡片内滚动、不透传到外层页面。EXISTING，dev 基线22e2041、开始干净。沿用Spec031末尾补充：仅 `.qq-history` 最大高度min(360px,50vh)、内部overflow和overscroll containment，共用覆盖自动回复/主动发送/操作记录，不改消息或整个页面。S0只审阅diff，未运行测试/build/lint/typecheck/UI。实施/root/implement_qq_history_scroll、新独立/root/accept_qq_history_scroll完成，PASS，完整报告已读，无返工。持续阶段本地commit授权有效，由root提交，确切hash见git log；无push，远端未刷新。达到停止条件。旧Spec031已完成证据如下，不重复旧测试。
+
 ## 当前任务：Spec031 QQ消息错误诊断与准确反馈已完成
 
 EXISTING，dev基线06b9c7e，开始干净。Spec031 Done：安全模型HTTP/网络/流错误贯通DSH→Chat→QQ；QQ生成失败/发送前阻止/协议失败/交付未知/中断准确呈现，历史兼容、简短原因、中文操作记录与统一轮询。只读实际数据5sent+1blocked/MODEL_RUN_FAILED，失败2026-11-05 09:35（Asia/Shanghai），DSH error/SERVER/502 {}；历史来源细节已丢，不能认定百炼端故障或QQ拒绝。实施/root/implement_qq_error_feedback及新独立/root/accept_qq_error_feedback均完成，全部报告已读，PASS无返工。
