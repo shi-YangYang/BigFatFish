@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ContentScroll, Disclosure, Loading } from "./Surfaces";
+import { Disclosure, Loading } from "./Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "./Controls";
 import type { Persona } from "../../../runtime/src/ai/types";
 import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../runtime/src/ai/persona-presets";
@@ -21,30 +21,17 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
   const [persona, setPersona] = useState<Persona>();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [history, setHistory] = useState<Persona[]>();
-  const [historyLoading, setHistoryLoading] = useState(false);
   const savingRef = useRef(false);
-  const historyRequest = useRef(0);
   useEffect(() => {
     let active = true;
     void api<Persona>("/v1/persona").then(value => { if (active) setPersona(value); }).catch(fail);
-    return () => { active = false; historyRequest.current++; };
+    return () => { active = false; };
   }, [fail]);
 
   function change(next: Persona) {
     if (savingRef.current) return;
     setPersona(next);
     setSaved(false);
-  }
-  async function loadHistory() {
-    const request = ++historyRequest.current;
-    setHistoryLoading(true);
-    try {
-      const value = await api<Persona[]>("/v1/persona/history");
-      if (request === historyRequest.current) setHistory(value);
-    } catch (error) { if (request === historyRequest.current) fail(error); }
-    finally { if (request === historyRequest.current) setHistoryLoading(false); }
   }
   async function save() {
     if (!persona || savingRef.current) return;
@@ -55,10 +42,6 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
       const value = await api<Persona>("/v1/persona", "PUT", persona);
       setPersona(value);
       setSaved(true);
-      setHistory(undefined);
-      historyRequest.current++;
-      setHistoryLoading(false);
-      if (historyOpen) void loadHistory();
     } catch (error) { fail(error); }
     finally { savingRef.current = false; setSaving(false); }
   }
@@ -112,22 +95,6 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
           <span role="status">{saved ? "已保存" : ""}</span>
         </ActionRow>
       </form>
-      <Disclosure title="版本记录" open={historyOpen} onOpenChange={open => {
-        setHistoryOpen(open);
-        if (open) void loadHistory();
-      }}>
-        <ContentScroll label="版本记录">
-        {historyLoading ? <Loading /> : history?.map(item => (
-          <Disclosure key={item.version} title={`版本 ${item.version} · ${item.name}`}>
-            {item.cardPrompt && <p className="persona-history-text">{item.cardPrompt}</p>}
-            <p>{item.role}</p>
-            <p>{item.traits}</p>
-            <p className="persona-history-text">{item.style}</p>
-            <p>边界：{item.boundaries}</p>
-          </Disclosure>
-        ))}
-        </ContentScroll>
-      </Disclosure>
     </section>
   );
 }

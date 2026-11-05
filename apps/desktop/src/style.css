@@ -257,7 +257,6 @@ fieldset > .ui-button,
 }
 .persona-example > span { color: var(--muted); font-size: 12px; }
 .persona-example > p { margin: 6px 0 0; overflow-wrap: anywhere; }
-.persona-history-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

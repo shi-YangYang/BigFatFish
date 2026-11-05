@@ -77,3 +77,4 @@
 - [Spec 037：自然用图与 Desktop 易用性](spec-037-lively-desktop/spec.md)：[返工独立 PASS](spec-037-lively-desktop/acceptance-r1.md)；主动考虑贴切配图与近期避重复，列表优先、共享状态同步及全面原生页面审计。
 
 - [Spec 038：网站完整人设卡与工具适配](spec-038-source-persona-cards/spec.md)：[PASS](spec-038-source-persona-cards/acceptance-r1.md)；两张来源卡全文与 QQ/记忆/联网工具已启用，当前女儿版 v5，QQ 已在线且自动回复启用。
+- [Spec 039：移除设定页版本记录](spec-039-remove-persona-history/spec.md)：[PASS](spec-039-remove-persona-history/acceptance.md)；已移除版本历史界面及加载逻辑，保留当前设定编辑与保存。
