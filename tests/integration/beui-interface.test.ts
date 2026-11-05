@@ -68,3 +68,76 @@ it.skipIf(!existsSync(executable))("beUI preserves form contracts, Chinese tab i
     expect(errors).toEqual([]);
   } finally { await browser.close(); await server.close(); }
 }, 30000);
+
+it.skipIf(!existsSync(executable))("product drawers and disclosures remain usable without animation frames", async () => {
+  const server = await createServer({ configFile: resolve("apps/desktop/vite.config.ts"), server: { host: "127.0.0.1", port: 0, strictPort: false, fs: { allow: [resolve(".")] } } });
+  await server.listen();
+  const browser = await chromium.launch({ executablePath: executable, headless: true });
+  try {
+    for (const reducedMotion of ["no-preference", "reduce"] as const) for (const frozen of [false, true]) {
+      const page = await browser.newPage({ viewport: { width: 900, height: 680 }, reducedMotion });
+      page.setDefaultTimeout(4000);
+      const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
+      // Install before Motion imports/captures rAF; changing it after load is insufficient.
+      await page.addInitScript(() => {
+        const nativeRaf = window.requestAnimationFrame.bind(window);
+        const state = { frozen: false };
+        Object.assign(window, { __fixtureFrames: state });
+        window.requestAnimationFrame = (callback) => state.frozen ? 0 : nativeRaf((time) => { if (!state.frozen) callback(time); });
+      });
+      await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve("tests/fixtures/beui-interface.html")}`);
+      const opener = page.getByRole("button", { name: "打开抽屉", exact: true });
+      await opener.waitFor();
+      await page.evaluate((value) => { (window as unknown as { __fixtureFrames: { frozen: boolean } }).__fixtureFrames.frozen = value; }, frozen);
+      await opener.click();
+      const drawer = page.getByRole("dialog", { name: "控件抽屉", exact: true });
+      await drawer.waitFor();
+      const bounds = (await drawer.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(900);
+      expect(await drawer.evaluate((el) => ({ opacity: getComputedStyle(el).opacity, transform: getComputedStyle(el).transform, focused: el.contains(document.activeElement) }))).toEqual({ opacity: "1", transform: "none", focused: true });
+      expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+      const trigger = drawer.getByRole("button", { name: "隐藏字段", exact: true });
+      const content = drawer.locator('[data-slot="collapsible-content"]');
+      expect((await trigger.boundingBox())!.height).toBe(40);
+      await trigger.click();
+      expect(await trigger.getAttribute("aria-expanded")).toBe("true");
+      expect((await content.boundingBox())!.height).toBeGreaterThan(40);
+      expect(await content.evaluate((el) => ({ inert: (el as HTMLElement).inert, opacity: getComputedStyle(el.firstElementChild!).opacity }))).toEqual({ inert: false, opacity: "1" });
+      expect(await trigger.locator('[data-slot="collapsible-indicator"]').evaluate((el) => getComputedStyle(el).transform)).toBe("matrix(-1, 0, 0, -1, 0, 0)");
+      const input = drawer.getByLabel("折叠输入", { exact: true });
+      await input.fill("保留草稿");
+      // Close without moving focus first, to exercise the content's return-focus contract.
+      await trigger.evaluate((el) => (el as HTMLButtonElement).click());
+      expect(await content.evaluate((el) => ({ inert: (el as HTMLElement).inert, height: el.getBoundingClientRect().height }))).toEqual({ inert: true, height: 0 });
+      expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(true);
+      await page.keyboard.press("Tab");
+      await trigger.focus();
+      expect(await trigger.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+      expect(await trigger.evaluate((el) => getComputedStyle(el).outlineColor)).toBe("rgb(34, 120, 159)");
+      await trigger.click();
+      expect(await input.inputValue()).toBe("保留草稿");
+      await trigger.locator("span").first().evaluate((el) => { el.textContent = "这是一条需要自然换行的很长很长的折叠标题".repeat(4); });
+      expect((await drawer.locator('[data-slot="collapsible-trigger"]').boundingBox())!.height).toBeGreaterThan(40);
+      await drawer.getByRole("button", { name: "声音选项", exact: true }).focus();
+      await page.keyboard.press("Tab");
+      const close = drawer.getByRole("button", { name: "关闭", exact: true });
+      expect(await close.evaluate((el) => el === document.activeElement)).toBe(true);
+      // The icon's keyboard tooltip owns the first Escape; the drawer owns the next.
+      expect(await close.getAttribute("aria-describedby")).not.toBeNull();
+      await page.keyboard.press("Escape");
+      expect(await close.getAttribute("aria-describedby")).toBeNull();
+      expect(await drawer.isVisible()).toBe(true);
+      await page.keyboard.press("Escape");
+      await drawer.waitFor({ state: "detached" });
+      expect(await opener.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
+      await opener.click();
+      await page.getByRole("button", { name: "关闭抽屉", exact: true }).dispatchEvent("click");
+      await drawer.waitFor({ state: "detached" });
+      expect(await opener.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(errors).toEqual([]);
+      await page.close();
+    }
+  } finally { await browser.close(); await server.close(); }
+}, 30000);

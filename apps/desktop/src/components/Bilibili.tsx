@@ -30,7 +30,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
  if(!status)return <Loading/>;
  const connection=status.connection,connecting=['connecting','login'].includes(connection?.phase??''),connected=status.enabled&&status.accountState==='verified';
  const locked=busy||connecting,login=connection?.login;
- return <section className="platform-connection">
+ return <section className="page-section platform-connection">
 
   <Card className="platform-account-card">
    <div className="platform-account-heading"><div><h2>B站{status.account?.name && <span className="account-name"> · {status.account.name}</span>}</h2>{status.account&&<p className="muted">{status.account.mid}</p>}</div><Badge>{connected?'已连接':connecting?'连接中':status.enabled?'未登录':'未连接'}</Badge></div>
@@ -39,7 +39,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
    {connection?.phase==='connecting'&&<Loading>正在连接…</Loading>}
    {login?.image&&<div className="platform-login-code"><img src={login.image} alt="B站登录二维码"/><p>{states[login.status]||'使用手机 B站扫码'}</p></div>}
    {connection?.phase==='expired'&&<p>二维码已过期，请重新连接。</p>}
-   <ActionRow>
+   <ActionRow className="platform-connect-actions">
     {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/connect','POST',{revision:status.revision}))}>{connection?.phase==='error'?'重试连接':'连接 B站'}</Button>}
     {(status.enabled||connecting)&&<Button disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
     {!status.enabled&&!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili','PUT',{enabled:true,revision:status.revision}))}>暂不登录</Button>}

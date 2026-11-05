@@ -9,7 +9,7 @@ import { Loader } from "./beui/loader";
 import { cn } from "./beui/utils";
 
 export function Disclosure({ title, children, className, ...props }: Omit<ComponentProps<typeof Collapsible>, "title"> & { title: ReactNode }) {
-  return <Collapsible {...props} className={cn("ui-disclosure", className)}>
+  return <Collapsible {...props} animated={false} className={cn("ui-disclosure", className)}>
     <CollapsibleTrigger render={<Button variant="ghost" pressScale={1} ripple={false} className="disclosure-trigger" />}>
       <span>{title}</span><CollapsibleIndicator />
     </CollapsibleTrigger>
@@ -26,7 +26,7 @@ export function Menu({ trigger, children, className, side = "bottom", align = "e
   </Popover>;
 }
 export function Card({ className, ...props }: ComponentProps<typeof BeCard>) {
-  return <BeCard role="article" {...props} className={cn("business-card border-solid rounded-[12px] p-[20px] gap-[12px]", className)} />;
+  return <BeCard role="article" {...props} className={cn("business-card border-solid rounded-[12px]", className)} />;
 }
 const ContentScrollContext = createContext(false);
 export function ContentScroll({ label, className, children }: { label: string; className?: string; children: ReactNode }) {

@@ -7,7 +7,7 @@ export function Media({ fail }: { fail: (e: unknown) => void }) {
     [audio, setAudio] = useState(""),
     [busy, setBusy] = useState(false);
   return (
-    <section>
+    <section className="page-section">
       <h2>语音</h2>
       <Field>
         音频转写

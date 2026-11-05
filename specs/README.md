@@ -78,3 +78,5 @@
 
 - [Spec 038：网站完整人设卡与工具适配](spec-038-source-persona-cards/spec.md)：[PASS](spec-038-source-persona-cards/acceptance-r1.md)；两张来源卡全文与 QQ/记忆/联网工具已启用，当前女儿版 v5，QQ 已在线且自动回复启用。
 - [Spec 039：移除设定页版本记录](spec-039-remove-persona-history/spec.md)：[PASS](spec-039-remove-persona-history/acceptance.md)；已移除版本历史界面及加载逻辑，保留当前设定编辑与保存。
+
+- [Spec 040：Desktop 全页面布局修复](spec-040-desktop-layout-audit/spec.md)：[返工独立PASS](spec-040-desktop-layout-audit/acceptance-r1.md)；70状态×4宽度及原生逐页检查，统一页面/卡片/表单/浮层布局，修复停帧可用性、焦点和控件尺寸；原始before证据损失另有说明。

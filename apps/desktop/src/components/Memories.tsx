@@ -112,7 +112,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     setExportPath(result.path);
   };
   return (
-    <section>
+    <section className="page-section">
       <div className="section-heading">
         <h2>记忆</h2>
         <ActionRow>
@@ -174,6 +174,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           void save();
         }}
       >
+        <FormGrid>
         <Field>
           类型
           <Select
@@ -190,6 +191,20 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             ))}
           </Select>
         </Field>
+        <Field>
+          重要性
+          <Input
+            disabled={busy}
+            type="number"
+            min={1}
+            max={5}
+            value={form.importance}
+            onChange={(e) =>
+              setForm({ ...form, importance: Number(e.target.value) })
+            }
+          />
+        </Field>
+        </FormGrid>
         <Field>
           主题
           <Input
@@ -210,19 +225,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             onChange={(e) => setForm({ ...form, content: e.target.value })}
           />
         </Field>
-        <Field>
-          重要性
-          <Input
-            disabled={busy}
-            type="number"
-            min={1}
-            max={5}
-            value={form.importance}
-            onChange={(e) =>
-              setForm({ ...form, importance: Number(e.target.value) })
-            }
-          />
-        </Field>
+
         <Field className="check">
           <Checkbox
             disabled={busy}

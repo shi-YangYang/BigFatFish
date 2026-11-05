@@ -96,7 +96,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
   const refreshError = useLifeRefresh(load);
   if (!data) return refreshError ? <Alert>{refreshError}</Alert> : <Loading />;
   return (
-    <section>
+    <section className="page-section">
       {refreshError && (
         <Alert role="alert" className="error">
           {refreshError}
@@ -157,13 +157,13 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
         </Card>}
         <Card>
           <h3>最近经历</h3>
-          <ContentScroll label="最近经历">
+          <ContentScroll label="最近经历" className="overview-recent">
           {data.recent.length ? (
             data.recent.map((a) => (
-              <p key={a.id}>
-                {a.summary}{" "}
-                <small>{new Date(a.occurredAt).toLocaleString()}</small>
-              </p>
+              <div key={a.id} className="summary-entry">
+                <p>{a.summary}</p>
+                <time>{new Date(a.occurredAt).toLocaleString()}</time>
+              </div>
             ))
           ) : (
             <p>开始聊天，留下第一段经历。</p>
@@ -197,11 +197,10 @@ export function TaskList({
   fail: (e: unknown) => void;
 }) {
   return (
-    <ContentScroll label="整理任务">
+    <ContentScroll label="整理任务" className="task-list">
       {tasks.slice(0, 8).map((t) => (
         <div className="task-row" key={t.id}>
-          {t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]} ·{" "}
-          {t.modelId}{" "}
+          <div className="task-summary"><strong>{t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]}</strong><span className="muted">{t.modelId}</span></div>
           {t.error && <Alert>{errorText(t.error)}</Alert>}{" "}
           {["queued", "running"].includes(t.status) && (
             <Button
@@ -258,7 +257,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
     }
   };
   return (
-    <section>
+    <section className="page-section">
       <h2>经历与日记</h2>
       {refreshError && (
         <Alert role="alert" className="error">
@@ -302,12 +301,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       <ContentScroll label="日记" className="content-scroll-list">
       {diaries.map((d) => (
         <Card key={d.id}>
-          <h3>
-            {d.day}{" "}
-            <small>
-              {d.timezone} · 第 {d.version} 版
-            </small>
-          </h3>
+          <div className="record-title"><h3>{d.day}</h3><span className="muted">{d.timezone} · 第 {d.version} 版</span></div>
           <p className="prewrap">{d.content}</p>
           <Sources sources={d.sources} fail={fail} />
           <p>

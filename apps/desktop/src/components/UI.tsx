@@ -69,7 +69,7 @@ export function Tabs<T extends string>({
   </BeTabs>;
 }
 export function Drawer({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
-  return createPortal(<BeDrawer open onOpenChange={(open) => { if (!open) close(); }} ariaLabel={title} className="drawer border-solid">
+  return createPortal(<BeDrawer open animated={false} onOpenChange={(open) => { if (!open) close(); }} ariaLabel={title} className="drawer border-solid">
     <div className="drawer-heading">
       <h2>{title}</h2>
       <Button type="button" size="icon" aria-label="关闭" title="关闭" onClick={close}><Icon name="close" /></Button>

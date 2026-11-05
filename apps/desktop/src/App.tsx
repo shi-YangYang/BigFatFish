@@ -181,13 +181,13 @@ export default function App() {
             待审批 <Badge status="warning">{approvalCount}</Badge>
           </Button>
         )}
-        <Menu open={runtimeMenuOpen} onOpenChange={setRuntimeMenuOpen} trigger={<Button ref={runtimeMenuTrigger} className="runtime-menu" aria-label="运行状态">
+        <Menu open={runtimeMenuOpen} onOpenChange={setRuntimeMenuOpen} trigger={<Button ref={runtimeMenuTrigger} className="runtime-menu" aria-label="运行状态" title={connected ? activity?.paused ? "活动已暂停" : "服务在线" : "服务离线"}>
             <span className={`status-dot ${connected ? "online" : ""}`} />
-            {connected
+            <span className="runtime-label">{connected
               ? activity?.paused
                 ? "活动已暂停"
                 : "服务在线"
-              : "服务离线"}
+              : "服务离线"}</span>
           </Button>}>
 
           <div className="runtime-popover">

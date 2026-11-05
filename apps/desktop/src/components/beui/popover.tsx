@@ -569,8 +569,8 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
     if (!g || g.layerW === 0) return;
     const clip = clipForProgress(g, p, supportsShapeRef.current);
     if (blobRef.current) blobRef.current.style.clipPath = clip;
-    if (clipRef.current) clipRef.current.style.clipPath = clip;
-  }, []);
+    if (clipRef.current) clipRef.current.style.clipPath = animated ? clip : "none";
+  }, [animated]);
 
   useLayoutEffect(() => {
     supportsShapeRef.current =
@@ -691,8 +691,8 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
           inert={!open}
           className="absolute inset-0"
           style={{
-            clipPath: clipForProgress(geo, displayProgress, false),
-            pointerEvents: open ? "auto" : "none",
+            clipPath: animated ? clipForProgress(geo, displayProgress, false) : undefined,
+            pointerEvents: animated && open ? "auto" : "none",
           }}
         >
           <div
@@ -703,6 +703,7 @@ export function PopoverContent({ children, className, ariaLabel }: PopoverConten
             {...hoverHandlers}
             style={{
               position: "absolute",
+              pointerEvents: open ? "auto" : "none",
               left: geo.panel.x,
               top: geo.panel.y,
               maxWidth: layout ? `min(20rem, ${Math.max(0, layout.viewport.width - POPOVER_GUTTER * 2)}px)` : undefined,

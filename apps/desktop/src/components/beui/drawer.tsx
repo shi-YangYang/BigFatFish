@@ -9,6 +9,8 @@ import { PresenceGate } from "./presence-gate";
 import { cn } from "./utils";
 
 export interface DrawerProps {
+  /** Set false to render open/closed states synchronously, without motion frames. */
+  animated?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   side?: "left" | "right";
@@ -31,6 +33,7 @@ export function Drawer({
   backdropClassName,
   ariaLabel,
   dismissable = true,
+  animated = true,
 }: DrawerProps) {
   const reduce = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -51,6 +54,19 @@ export function Drawer({
   }, [open]);
 
   const offscreen = side === "right" ? "100%" : "-100%";
+
+  // Desktop background WebViews can suspend frames. The product opts into
+  // this path so focus and scroll locking never target an offscreen panel.
+  if (!animated) return open ? <>
+    <button type="button" aria-label="关闭抽屉" tabIndex={-1}
+      onClick={() => dismissable && onOpenChange(false)}
+      className={cn("fixed inset-0 z-50 h-full w-full cursor-default bg-black/40 backdrop-blur-sm", backdropClassName)} />
+    <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={ariaLabel}
+      className={cn("fixed inset-y-0 z-50 flex w-80 max-w-[85vw] flex-col bg-background shadow-2xl outline-none",
+        side === "right" ? "right-0 border-l border-border" : "left-0 border-r border-border", className)}>
+      {children}
+    </div>
+  </> : null;
 
   // Two fixed siblings, no wrapper: the backdrop spans the viewport edges but
   // paints the scrim, and the panel is inset off one side and paints its own

@@ -168,8 +168,9 @@ export function TabsList({
     const root = rootRef.current;
     const viewport = viewportRef.current;
     if (!root || !viewport) return;
-    // Overlay controls do not reduce the viewport or change its scroll range.
-    const overflow = viewport.scrollWidth > root.clientWidth + 1;
+    // Measure intrinsic labels against the full row, so reserved arrow slots
+    // cannot cause an overflow/resize feedback loop.
+    const overflow = (listRef.current?.scrollWidth ?? 0) > root.clientWidth + 1;
     const max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
     const rtl = getComputedStyle(viewport).direction === "rtl";
     // Modern browsers expose negative scrollLeft in RTL. Clamp rubber-banding.
@@ -183,12 +184,9 @@ export function TabsList({
     if (!viewport || !tab) return;
     const frame = viewport.getBoundingClientRect();
     const item = tab.getBoundingClientRect();
-    const max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-    const rtl = getComputedStyle(viewport).direction === "rtl";
-    const fromLeft = Math.max(0, Math.min(max, rtl ? max + viewport.scrollLeft : viewport.scrollLeft));
-    // Keep the selected/focused label clear of the arrows over the faded edges.
-    const left = frame.left + (fromLeft > 1 ? 36 : 0);
-    const right = frame.right - (fromLeft < max - 1 ? 36 : 0);
+    // Arrow controls occupy their own slots outside the label viewport.
+    const left = frame.left;
+    const right = frame.right;
     const delta = item.left < left ? item.left - left : item.right > right ? item.right - right : 0;
     // Scroll only this viewport; scrollIntoView can also move the whole page.
     if (delta) viewport.scrollBy({ left: delta, behavior: reduce ? "instant" : "smooth" });
@@ -259,7 +257,7 @@ export function TabsList({
     const viewport = viewportRef.current;
     if (viewport) viewport.scrollBy({ left: direction * viewport.clientWidth * 0.8, behavior: reduce ? "instant" : "smooth" });
   };
-  const controlClass = "absolute inset-y-0 z-20 inline-flex w-9 items-center justify-center text-foreground transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-0";
+  const controlClass = "inline-flex h-10 w-9 shrink-0 items-center justify-center text-foreground transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-0";
   const surfaceClass = variant === "pill" ? "rounded-full bg-card" : variant === "segment" ? "rounded-lg bg-card" : "";
 
   return (
@@ -272,10 +270,7 @@ export function TabsList({
       <div
         ref={viewportRef}
         id={viewportId}
-        className={cn("w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", edges.overflow && "[border-radius:inherit]")}
-        style={edges.overflow ? {
-          maskImage: `linear-gradient(to right, ${edges.left ? "transparent, black 40px" : "black, black 0px"}, ${edges.right ? "black calc(100% - 40px), transparent" : "black 100%"})`,
-        } : undefined}
+        className={cn("flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", edges.overflow && "[border-radius:inherit]")}
         onFocusCapture={(event) => {
           if (event.target instanceof HTMLElement && event.target.getAttribute("role") === "tab") reveal(event.target);
         }}
@@ -284,12 +279,6 @@ export function TabsList({
           {children}
         </div>
       </div>
-      {edges.overflow && edges.left && (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 rounded-l-[inherit] backdrop-blur-[2px] [mask-image:linear-gradient(to_right,black,transparent)]" />
-      )}
-      {edges.overflow && edges.right && (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 rounded-r-[inherit] backdrop-blur-[2px] [mask-image:linear-gradient(to_left,black,transparent)]" />
-      )}
       {edges.overflow && (
         <button type="button" aria-label="向右滚动分类" aria-controls={viewportId} disabled={!edges.right} onClick={() => scroll(1)} className={cn(controlClass, "right-0 rounded-r-full")}>
           <ChevronRight size={20} aria-hidden="true" />

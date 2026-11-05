@@ -41,7 +41,7 @@ export function Setup({
     }
   }
   return (
-    <section>
+    <section className="page-section">
       <h2>{s?.complete ? "运行设置" : "欢迎养一条自己的鱼"}</h2>
       {s && (
         <div className="settings">
@@ -157,7 +157,7 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
     }
   }
   return (
-    <section>
+    <section className="page-section">
       <h2>备份与迁移</h2>
       <p>
         导出和恢复会停止服务。恢复后自动活动暂停，平台需要重新启用。旧数据保留在回滚目录。
@@ -289,7 +289,7 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
     }
   }
   return (
-    <section>
+    <section className="page-section">
       <h2>软件更新</h2>
       <p>当前版本 {version}</p>
       <p>使用发行者提供的 HTTPS 地址与更新公钥。当前未配置官方发行源。</p>

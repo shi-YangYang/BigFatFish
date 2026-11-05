@@ -50,7 +50,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
   const preset = matchPersonaPreset(persona);
   const source=personaCards.find(card=>card.id===persona.cardId);
   return (
-    <section className="personality-settings">
+    <section className="page-section personality-settings">
       <h2>鱼的设定</h2>
       <form className="settings" onSubmit={event => { event.preventDefault(); void save(); }}>
         <FormGrid>

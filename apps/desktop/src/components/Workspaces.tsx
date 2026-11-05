@@ -132,7 +132,7 @@ export function Connections({ fail }: Fail) {
       </>
     );
   return (
-    <section>
+    <section className="page-section">
       <h2>连接你的世界</h2>
       <div className="connection-list">
         {(["QQ", "B站", "抖音"] as const).map((name, i) => (
@@ -197,7 +197,7 @@ export function Settings({
           <Backup fail={fail} />
         )
       ) : tab === "关于" ? (
-        <section>
+        <section className="page-section">
           <h2>BigFatFish</h2>
           <p>自己的大肥鱼，慢慢一起成长。</p>
           <Disclosure  title={<>图像来源与许可</>}>
@@ -231,11 +231,9 @@ function Logs({ fail }: Fail) {
     void reload();
   }, [reload]);
   return (
-    <section>
-      <h2>运行诊断</h2>
-      <Button type="button" onClick={() => void reload()}>
-        刷新日志
-      </Button>
+    <section className="page-section">
+      <div className="section-heading"><h2>运行诊断</h2>
+      <Button type="button" onClick={() => void reload()}>刷新日志</Button></div>
       <ContentScroll label="运行日志"><pre className="log-output">{lines.join("\n") || "暂无日志"}</pre></ContentScroll>
     </section>
   );

@@ -4,7 +4,13 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。此前「每完成一个阶段就本地 commit」的持续授权已撤销。今后只有用户对相应任务明确要求 commit 时才可提交，开发完成或验收通过不构成提交授权；不得沿用下方历史阶段中的自动提交授权。此次仅更新交接记录，不暂存、不提交，也不改写已存在的提交。
 
-## 当前任务：Spec039 移除设定页版本记录
+## 当前任务：Spec040 Desktop 全页面排版修复
+
+2026-11-06完成：Spec040 Done，首轮70状态×4宽完整after及原生逐页检查后，新实施`/root/rework_desktop_layout_states`关闭R1共享Drawer/Disclosure停帧不可见、R2焦点压字/颜色、R3Disclosure42px；新独立`/root/accept_desktop_layout_r1`在`acceptance-r1.md` PASS，全部报告已读，无待返工。返工仅定向验证：正常/减少动画与真预加载冻结帧回归、前端类型、8组App32图及root14张原生复查；未重跑未变280状态。证据覆盖事故准确记在Plan/audit-report/before-integrity；不能宣称完整before原图或详细几何保存。dev/06d299d仍为基线，本轮改动未暂存/commit/push，真实服务/数据不变，远端未刷新。额外原生审计窗口已恢复900聊天后关闭；隔离预览完成后回收。需求和必要验证已满足，停止继续探索/测试，等待用户新的明确指令。
+
+用户设置持续目标：所有Desktop页面UI/排版修复，重点错位、重叠，尽量元素级，明确允许排查/设计多Agent。dev/06d299d开始干净；Spec039已按随后local commit授权完成提交。本目标已按完整范围完成，保留浅海蓝/beUI，统一全部页面共享布局并修复直接问题；没有缩小为少数代表页面。不自动commit/push，不改真实数据/模型/平台配置或执行外发。
+
+## 历史任务：Spec039 移除设定页版本记录
 
 用户要求先commit、再删除「设定」版本记录。Spec037/038 已在 dev 本地提交 d2a2456（feat: 接入完整人设卡与互动工具并改善桌面体验），提交后工作区干净，未push，远端未刷新。新修改仅删除共享 Personality 页面历史浏览与专属加载/状态/样式，不删除后端历史数据或保存版本校验，不修改截图中的QQ连接卡。Spec039 Done，S1；/root/implement_remove_persona_history 完成局部删除，单文件 ESLint PASS；新的独立 /root/accept_remove_persona_history 在 acceptance.md PASS，完整报告已读取，无返工。加载/保存防重及反馈、两卡预设/全文编辑保留，清理独占样式和文档说明。未重启服务、写真实配置、运行全量检查或截图验收；新修改未暂存/提交，满足停止条件。
 

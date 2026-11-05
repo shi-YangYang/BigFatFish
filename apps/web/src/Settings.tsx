@@ -13,7 +13,7 @@ export function WebSettings({ fail }: { fail: (e: unknown) => void }) {
     [busy, setBusy] = useState(false),
     [result, setResult] = useState("");
   return (
-    <section>
+    <section className="page-section">
       <h2>管理设置</h2>
       <h3>更新与备份</h3>
       <ActionRow>

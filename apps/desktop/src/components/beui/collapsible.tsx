@@ -28,6 +28,7 @@ export type CollapsibleState = {
 };
 
 type CollapsibleContextValue = CollapsibleState & {
+  animated: boolean;
   reduce: boolean;
   contentId: string;
   triggerId: string;
@@ -67,6 +68,8 @@ function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
 }
 
 export interface CollapsibleProps extends Omit<HTMLMotionProps<"div">, "layout"> {
+  /** Disable transitions when visibility must update without animation frames. */
+  animated?: boolean;
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -80,6 +83,7 @@ export function Collapsible({
   defaultOpen = false,
   onOpenChange,
   disabled = false,
+  animated = true,
   className,
   contentClassName,
   children,
@@ -106,8 +110,8 @@ export function Collapsible({
   }, []);
   const toggle = useCallback(() => setOpen(!stateRef.current.open), [setOpen]);
   const context = useMemo<CollapsibleContextValue>(
-    () => ({ open, disabled, reduce, contentId: `${id}-content`, triggerId: `${id}-trigger`, triggerRef, setOpen, toggle }),
-    [disabled, id, open, reduce, setOpen, toggle],
+    () => ({ open, disabled, animated, reduce, contentId: `${id}-content`, triggerId: `${id}-trigger`, triggerRef, setOpen, toggle }),
+    [animated, disabled, id, open, reduce, setOpen, toggle],
   );
 
   return (
@@ -229,6 +233,7 @@ export function CollapsibleContent({
   const mergedRef = useMemo(() => mergeRefs(contentRef, ref), [ref]);
 
   useLayoutEffect(() => {
+    if (!context.animated) return;
     const node = innerRef.current;
     if (!node) return;
     const measure = () => setHeight(node.offsetHeight);
@@ -236,7 +241,7 @@ export function CollapsibleContent({
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [context.animated]);
 
   useLayoutEffect(() => {
     if (!context.open && contentRef.current?.contains(document.activeElement)) {
@@ -257,17 +262,17 @@ export function CollapsibleContent({
       data-state={context.open ? "open" : "closed"}
       initial={false}
       layout={false}
-      animate={{ height: context.open ? height || "auto" : 0 }}
+      animate={context.animated ? { height: context.open ? height || "auto" : 0 } : undefined}
       transition={{ duration: context.reduce ? 0 : 0.18, ease: EASE_OUT }}
-      style={style}
+      style={context.animated ? style : { ...style, height: context.open ? "auto" : 0 }}
       className={cn("overflow-hidden", className)}
     >
       <motion.div
         ref={innerRef}
         layout={false}
-        style={{ originY: 0 }}
+        style={{ originY: 0, ...(!context.animated && { opacity: context.open ? 1 : 0 }) }}
         initial={false}
-        animate={{ opacity: context.open ? 1 : 0 }}
+        animate={context.animated ? { opacity: context.open ? 1 : 0 } : undefined}
         transition={{ opacity: { duration: context.open ? 0.18 : 0.12, ease: EASE_OUT }, layout: SPRING_LAYOUT }}
         className={cn("flow-root", contentClassName)}
       >
@@ -279,15 +284,16 @@ export function CollapsibleContent({
 
 export type CollapsibleIndicatorProps = HTMLMotionProps<"span">;
 
-export function CollapsibleIndicator({ className, children, ...props }: CollapsibleIndicatorProps) {
-  const { open, reduce } = useCollapsibleContext("CollapsibleIndicator");
+export function CollapsibleIndicator({ className, children, style, ...props }: CollapsibleIndicatorProps) {
+  const { open, reduce, animated } = useCollapsibleContext("CollapsibleIndicator");
   return (
     <motion.span
       {...props}
       aria-hidden="true"
       data-slot="collapsible-indicator"
       initial={false}
-      animate={{ transform: `rotate(${open ? 180 : 0}deg)` }}
+      animate={animated ? { transform: `rotate(${open ? 180 : 0}deg)` } : undefined}
+      style={animated ? style : { ...style, transform: `rotate(${open ? 180 : 0}deg)` }}
       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
       className={cn("ml-auto inline-flex shrink-0 items-center justify-center text-muted-foreground", className)}
     >

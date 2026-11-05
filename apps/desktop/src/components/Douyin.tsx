@@ -6,7 +6,7 @@ import {
   Button,
   Select,
   Textarea,
-  ActionRow,
+  FormGrid, ActionRow,
 } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OperationRecords } from "./OperationRecords";
@@ -101,14 +101,14 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
   if(!state||!form)return <Loading/>;
   const change=(patch:Partial<BrowserConfig>)=>{editing.current=true;setForm({...form,...patch});};
   const connecting=['connecting','login'].includes(state.connection?.phase??''),locked=busy||connecting,connected=state.config.enabled&&state.browser.state==='ready'&&state.accountState==='verified';
-  return <section className="platform-connection">
+  return <section className="page-section platform-connection">
 
    <Card className="platform-account-card">
     <div className="platform-account-heading"><div><h2>抖音</h2>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div><Badge>{connected?'已连接':connecting?'连接中':'未连接'}</Badge></div>
     {state.connection?.error&&<Alert>{errorText(state.connection.error)}</Alert>}
     {state.connection?.phase==='connecting'&&<Loading>正在打开登录…</Loading>}
     {state.connection?.phase==='login'&&<p>{state.connection.loginState==='verification'?'请在专用浏览器中完成验证':state.connection.loginState==='confirmation'?'请在手机上确认登录':'请在打开的浏览器中登录抖音'}</p>}
-    <ActionRow>
+    <ActionRow className="platform-connect-actions">
      {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{state.connection?.phase==='error'?'重试连接':'连接抖音'}</Button>}
      {(state.config.enabled||connecting)&&<Button disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
      <Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>连接设置</Button>
@@ -181,7 +181,8 @@ export function ActivityRows({
     <ContentScroll label="任务记录" className="content-scroll-list">
       {tasks.map((t) => (
         <Card key={t.id}>
-          <p>
+          <div className="record-title">
+          <strong>
             {t.platform === "douyin"
               ? "抖音"
               : t.platform === "bilibili"
@@ -193,25 +194,32 @@ export function ActivityRows({
               : t.kind === "decision"
                 ? "活动决策"
                 : (actionNames[String(t.input.tool)] ?? "读取")}{" "}
-            · {activityState[t.status] ?? t.status} ·{" "}
+            · {activityState[t.status] ?? t.status}
+          </strong>
+          <span className="muted">
             {t.mode === "Autonomous"
               ? "自主"
               : t.mode === "Scheduled"
                 ? "定时"
                 : "用户发起"}
-          </p>
+          </span>
+          </div>
           {t.result?.evidence && typeof t.result.evidence === "object" ? (
-            <p>
+            <div className="summary-entry">
+              <p>
               {String(
                 (t.result.evidence as Record<string, unknown>).title ?? "",
-              )}{" "}
-              ·{" "}
+              )}
+              </p>
+              <span className="muted">
               {String(
                 (t.result.evidence as Record<string, unknown>).observedAt ?? "",
               )}
-              <br />
+              </span>
+              <span className="muted">
               {String((t.result.evidence as Record<string, unknown>).url ?? "")}
-            </p>
+              </span>
+            </div>
           ) : null}
           {t.error && <Alert role="alert">{errorText(t.error)}</Alert>}
           {!!t.result?.error && <Alert>{errorText(t.result.error)}</Alert>}
@@ -374,12 +382,11 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
   const canControlActivities = data && (data.paused || data.schedules.length > 0 ||
     data.tasks.some(task => ["queued", "running", "understanding"].includes(task.status)));
   return (
-    <section>
+    <section className="page-section">
       <div className="section-heading">
         <h2>活动计划</h2>
-        <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>{creating ? "收起创建" : "创建计划"}</Button>
-      </div>
-      {canControlActivities && <Button
+        <ActionRow>
+        {canControlActivities && <Button
         type="button"
         onClick={() =>
           void api("/v1/activities/pause", "POST", { paused: !data?.paused })
@@ -389,6 +396,9 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
       >
         {data?.paused ? "恢复活动" : "暂停全部活动"}
       </Button>}
+        <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>{creating ? "收起创建" : "创建计划"}</Button>
+        </ActionRow>
+      </div>
       {creating && <Card>
       <h3>创建计划</h3>
       <form
@@ -409,6 +419,7 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
             .catch(fail);
         }}
       >
+        <FormGrid>
         <Field>
           平台
           <Select
@@ -420,14 +431,6 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
           </Select>
         </Field>
         <Field>
-          {autonomous ? "允许搜索的主题" : "允许观看的视频 ID（逗号分隔）"}
-          <Input
-            value={videoId}
-            onChange={(e) => setVideoId(e.target.value)}
-            required
-          />
-        </Field>
-        <Field>
           间隔（分钟）
           <Input
             type="number"
@@ -437,6 +440,16 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
             onChange={(e) => setInterval(Number(e.target.value))}
           />
         </Field>
+        </FormGrid>
+        <Field>
+          {autonomous ? "允许搜索的主题" : "允许观看的视频 ID（逗号分隔）"}
+          <Input
+            value={videoId}
+            onChange={(e) => setVideoId(e.target.value)}
+            required
+          />
+        </Field>
+
         <Field>
           <Checkbox
 

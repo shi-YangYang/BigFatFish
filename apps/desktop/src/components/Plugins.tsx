@@ -32,7 +32,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
       .finally(() => setBusy(false));
   };
   return (
-    <section>
+    <section className="page-section">
       <h2>扩展</h2>
       <p>插件以当前用户运行，可访问本机文件和网络。仅安装你信任的代码。</p>
       <Field>
