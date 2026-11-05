@@ -1,5 +1,9 @@
 # Task Handoff
 
+## 当前任务：Spec034 同步精简B站与抖音已完成
+
+EXISTING，dev基线0ae89c3、开始干净。用户澄清「删除手动观看这种，分享这种还是要保留」。Spec034 Done：连接页去掉手动搜索/观看，默认单卡片操作记录内部滚动；保留B站分享到QQ、抖音点赞/评论及全局审批，后台/CLI/计划不改。共用OperationRecords呈现现有真实任务，连接/记录读取错误独立；详细任务页只删除失效onVideo。实施/root/implement_platform_operation_records、新独立/root/accept_platform_operation_records已完成，完整报告已读，PASS无返工。S2一次apps类型检查和diff检查通过；文档/旧UI测试入口同步，未运行UI集成/真实平台/全量或构建验证。持续阶段本地commit授权有效，由root提交、确切hash见git log；无push，远端未刷新。满足停止条件，不追加检查。下方为已完成历史。
+
 ## 当前任务：Spec033 QQ消息页仅操作记录已完成
 
 EXISTING，dev基线3b922f3、开始干净。Spec033 Done：QQ消息页仅操作记录，删除发送表单、自动回复/主动发送记录及其页面请求/状态、组件、帮助函数、样式；文档/测试失效引用同步。保留自动回复与后台服务、历史数据。实施/root/implement_qq_audit_only、新独立/root/accept_qq_audit_only均完成，完整报告已读，PASS无返工。S1一次apps类型检查+diff通过；未UI/真实账号/后端或全量验证。持续阶段本地commit授权有效，由root提交、确切hash见git log；无push，远端未刷新。满足停止条件，不追加检查。下方为历史。

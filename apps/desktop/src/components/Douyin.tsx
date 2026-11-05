@@ -9,6 +9,7 @@ import {
   ActionRow,
 } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { OperationRecords } from "./OperationRecords";
 import { Tabs } from "./UI";
 import { api, errorText } from "../api";
 import type { BrowserConfig } from "../../../runtime/src/douyin/browser";
@@ -77,19 +78,26 @@ export function usePoll(load: () => Promise<void>) {
 }
 export function Douyin({ fail }: { fail: (e: unknown) => void }) {
   const [state,setState]=useState<{config:BrowserConfig;revision:string;browser:{state:string};accountState:string;connection?:{phase:string;error?:string;loginState?:string}}>(),
-    [form,setForm]=useState<BrowserConfig>(),[formRevision,setFormRevision]=useState(''),[tab,setTab]=useState('观看'),
-    [query,setQuery]=useState(''),[videoId,setVideoId]=useState(''),[audio,setAudio]=useState(false),[busy,setBusy]=useState(false),[tasks,setTasks]=useState<ActivityTask[]>([]),
-    [tool,setTool]=useState('douyin_like'),[text,setText]=useState(''),[nickname,setNickname]=useState(''),[peerId,setPeerId]=useState(''),[attachmentId,setAttachmentId]=useState(''),[draft,setDraft]=useState(true),[aiDeclare,setAiDeclare]=useState(true);
+    [form,setForm]=useState<BrowserConfig>(),[formRevision,setFormRevision]=useState(''),[tab,setTab]=useState('记录'),
+    [videoId,setVideoId]=useState(''),[busy,setBusy]=useState(false),[tasks,setTasks]=useState<ActivityTask[]>(),[recordsError,setRecordsError]=useState<string>(),
+    [tool,setTool]=useState('douyin_like'),[text,setText]=useState('');
   const editing=useRef(false),pending=useRef(false),sequence=useRef(0),alive=useRef(true);
-  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;++sequence.current;};},[]);
   const refresh=useCallback(async()=>{
-    const n=++sequence.current;
-    try{const [s,a]=await Promise.all([api<NonNullable<typeof state>>('/v1/douyin'),api<ActivityOverview>('/v1/activities')]);if(!alive.current||n!==sequence.current)return;setState(s);setTasks(a.tasks.filter(t=>t.platform==='douyin'));if(!editing.current){setForm(s.config);setFormRevision(s.revision);}}
-    catch(e){if(alive.current)fail(e);}
+    const n=++sequence.current,current=()=>alive.current&&n===sequence.current;
+    await Promise.all([
+      api<NonNullable<typeof state>>('/v1/douyin').then(s=>{
+        if(!current())return;
+        setState(s);
+        if(!editing.current){setForm(s.config);setFormRevision(s.revision);}
+      },e=>{if(current())fail(e);}),
+      api<ActivityOverview>('/v1/activities').then(a=>{
+        if(current()){setTasks(a.tasks.filter(t=>t.platform==='douyin'));setRecordsError(undefined);}
+      },e=>{if(current())setRecordsError(errorText(e));}),
+    ]);
   },[fail]);
   usePoll(refresh);
-  const act=async(action:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);++sequence.current;try{await action();await refresh();}catch(e){fail(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
-  const read=(name:string,args={})=>act(()=>api('/v1/douyin/read','POST',{tool:name,args,requestId:crypto.randomUUID()}));
+  const act=async(action:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);++sequence.current;try{await action();if(alive.current)await refresh();}catch(e){if(alive.current)fail(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
   if(!state||!form)return <Loading/>;
   const change=(patch:Partial<BrowserConfig>)=>{editing.current=true;setForm({...form,...patch});};
   const connecting=['connecting','login'].includes(state.connection?.phase??''),locked=busy||connecting,connected=state.config.enabled&&state.browser.state==='ready'&&state.accountState==='verified';
@@ -106,104 +114,12 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
      <Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>连接设置</Button>
     </ActionRow>
    </Card>
-   <Tabs items={['观看','互动','记录','设置']} value={tab} onChange={setTab} label="抖音功能">
-    {tab==='观看'&&<Card><fieldset disabled={locked||!state.config.enabled}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void read("douyin_search", { keyword: query });
-        }}
-      >
-        <ActionRow>
-          <Field>
-            搜索
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              required
-            />
-          </Field>
-          <ActionRow>
-            <Button type="submit" variant="primary" disabled={busy}>
-              搜索
-            </Button>
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => void read("douyin_feed")}
-            >
-              推荐
-            </Button>
-          </ActionRow>
-        </ActionRow>
-      </form>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act(() =>
-            api("/v1/douyin/watch", "POST", {
-              videoId,
-              audio,
-              requestId: crypto.randomUUID(),
-            }),
-          );
-        }}
-      >
-        <Field>
-          视频 ID
-          <Input
-            value={videoId}
-            onChange={(e) => setVideoId(e.target.value)}
-            required
-          />
-        </Field>
-        <Field>
-          <Checkbox
-
-            checked={audio}
-            onCheckedChange={(value) => setAudio(value)}
-          />
-          理解采样音轨
-        </Field>
-        <ActionRow>
-          <Button type="submit" variant="primary" disabled={busy}>
-            观看
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void read("douyin_video", { aweme_id: videoId })}
-          >
-            详情
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void read("douyin_comments", { aweme_id: videoId })}
-          >
-            评论
-          </Button>
-        </ActionRow>
-      </form>
-    </fieldset></Card>}
+   <Tabs items={['记录','互动','设置']} value={tab} onChange={setTab} label="抖音功能">
     {tab==='互动'&&<div className="platform-records"><Card><h3>准备互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const args =
-              tool === "douyin_like"
-                ? { aweme_id: videoId }
-                : tool === "douyin_comment"
-                  ? { aweme_id: videoId, text }
-                  : tool === "douyin_chat_send"
-                    ? { nickname, peer_id: peerId, text }
-                    : tool === "douyin_share_video"
-                      ? { aweme_id: videoId, nickname, peer_id: peerId }
-                      : {
-                          attachmentId,
-                          title: text,
-                          tags: "",
-                          draft,
-                          ai_declare: aiDeclare,
-                        };
+            const args = tool === "douyin_comment" ? { aweme_id: videoId, text } : { aweme_id: videoId };
             void act(() => api("/v1/douyin/approvals", "POST", { tool, args }));
           }}
         >
@@ -214,7 +130,6 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
               {Object.entries({
                 douyin_like: "点赞",
                 douyin_comment: "评论",
-
               }).map(([v, t]) => (
                 <option key={v} value={v}>
                   {t}
@@ -222,90 +137,19 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
               ))}
             </Select>
           </Field>
-          {["douyin_comment", "douyin_chat_send", "douyin_publish"].includes(
-            tool,
-          ) && (
-            <Field>
-              {tool === "douyin_publish" ? "标题" : "正文"}
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                required
-              />
-            </Field>
-          )}
-          {["douyin_chat_send", "douyin_share_video"].includes(tool) && (
-            <Field>
-              接收人昵称
-              <Input
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                required
-              />
-            </Field>
-          )}
-          {["douyin_chat_send", "douyin_share_video"].includes(tool) && (
-            <Field>
-              接收人 ID
-              <Input
-                value={peerId}
-                onChange={(e) => setPeerId(e.target.value)}
-                required
-              />
-            </Field>
-          )}
-          {tool === "douyin_publish" && (
-            <>
-              <Field>
-                视频文件（最多16MB）
-                <Input
-                  type="file"
-                  accept="video/mp4"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    if (f.size > 16_000_000) {
-                      fail("INVALID_MEDIA");
-                      return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () =>
-                      void act(async () => {
-                        const v = await api<{ id: string }>(
-                          "/v1/douyin/attachments",
-                          "POST",
-                          { data: String(reader.result).split(",")[1] },
-                        );
-                        setAttachmentId(v.id);
-                      });
-                    reader.readAsDataURL(f);
-                  }}
-                />
-              </Field>
-              <Field>
-                <Checkbox
-
-                  checked={draft}
-                  onCheckedChange={(value) => setDraft(value)}
-                />
-                仅保存草稿
-              </Field>
-              <Field>
-                <Checkbox
-
-                  checked={aiDeclare}
-                  onCheckedChange={(value) => setAiDeclare(value)}
-                />
-                声明 AI 生成
-              </Field>
-            </>
-          )}
+          {tool === "douyin_comment" && <Field>正文<Textarea value={text} onChange={e=>setText(e.target.value)} required/></Field>}
           <Button type="submit" variant="primary" disabled={busy}>
             生成审批预览
           </Button>
         </form>
     </fieldset></Card><DouyinApprovals fail={fail}/></div>}
-    {tab==='记录'&&<div className="platform-records"><h3>最近任务</h3><ActivityRows tasks={tasks.slice(0,10)} fail={fail} refresh={refresh} onVideo={id=>{setVideoId(id);setTab('观看');}}/>{!tasks.length&&<p className="muted">暂无任务</p>}</div>}
+    {tab==='记录'&&<OperationRecords error={recordsError} records={tasks?.map(t=>({
+      id:t.id,
+      action:t.kind==='watch'?'观看视频':t.kind==='decision'?'活动决策':actionNames[String(t.input.tool)]??'读取',
+      title:operationTitle(t),status:activityState[t.status]??'状态未知',createdAt:t.createdAt,
+      error:t.error||t.result?.error?errorText(t.error||t.result?.error):undefined,
+      actions:['queued','running'].includes(t.status)?<Button size="compact" disabled={busy} onClick={()=>void act(()=>api(`/v1/activities/${t.id}/cancel`,'POST'))}>取消任务</Button>:undefined,
+    }))}/>}
     {tab==='设置'&&<Card><h3>连接设置</h3><form onSubmit={e=>{e.preventDefault();void act(async()=>{await api('/v1/douyin/connect','POST',{...form,revision:formRevision});editing.current=false;});}}><fieldset disabled={locked}>
      <Field>浏览器路径<Input value={form.executablePath} placeholder="自动发现" onChange={e=>change({executablePath:e.target.value})}/></Field>
      <Field>Python 路径<Input value={form.pythonPath} onChange={e=>change({pythonPath:e.target.value})}/></Field>
@@ -316,16 +160,22 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
    </Tabs>
   </section>;
 }
+function operationTitle(task:ActivityTask):string|undefined {
+  const evidence=task.result?.evidence;
+  const title=evidence&&typeof evidence==='object'&&'title' in evidence?evidence.title:task.result?.title;
+  if(typeof title==='string'&&title.trim())return title;
+  const args=task.input.args;
+  const videoId=task.input.videoId??(args&&typeof args==='object'&&'aweme_id' in args?args.aweme_id:undefined);
+  return typeof videoId==='string'?videoId:undefined;
+}
 export function ActivityRows({
   tasks,
   fail,
   refresh,
-  onVideo,
 }: {
   tasks: ActivityTask[];
   fail: (e: unknown) => void;
   refresh: () => Promise<void>;
-  onVideo?: (id: string) => void;
 }) {
   return (
     <ContentScroll label="任务记录" className="content-scroll-list">
@@ -375,14 +225,6 @@ export function ActivityRows({
                 <p key={i}>
                   {String(item.title ?? item.text ?? "")}{" "}
                   {String(item.author ?? "")}
-                  {onVideo && !!item.aweme_id && (
-                    <Button
-                      type="button"
-                      onClick={() => onVideo(String(item.aweme_id))}
-                    >
-                      选择视频
-                    </Button>
-                  )}
                 </p>
               );
             })}

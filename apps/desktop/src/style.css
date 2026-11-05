@@ -1097,3 +1097,11 @@ audio {
 .platform-records > .business-card { margin:0; }
 .platform-records a { overflow-wrap:anywhere; }
 .platform-connection .ui-field { min-width:0; }
+
+.operation-record-list { display:grid; gap:12px; }
+.operation-record { min-width:0; display:grid; gap:6px; overflow-wrap:anywhere; }
+.operation-record + .operation-record { border-top:1px solid var(--border); padding-top:12px; }
+.operation-record-heading { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; }
+.operation-record-heading > :first-child { min-width:0; flex:1 1 180px; }
+.operation-record-status, .operation-record time { color:var(--muted); font-size:12px; }
+.operation-record-error { margin:0; color:var(--color-destructive); }

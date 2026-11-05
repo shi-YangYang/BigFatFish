@@ -67,3 +67,5 @@
 - [Spec 032：长内容卡片内部滚动](spec-032-card-content-scroll/spec.md)：[返工独立验收PASS](spec-032-card-content-scroll/acceptance-r1.md)；统一同类记录、长文本及列表的内容边界。
 
 - [Spec 033：QQ 消息页仅保留操作记录](spec-033-qq-audit-only/spec.md)：[独立验收PASS](spec-033-qq-audit-only/acceptance.md)；删除发送表单及投递记录展示。
+
+- [Spec 034：精简视频平台手动观看与记录](spec-034-platform-operation-records/spec.md)：[独立验收PASS](spec-034-platform-operation-records/acceptance.md)；移除手动观看，保留分享互动，统一操作记录。
