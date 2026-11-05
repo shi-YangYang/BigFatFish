@@ -1,6 +1,15 @@
 # 抖音、统一活动与调度
 
-桌面「连接 → 抖音」管理专用浏览器、搜索、推荐、详情、评论、观看和互动；「我的鱼 → 活动计划」管理队列与计划，顶栏「待审批」或运行状态菜单「审批与记录」核对审批。「我的鱼 → 概览/经历」显示实际活动，运行状态菜单可暂停活动。浏览器仅使用 BigFatFish 的独立 profile，不导入其他浏览器 Cookie，不探测已有调试端口。首次需在设置启用，选择有窗口模式后打开登录，在本产品浏览器中扫码；验证账号后，将返回的稳定账号 ID 填入设置。写操作必须与该 ID 一致。无图形环境不能完成登录，验证码由本人处理。
+## 连接与界面
+
+在「连接 → 抖音」点击「连接抖音」，应用使用已保存设置启用并打开专用浏览器；登录后自动检查状态，无需重复检查登录、验证账号或再次启用。首次账号 ID 从本次受控登录的稳定身份识别；已有绑定必须匹配，不会随扫码换号自动覆盖。需要验证码或手机确认时，在平台页面自行完成。
+
+页面按「观看 / 互动 / 记录 / 设置」组织。浏览器、Python 路径与绑定账号在设置页修改，点击「保存并连接」。登录始终使用可见窗口，保存的无窗口运行选项仍供后续运行使用。准备及登录期间可以取消；「断开连接」关闭本产品浏览器并停用，保留登录数据和配置。重新连接才会恢复，不在后台自行重连。
+
+连接检查由 Runtime 持有，页面离开后继续；单次等待最多三分钟，网络调用另有原有超时，失败可重试。取消、配置变化和关闭阻止迟到绑定账号。平台自动登录只建立连接，不授予互动权限；原审批与最终提交检查保持。
+
+
+桌面「连接 → 抖音」管理专用浏览器、搜索、推荐、详情、评论、观看和互动；「我的鱼 → 活动计划」管理队列与计划，顶栏「待审批」或运行状态菜单「审批与记录」核对审批。「我的鱼 → 概览/经历」显示实际活动，运行状态菜单可暂停活动。浏览器仅使用 BigFatFish 的独立 profile，不导入其他浏览器 Cookie，不探测已有调试端口。使用本页连接流程在专用浏览器登录；写操作必须与已绑定的稳定账号 ID 一致。无图形环境不能完成登录，验证码由本人处理。
 
 ## 安装辅助依赖
 
@@ -77,3 +86,5 @@ node dist/cli/src/main.js schedules run SCHEDULE_ID --json
 BFF_TEST_PYTHON=/absolute/path/venv/bin/python BFF_TEST_FFMPEG=/absolute/path/ffmpeg npx vitest run tests/integration/douyin.test.ts tests/integration/douyin-crash.test.ts
 npx vitest run apps/runtime/src/douyin/boundaries.test.ts apps/runtime/src/tasks
 ```
+
+连接编排 API：`POST /v1/douyin/connect` 接受 `{revision,...可选BrowserConfig}`，使用已保存值补齐未传字段；请求成功表示设置已保存，实际登录结果以 connection 状态为准。`POST /v1/douyin/disconnect` 停用并取消、关闭所属浏览器。状态新增 `connection:{phase,error?,loginState?}`。旧 configure/read/close API 保留；读取状态不触发连接。

@@ -1065,3 +1065,18 @@ audio {
  .qq-connect-actions > .ui-button-ghost { margin-left: 0; }
  .qq-method-heading { align-items: flex-start; flex-wrap: wrap; }
 }
+
+/* Consistent connection surfaces for the video platforms. */
+.platform-connection { max-width: 760px; }
+.platform-account-card { margin: 24px 0; }
+.platform-account-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.platform-account-heading h3, .platform-account-heading p { margin:0; }
+.platform-account-heading p { margin-top:6px; }
+.platform-account-card .loading-state { padding:16px 0; justify-content:flex-start; }
+.platform-login-code { display:grid; justify-items:center; gap:8px; }
+.platform-login-code img { width:220px; max-width:100%; height:auto; border-radius:8px; }
+.platform-login-code p { margin:0; }
+.platform-records { display:grid; gap:16px; min-width:0; }
+.platform-records > .business-card { margin:0; }
+.platform-records a { overflow-wrap:anywhere; }
+.platform-connection .ui-field { min-width:0; }

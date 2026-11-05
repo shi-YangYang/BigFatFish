@@ -1,4 +1,4 @@
-import { Disclosure, Card , Loading, Alert} from "./Surfaces";
+import { Card, Badge, Loading, Alert} from "./Surfaces";
 import {
   Field,
   Checkbox,
@@ -8,7 +8,8 @@ import {
   Textarea,
   ActionRow,
 } from "./Controls";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Tabs } from "./UI";
 import { api, errorText } from "../api";
 import type { BrowserConfig } from "../../../runtime/src/douyin/browser";
 import type { StoredApproval } from "../../../runtime/src/permissions/store";
@@ -75,157 +76,38 @@ export function usePoll(load: () => Promise<void>) {
   }, [load]);
 }
 export function Douyin({ fail }: { fail: (e: unknown) => void }) {
-  const [state, setState] = useState<{
-      config: BrowserConfig;
-      revision: string;
-      browser: { state: string };
-      accountState: string;
-    }>(),
-    [form, setForm] = useState<BrowserConfig>(),
-    [query, setQuery] = useState(""),
-    [videoId, setVideoId] = useState(""),
-    [audio, setAudio] = useState(false),
-    [busy, setBusy] = useState(false),
-    [tasks, setTasks] = useState<ActivityTask[]>([]),
-    [tool, setTool] = useState("douyin_like"),
-    [text, setText] = useState(""),
-    [nickname, setNickname] = useState(""),
-    [peerId, setPeerId] = useState(""),
-    [attachmentId, setAttachmentId] = useState(""),
-    [draft, setDraft] = useState(true),
-    [aiDeclare, setAiDeclare] = useState(true);
-  const refresh = useCallback(async () => {
-    try {
-      const [s, a] = await Promise.all([
-        api<NonNullable<typeof state>>("/v1/douyin"),
-        api<ActivityOverview>("/v1/activities"),
-      ]);
-      setState(s);
-      setTasks(a.tasks.filter((t) => t.platform === "douyin"));
-      setForm((f) => f ?? s.config);
-    } catch (e) {
-      fail(e);
-    }
-  }, [fail]);
+  const [state,setState]=useState<{config:BrowserConfig;revision:string;browser:{state:string};accountState:string;connection?:{phase:string;error?:string;loginState?:string}}>(),
+    [form,setForm]=useState<BrowserConfig>(),[formRevision,setFormRevision]=useState(''),[tab,setTab]=useState('观看'),
+    [query,setQuery]=useState(''),[videoId,setVideoId]=useState(''),[audio,setAudio]=useState(false),[busy,setBusy]=useState(false),[tasks,setTasks]=useState<ActivityTask[]>([]),
+    [tool,setTool]=useState('douyin_like'),[text,setText]=useState(''),[nickname,setNickname]=useState(''),[peerId,setPeerId]=useState(''),[attachmentId,setAttachmentId]=useState(''),[draft,setDraft]=useState(true),[aiDeclare,setAiDeclare]=useState(true);
+  const editing=useRef(false),pending=useRef(false),sequence=useRef(0),alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const refresh=useCallback(async()=>{
+    const n=++sequence.current;
+    try{const [s,a]=await Promise.all([api<NonNullable<typeof state>>('/v1/douyin'),api<ActivityOverview>('/v1/activities')]);if(!alive.current||n!==sequence.current)return;setState(s);setTasks(a.tasks.filter(t=>t.platform==='douyin'));if(!editing.current){setForm(s.config);setFormRevision(s.revision);}}
+    catch(e){if(alive.current)fail(e);}
+  },[fail]);
   usePoll(refresh);
-  const act = async (action: () => Promise<unknown>) => {
-    setBusy(true);
-    try {
-      await action();
-      await refresh();
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const read = (name: string, args = {}) =>
-    act(() =>
-      api("/v1/douyin/read", "POST", {
-        tool: name,
-        args,
-        requestId: crypto.randomUUID(),
-      }),
-    );
-  if (!state || !form) return <Loading>正在加载…</Loading>;
-  return (
-    <section>
-      <h2>抖音</h2>
-      <p>
-        {state.config.enabled ? "已启用" : "未启用"} ·{" "}
-        {state.browser.state === "ready" ? "浏览器已打开" : "浏览器已关闭"} ·{" "}
-        {
-          {
-            verified: "账号已验证",
-            "login-required": "需要登录",
-            "account-mismatch": "账号不匹配",
-            unverified: "账号未验证",
-          }[state.accountState]
-        }
-      </p>
-      <Disclosure  title={<>浏览器与账号设置</>}>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act(() =>
-              api("/v1/douyin", "PUT", { ...form, revision: state.revision }),
-            );
-          }}
-        >
-          <Field>
-            <Checkbox
-
-              checked={form.enabled}
-              onCheckedChange={(value) => setForm({ ...form, enabled: value })}
-            />
-            启用
-          </Field>
-          <Field>
-            浏览器路径（留空自动发现）
-            <Input
-              value={form.executablePath}
-              onChange={(e) =>
-                setForm({ ...form, executablePath: e.target.value })
-              }
-            />
-          </Field>
-          <Field>
-            Python 路径
-            <Input
-              value={form.pythonPath}
-              onChange={(e) => setForm({ ...form, pythonPath: e.target.value })}
-            />
-          </Field>
-          <Field>
-            账号 ID
-            <Input
-              value={form.accountId}
-              onChange={(e) => setForm({ ...form, accountId: e.target.value })}
-            />
-          </Field>
-          <Field>
-            <Checkbox
-
-              checked={form.headless}
-              onCheckedChange={(value) => setForm({ ...form, headless: value })}
-            />
-            无窗口运行
-          </Field>
-          <Button type="submit" variant="primary" disabled={busy}>
-            保存
-          </Button>
-        </form>
-      </Disclosure>
-      <ActionRow className="actions">
-        <Button
-          type="button"
-          disabled={busy}
-          onClick={() => void read("douyin_login_qr")}
-        >
-          打开登录
-        </Button>
-        <Button
-          type="button"
-          disabled={busy}
-          onClick={() => void read("douyin_login_poll")}
-        >
-          检查登录
-        </Button>
-        <Button
-          type="button"
-          disabled={busy}
-          onClick={() => void read("douyin_check_credential")}
-        >
-          验证账号
-        </Button>
-        <Button
-          type="button"
-          onClick={() => void act(() => api("/v1/douyin/close", "POST"))}
-        >
-          关闭浏览器
-        </Button>
-      </ActionRow>
+  const act=async(action:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);++sequence.current;try{await action();await refresh();}catch(e){fail(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
+  const read=(name:string,args={})=>act(()=>api('/v1/douyin/read','POST',{tool:name,args,requestId:crypto.randomUUID()}));
+  if(!state||!form)return <Loading/>;
+  const change=(patch:Partial<BrowserConfig>)=>{editing.current=true;setForm({...form,...patch});};
+  const connecting=['connecting','login'].includes(state.connection?.phase??''),locked=busy||connecting,connected=state.config.enabled&&state.browser.state==='ready'&&state.accountState==='verified';
+  return <section className="platform-connection">
+   <div className="section-heading"><h2>抖音</h2><Badge>{connected?'已连接':connecting?'连接中':'未连接'}</Badge></div>
+   <Card className="platform-account-card">
+    <div className="platform-account-heading"><div><h3>{state.config.accountId?'抖音账号':'登录抖音'}</h3>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div></div>
+    {state.connection?.error&&<Alert>{errorText(state.connection.error)}</Alert>}
+    {state.connection?.phase==='connecting'&&<Loading>正在打开登录…</Loading>}
+    {state.connection?.phase==='login'&&<p>{state.connection.loginState==='verification'?'请在专用浏览器中完成验证':state.connection.loginState==='confirmation'?'请在手机上确认登录':'请在打开的浏览器中登录抖音'}</p>}
+    <ActionRow>
+     {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{state.connection?.phase==='error'?'重试连接':'连接抖音'}</Button>}
+     {(state.config.enabled||connecting)&&<Button disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
+     <Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>连接设置</Button>
+    </ActionRow>
+   </Card>
+   <Tabs items={['观看','互动','记录','设置']} value={tab} onChange={setTab} label="抖音功能">
+    {tab==='观看'&&<Card><fieldset disabled={locked||!state.config.enabled}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -301,9 +183,8 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
           </Button>
         </ActionRow>
       </form>
-      <Disclosure  title={<>准备互动</>}>
-
-        <p>暂不支持私信、分享和投稿。</p>
+    </fieldset></Card>}
+    {tab==='互动'&&<div className="platform-records"><Card><h3>准备互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -326,15 +207,14 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
             void act(() => api("/v1/douyin/approvals", "POST", { tool, args }));
           }}
         >
+          <Field>视频 ID<Input required value={videoId} onChange={e=>setVideoId(e.target.value)}/></Field>
           <Field>
             操作
             <Select value={tool} onValueChange={(value) => setTool(value)}>
               {Object.entries({
                 douyin_like: "点赞",
                 douyin_comment: "评论",
-                douyin_chat_send: "私信",
-                douyin_share_video: "分享视频",
-                douyin_publish: "投稿",
+
               }).map(([v, t]) => (
                 <option key={v} value={v}>
                   {t}
@@ -424,17 +304,17 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
             生成审批预览
           </Button>
         </form>
-      </Disclosure>
-      <DouyinApprovals fail={fail} />
-      <h3>最近任务</h3>
-      <ActivityRows
-        tasks={tasks.slice(0, 10)}
-        fail={fail}
-        refresh={refresh}
-        onVideo={setVideoId}
-      />
-    </section>
-  );
+    </fieldset></Card><DouyinApprovals fail={fail}/></div>}
+    {tab==='记录'&&<div className="platform-records"><h3>最近任务</h3><ActivityRows tasks={tasks.slice(0,10)} fail={fail} refresh={refresh} onVideo={id=>{setVideoId(id);setTab('观看');}}/>{!tasks.length&&<p className="muted">暂无任务</p>}</div>}
+    {tab==='设置'&&<Card><h3>连接设置</h3><form onSubmit={e=>{e.preventDefault();void act(async()=>{await api('/v1/douyin/connect','POST',{...form,revision:formRevision});editing.current=false;});}}><fieldset disabled={locked}>
+     <Field>浏览器路径<Input value={form.executablePath} placeholder="自动发现" onChange={e=>change({executablePath:e.target.value})}/></Field>
+     <Field>Python 路径<Input value={form.pythonPath} onChange={e=>change({pythonPath:e.target.value})}/></Field>
+     <Field>账号 ID<Input value={form.accountId} placeholder="登录后自动识别" onChange={e=>change({accountId:e.target.value})}/></Field>
+     <Field className="check"><Checkbox checked={form.headless} onCheckedChange={headless=>change({headless})}/>无窗口运行</Field>
+     <ActionRow><Button type="submit" variant="primary">保存并连接</Button></ActionRow>
+    </fieldset></form></Card>}
+   </Tabs>
+  </section>;
 }
 export function ActivityRows({
   tasks,

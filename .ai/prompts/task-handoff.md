@@ -1,5 +1,11 @@
 # Task Handoff
 
+## 当前任务：Spec030 同步 B站与抖音连接体验已完成
+
+EXISTING，dev 基线 2d28503，开始干净。Spec030/Decision019 Done：B站与抖音 Runtime 单次连接、自动登录核验、两页功能页签；保留B站匿名读取、抖音审批和账号边界。初实施/root/implement_other_connect_flows，首验/root/accept_other_connect_flows发现R1草稿覆盖；新/root/rework_platform_config_ack改为配置保存后确认，新验收/root/accept_platform_config_ack关闭R1并发现R2原生新接口默认5秒；新/root/rework_platform_native_timeout补两个路由进入现有30秒分支，新独立/root/accept_platform_native_timeout最终PASS。全部完整报告已读处理，R1/R2关闭，无待返工。
+
+初实施6项连接测试、两个后续单项、Node编译/apps-only类型通过；R1配置确认3项通过；R2为S1仅diff/精确分支检查。root实际App隔离1280/380px UI及互动目标必填定向检查通过，截图build/platform-connect-flow/01–05；tab4关闭、viewportreset、fixture25039终止确认exit143。未重复未改范围检查，未操作真实账号/外部平台/用户数据，Windows/安装包未实测。持续阶段本地commit授权有效，root提交，确切hash以git log为准；无push/PR/合并，远端未刷新。需重新运行npm run desktop:dev加载新Runtime和原生分支。满足停止条件，不继续旧待验工作。下方为历史。
+
 ## 当前任务：Spec029 简化 QQ 连接与折叠交互已完成
 
 EXISTING，dev 基线 191ab88，工作区开始干净。用户要求本地commit（上一阶段已提交，无需空commit），再修折叠悬浮/点击和QQ重复启动。Spec029/Decision018 Done：Runtime单次connect编排安装/启动，同账号已存范围恢复，取消/暂停/账号和revision变动阻止迟到启用；首次保存并连接；QQ回复/表情/消息页签，共用Disclosure无缩放变形。实施/root/implement_qq_connect_flow、新独立/root/accept_qq_connect_flow均完成，完整报告已读取处理，PASS无返工。

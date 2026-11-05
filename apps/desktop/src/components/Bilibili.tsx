@@ -1,240 +1,43 @@
-import { Disclosure, Card, Alert } from "./Surfaces";
+import { Card, Alert, Badge, Loading } from "./Surfaces";
 import { Button, Field, Input, Select, ActionRow, FormGrid } from "./Controls";
-import { useEffect, useState } from "react";
+import { Tabs } from './UI';
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api";
 import type { VideoTask } from "../../../runtime/src/bilibili/service";
 interface Status {
-  enabled: boolean;
-  revision: string;
-  account?: { mid: string; name: string };
-  accountState: string;
-  health: { ffmpeg: boolean; error?: string };
+ enabled:boolean; revision:string; account?:{mid:string;name:string}; accountState:string; hasCredentials?:boolean;
+ health:{ffmpeg:boolean;error?:string}; connection?:{phase:string;error?:string;login?:{status:string;image?:string}};
 }
-interface Login {
-  id?: string;
-  status: string;
-  image?: string;
-}
-const states: Record<string, string> = {
-  queued: "等待观看",
-  running: "获取字幕与画面",
-  understanding: "理解内容",
-  completed: "已完成",
-  partial: "部分完成",
-  failed: "失败",
-  cancelled: "已取消",
-  interrupted: "服务中断",
-  waiting: "等待扫码",
-  scanned: "请在手机确认",
-  success: "登录成功",
-  expired: "二维码过期",
-  cancelled_login: "登录已取消",
-  error: "登录失败",
-  verified: "已验证",
-  unverified: "待验证",
-  "signed-out": "未登录",
-  "expired-or-unavailable": "登录失效或暂不可用",
-};
-export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
-  const [status, setStatus] = useState<Status>(),
-    [tasks, setTasks] = useState<VideoTask[]>([]),
-    [login, setLogin] = useState<Login>(),
-    [busy, setBusy] = useState(false),
-    [query, setQuery] = useState(""),
-    [results, setResults] = useState<
-      { title: string; bvid: string; author: string }[] | null
-    >(null),
-    [bvid, setBvid] = useState(""),
-    [cookie, setCookie] = useState(""),
-    [csrf, setCsrf] = useState(""),
-    [target, setTarget] = useState(""),
-    [kind, setKind] = useState("private"),
-    [notice, setNotice] = useState("");
-  const reload = async () => {
-    const [s, t] = await Promise.all([
-      api<Status>("/v1/bilibili"),
-      api<VideoTask[]>("/v1/bilibili/tasks"),
-    ]);
-    setStatus(s);
-    setTasks(t);
-  };
-  useEffect(() => {
-    let active = true;
-    const read = async () => {
-      try {
-        const [s, t] = await Promise.all([
-          api<Status>("/v1/bilibili"),
-          api<VideoTask[]>("/v1/bilibili/tasks"),
-        ]);
-        if (active) {
-          setStatus(s);
-          setTasks(t);
-        }
-      } catch (e) {
-        if (active) fail(e);
-      }
-    };
-    void read();
-    const timer = setInterval(() => void read(), 2000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [fail]);
-  useEffect(() => {
-    if (!login?.id || !["waiting", "scanned"].includes(login.status)) return;
-    let active = true;
-    const timer = setInterval(() => {
-      void api<Login>("/v1/bilibili/login/poll", "POST", { id: login.id })
-        .then((s) => {
-          if (active) setLogin(s);
-        })
-        .catch((e) => {
-          if (active) fail(e);
-        });
-    }, 2200);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [login?.id, login?.status, fail]);
-  const run = async (fn: () => Promise<unknown>) => {
-    setBusy(true);
-    setNotice("");
-    try {
-      await fn();
-      await reload();
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <section>
-      <h2>B站</h2>
-      {status && (
-        <>
-          <p>
-            {status.enabled ? "已启用" : "未启用"} ·{" "}
-            {states[status.accountState] ?? status.accountState}
-            {status.account
-              ? ` · ${status.account.name} (${status.account.mid})`
-              : ""}
-          </p>
-          <Button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void run(() =>
-                api("/v1/bilibili", "PUT", {
-                  enabled: !status.enabled,
-                  revision: status.revision,
-                }),
-              )
-            }
-          >
-            {status.enabled ? "停用" : "启用"}
-          </Button>
-          {status.health.error && <Alert>{errorText(status.health.error)}</Alert>}
-          {!status.health.ffmpeg && (
-            <p>未找到 ffmpeg，暂不能获取视频画面；可阅读可用字幕。</p>
-          )}
-        </>
-      )}
-      <fieldset disabled={busy || !status?.enabled}>
-        <legend>登录</legend>
-        <ActionRow>
-          <Button
-            type="button"
-            onClick={() =>
-              void run(async () =>
-                setLogin(await api("/v1/bilibili/login/start", "POST")),
-              )
-            }
-          >
-            扫码登录
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void run(() => api("/v1/bilibili/verify", "POST"))}
-          >
-            验证账号
-          </Button>
-          <Button
-            type="button"
-            onClick={() =>
-              void run(async () => {
-                await api("/v1/bilibili/logout", "POST");
-                setLogin(undefined);
-              })
-            }
-          >
-            退出登录
-          </Button>
-        </ActionRow>
-        {login && (
-          <div>
-            <p>{states[login.status] ?? login.status}</p>
-            {login.image && <img src={login.image} alt="B站登录二维码" />}
-            {["waiting", "scanned"].includes(login.status) && (
-              <Button
-                type="button"
-                onClick={() =>
-                  void run(async () =>
-                    setLogin(
-                      await api("/v1/bilibili/login/cancel", "POST", {
-                        id: login.id,
-                      }),
-                    ),
-                  )
-                }
-              >
-                取消登录
-              </Button>
-            )}
-          </div>
-        )}
-        <Disclosure  title={<>导入本人凭据</>}>
-
-          <FormGrid className="credential-grid">
-            <Field>
-              SESSDATA
-              <Input
-                type="password"
-                autoComplete="off"
-                value={cookie}
-                onChange={(e) => setCookie(e.target.value)}
-              />
-            </Field>
-            <Field>
-              bili_jct
-              <Input
-                type="password"
-                autoComplete="off"
-                value={csrf}
-                onChange={(e) => setCsrf(e.target.value)}
-              />
-            </Field>
-            <Button
-              type="button"
-              onClick={() =>
-                void run(async () => {
-                  await api("/v1/bilibili/import", "POST", {
-                    sessdata: cookie,
-                    bili_jct: csrf,
-                  });
-                  setCookie("");
-                  setCsrf("");
-                })
-              }
-            >
-              验证并保存
-            </Button>
-          </FormGrid>
-        </Disclosure>
-      </fieldset>
-      <fieldset disabled={busy || !status?.enabled}>
+const states:Record<string,string>={queued:'等待观看',running:'获取字幕与画面',understanding:'理解内容',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消',interrupted:'服务中断',waiting:'使用手机 B站扫码',scanned:'请在手机确认登录',success:'登录成功',expired:'二维码已过期',error:'连接失败',verified:'已连接',unverified:'待验证','signed-out':'未登录','expired-or-unavailable':'登录失效或暂不可用'};
+export function Bilibili({fail}:{fail:(e:unknown)=>void}){
+ const [status,setStatus]=useState<Status>(),[tasks,setTasks]=useState<VideoTask[]>([]),[busy,setBusy]=useState(false),[tab,setTab]=useState('观看'),[query,setQuery]=useState(''),[results,setResults]=useState<{title:string;bvid:string;author:string}[]|null>(null),[bvid,setBvid]=useState(''),[cookie,setCookie]=useState(''),[csrf,setCsrf]=useState(''),[target,setTarget]=useState(''),[kind,setKind]=useState('private'),[notice,setNotice]=useState('');
+ const pending=useRef(false),alive=useRef(true),sequence=useRef(0);
+ const reload=useCallback(async()=>{const n=++sequence.current;const [s,t]=await Promise.all([api<Status>('/v1/bilibili'),api<VideoTask[]>('/v1/bilibili/tasks')]);if(alive.current&&n===sequence.current){setStatus(s);setTasks(t);}},[]);
+ useEffect(()=>{alive.current=true;void reload().catch(fail);const timer=setInterval(()=>void reload().catch(fail),2000);return()=>{alive.current=false;clearInterval(timer);};},[reload,fail]);
+ const run=async(fn:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);setNotice('');++sequence.current;try{await fn();await reload();}catch(e){fail(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
+ if(!status)return <Loading/>;
+ const connection=status.connection,connecting=['connecting','login'].includes(connection?.phase??''),connected=status.enabled&&status.accountState==='verified';
+ const locked=busy||connecting,login=connection?.login;
+ return <section className="platform-connection">
+  <div className="section-heading"><h2>B站</h2><Badge>{connected?'已连接':connecting?'连接中':status.enabled?'未登录':'未连接'}</Badge></div>
+  <Card className="platform-account-card">
+   <div className="platform-account-heading"><div><h3>{status.account?.name||'登录 B站'}</h3>{status.account&&<p className="muted">{status.account.mid}</p>}</div></div>
+   {status.health.error&&<Alert>{errorText(status.health.error)}</Alert>}
+   {connection?.error&&<Alert>{errorText(connection.error)}</Alert>}
+   {connection?.phase==='connecting'&&<Loading>正在连接…</Loading>}
+   {login?.image&&<div className="platform-login-code"><img src={login.image} alt="B站登录二维码"/><p>{states[login.status]||'使用手机 B站扫码'}</p></div>}
+   {connection?.phase==='expired'&&<p>二维码已过期，请重新连接。</p>}
+   <ActionRow>
+    {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/connect','POST',{revision:status.revision}))}>{connection?.phase==='error'?'重试连接':'连接 B站'}</Button>}
+    {(status.enabled||connecting)&&<Button disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
+    {!status.enabled&&!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili','PUT',{enabled:true,revision:status.revision}))}>暂不登录</Button>}
+    {!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>导入凭据</Button>}
+   </ActionRow>
+  </Card>
+  <Tabs items={['观看','记录','设置']} value={tab} onChange={setTab} label="B站功能">
+  {tab==='观看'&&<Card>
+   {!status.health.ffmpeg&&<p className="muted">未找到 ffmpeg，暂不能获取视频画面；可阅读可用字幕。</p>}
+      <fieldset disabled={locked || !status.enabled}>
         <legend>寻找视频</legend>
         <ActionRow className="video-query-row">
           <Field>
@@ -296,6 +99,8 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
           </Button>
         </ActionRow>
       </fieldset>
+  </Card>}
+  {tab==='记录'&&<div className="platform-records">
       <h3>观看记录</h3>
       {tasks.map((t) => (
         <Card key={t.id}>
@@ -347,7 +152,7 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
                 })
               }
             >
-              申请 QQ 分享
+              分享到 QQ
             </Button>
           )}
         </Card>
@@ -366,6 +171,11 @@ export function Bilibili({ fail }: { fail: (e: unknown) => void }) {
         </Field>
       </FormGrid>
       {notice && <Alert variant="info" role="status">{notice}</Alert>}
-    </section>
-  );
+  </div>}
+  {tab==='设置'&&<Card><h3>导入凭据</h3><form onSubmit={event=>{event.preventDefault();void run(async()=>{await api('/v1/bilibili/connect','POST',{revision:status.revision,credentials:{sessdata:cookie,bili_jct:csrf}});setCookie('');setCsrf('');});}}><fieldset disabled={locked}>
+   <FormGrid><Field>SESSDATA<Input required type="password" autoComplete="off" value={cookie} onChange={e=>setCookie(e.target.value)}/></Field><Field>bili_jct<Input required type="password" autoComplete="off" value={csrf} onChange={e=>setCsrf(e.target.value)}/></Field></FormGrid>
+   <ActionRow><Button type="submit" variant="primary">验证并连接</Button>{status.hasCredentials&&<Button onClick={()=>void run(()=>api('/v1/bilibili/logout','POST'))}>退出登录</Button>}</ActionRow>
+  </fieldset></form></Card>}
+  </Tabs>
+ </section>;
 }

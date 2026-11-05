@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Bilibili } from './service.js';
 export function registerBilibili(app:FastifyInstance,bili:Bilibili){
+  app.post('/v1/bilibili/connect',async req=>bili.connect(req.body));app.post('/v1/bilibili/disconnect',async()=>bili.disconnect());
   app.get('/v1/bilibili',async()=>bili.status());app.put('/v1/bilibili',async req=>bili.configure(req.body));
   app.post('/v1/bilibili/import',async req=>bili.import(req.body));app.post('/v1/bilibili/verify',async()=>bili.verify());app.post('/v1/bilibili/logout',async()=>bili.logout());
   app.post<{Params:{action:string};Body:{id?:string}}>('/v1/bilibili/login/:action',async req=>bili.login(req.params.action,req.body?.id));

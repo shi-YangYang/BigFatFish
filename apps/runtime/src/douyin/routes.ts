@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Douyin } from './service.js';
 import type { Activities } from '../tasks/service.js';
 export function registerDouyin(app:FastifyInstance,d:Douyin,a:Activities){
+ app.post('/v1/douyin/connect',async r=>d.connect(r.body));app.post('/v1/douyin/disconnect',async()=>d.disconnect());
  app.get('/v1/douyin',async()=>d.status());app.put('/v1/douyin',async r=>d.configure(r.body));app.get('/v1/douyin/browsers',async()=>d.discover());app.post('/v1/douyin/close',async()=>d.stop());
  app.post('/v1/douyin/read',async r=>d.read(r.body));app.post('/v1/douyin/watch',async r=>d.watch(r.body));app.post('/v1/douyin/attachments',{bodyLimit:24_000_100},async r=>d.attachment(r.body));
  app.get('/v1/douyin/approvals',async()=>d.approvals.list());app.post('/v1/douyin/approvals',async r=>d.propose(r.body));app.post<{Params:{id:string}}>('/v1/douyin/approvals/:id/decide',async r=>d.decide(r.params.id,r.body));app.post<{Params:{id:string}}>('/v1/douyin/approvals/:id/revoke',async r=>d.revoke(r.params.id));

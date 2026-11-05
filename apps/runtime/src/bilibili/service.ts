@@ -1,4 +1,5 @@
 import {pathToFileURL} from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { ChatService } from '../ai/chat.js';
@@ -13,6 +14,8 @@ export class Bilibili {
   private upstream:Upstream;private module!:Awaited<ReturnType<typeof loadBilibili>>;private qr!:QR;
   private initializationError:string|undefined;
   private enabled=false;private revision='';private account:AuthState['account'];private accountState='signed-out';private closing=false;
+  private connection:{phase:string;login?:AuthState;error?:string}={phase:'idle'};
+  private connecting?:{control:AbortController;promise:Promise<void>};
   private operations=new Map<string,{control:AbortController;promise:Promise<unknown>}>();
   constructor(private db:DatabaseSync,private chat:ChatService,private channels:Channels,p:DataPaths,options?:ConstructorParameters<typeof Upstream>[1]){
     this.upstream=new Upstream(p,options);db.prepare("UPDATE video_tasks SET status='interrupted',error='RUNTIME_RESTARTED' WHERE status IN ('queued','running','understanding')").run();
@@ -22,15 +25,15 @@ export class Bilibili {
   async suspend(){await this.abort();}
   async reload(directory:string){await this.abort();this.qr?.dispose();this.upstream.url=pathToFileURL(directory+'/');this.initializationError=undefined;await this.initialize();if(this.initializationError)throw new InputError(this.initializationError,409);}
   async initialize(){try{this.module=await loadBilibili(this.upstream.url);this.qr=new this.module.QrAuth({save:(c:Credentials,options:{signal:AbortSignal;check:()=>void})=>this.import(c,options)});}catch{this.initializationError='BILI_DEPENDENCY_MISSING';}}
-  status(){return {enabled:this.enabled,revision:this.revision,account:this.account,accountState:this.accountState,hasCredentials:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get()?.secret,health:{state:this.initializationError?'unavailable':this.enabled?'ready':'disabled',error:this.initializationError,ffmpeg:this.upstream.ffmpeg()},manifest:this.module?.manifest??{id:'bilibili',version:'0.1.0'}};}
+  status(){return {connection:this.connection,enabled:this.enabled,revision:this.revision,account:this.account,accountState:this.accountState,hasCredentials:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get()?.secret,health:{state:this.initializationError?'unavailable':this.enabled?'ready':'disabled',error:this.initializationError,ffmpeg:this.upstream.ffmpeg()},manifest:this.module?.manifest??{id:'bilibili',version:'0.1.0'}};}
   private assertEnabled(){this.assertPlugin();if(this.initializationError)throw new InputError(this.initializationError,409);if(this.closing)throw new InputError('RUNTIME_STOPPING',503);if(!this.enabled)throw new InputError('BILI_DISABLED',409);}
   private secret():Credentials|null{const row=this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get();return row?.secret?JSON.parse(this.chat.config.decryptSecret(row.secret as string)):null;}
   private save(secret: string|null|undefined=undefined){const old=this.db.prepare("SELECT secret FROM plugin_config WHERE id='bilibili'").get();this.revision=randomUUID();this.db.prepare("INSERT INTO plugin_config(id,config,secret,revision) VALUES('bilibili',?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,secret=excluded.secret,revision=excluded.revision").run(JSON.stringify({enabled:this.enabled,account:this.account}),secret===undefined?old?.secret??null:secret,this.revision);}
   async configure(input:unknown){if(this.closing)throw new InputError('RUNTIME_STOPPING',503);const b=object(input);if(b.enabled)this.assertPlugin();if(b.revision!==this.revision||typeof b.enabled!=='boolean')throw new InputError('CHANNEL_VERSION_CONFLICT',409);await this.abort();if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);this.enabled=b.enabled;this.save();return this.status();}
-  private async abort(){this.qr?.cancel();for(const r of this.operations.values())r.control.abort();await Promise.allSettled([...this.operations.values()].map(r=>r.promise));}
+  private async abort(){this.cancelConnection();this.qr?.cancel();for(const r of this.operations.values())r.control.abort();await Promise.allSettled([...this.operations.values()].map(r=>r.promise));}
   private operation<T>(fn:(signal:AbortSignal)=>Promise<T>){this.assertEnabled();if(this.operations.size)throw new InputError('BILI_BUSY',409);const id=randomUUID(),control=new AbortController();const promise=Promise.resolve().then(()=>fn(control.signal)).finally(()=>this.operations.delete(id));this.operations.set(id,{control,promise});return promise;}
   async import(input:unknown,options?:{signal:AbortSignal;check:()=>void}){
-    this.assertEnabled();const revision=this.revision;let credentials:Credentials;try{credentials=this.module.parseManualCookie(input);}catch{throw new InputError('BILI_INVALID_CREDENTIALS');}
+    if(!options)this.cancelConnection();this.assertEnabled();const revision=this.revision;let credentials:Credentials;try{credentials=this.module.parseManualCookie(input);}catch{throw new InputError('BILI_INVALID_CREDENTIALS');}
     return this.operation(async signal=>{
       let account;try{account=await this.module.verifyAccount(credentials,{signal:options?AbortSignal.any([signal,options.signal]):signal});}catch{throw new InputError('BILI_LOGIN_FAILED',409);}
       options?.check();signal.throwIfAborted();if(revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);
@@ -39,7 +42,32 @@ export class Bilibili {
   }
   verify(){return this.operation(async signal=>{const c=this.secret();if(!c)throw new InputError('BILI_LOGIN_REQUIRED',409);try{const account=await this.module.verifyAccount(c,{signal});signal.throwIfAborted();this.account=account;this.accountState='verified';return this.status();}catch{this.accountState='expired-or-unavailable';throw new InputError('BILI_LOGIN_FAILED',409);}});}
   async logout(){await this.abort();this.account=undefined;this.accountState='signed-out';this.save(null);return this.status();}
-  async login(action:string,id?:string){this.assertEnabled();try{if(action==='start')return await this.qr.start();if(action==='poll'&&id)return await this.qr.poll(id);if(action==='cancel')return this.qr.cancel(id);}catch{throw new InputError('BILI_LOGIN_FAILED',409);}throw new InputError('INVALID_REQUEST');}
+  async login(action:string,id?:string){if(action==='start'||action==='cancel')this.cancelConnection();this.assertEnabled();try{if(action==='start')return await this.qr.start();if(action==='poll'&&id)return await this.qr.poll(id);if(action==='cancel')return this.qr.cancel(id);}catch{throw new InputError('BILI_LOGIN_FAILED',409);}throw new InputError('INVALID_REQUEST');}
+  private cancelConnection(){this.connecting?.control.abort();this.qr?.cancel();this.connection={phase:'idle'};}
+  connect(input:unknown){
+    const body=object(input);if(body.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);
+    if(this.connecting||this.operations.size)throw new InputError('BILI_BUSY',409);
+    this.assertPlugin();if(this.closing)throw new InputError('RUNTIME_STOPPING',503);if(this.initializationError)throw new InputError(this.initializationError,409);
+    let credentials:Credentials|undefined;try{credentials=body.credentials===undefined?undefined:this.module.parseManualCookie(body.credentials);}catch{throw new InputError('BILI_INVALID_CREDENTIALS');}
+    this.enabled=true;this.accountState=this.account?'unverified':'signed-out';this.save();const revision=this.revision,control=new AbortController();
+    this.connection={phase:'connecting'};
+    const check=()=>{control.signal.throwIfAborted();this.assertEnabled();if(this.revision!==revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);};
+    const promise=Promise.resolve().then(async()=>{
+      check();
+      if(credentials){await this.import(credentials,{signal:control.signal,check});control.signal.throwIfAborted();this.connection={phase:'online'};return;}
+      if(this.secret())try{await this.verify();check();this.connection={phase:'online'};return;}catch{check();}
+      let login=await this.qr.start();check();this.connection={phase:'login',login};
+      while(['waiting','scanned'].includes(login.status)){
+        await delay(2200,undefined,{signal:control.signal});check();login=await this.qr.poll(login.id!);
+        control.signal.throwIfAborted();
+        if(login.status==='success'){this.connection={phase:'online'};return;}
+        check();this.connection={phase:'login',login};
+      }
+      this.connection={phase:login.status==='expired'?'expired':'error',error:login.status==='expired'?undefined:'BILI_LOGIN_FAILED'};
+    }).catch(error=>{if(!control.signal.aborted)this.connection={phase:'error',error:error instanceof InputError?error.message:'BILI_LOGIN_FAILED'};}).finally(()=>{if(this.connecting?.control===control)this.connecting=undefined;});
+    this.connecting={control,promise};return this.status();
+  }
+  async disconnect(){await this.configure({enabled:false,revision:this.revision});await this.connecting?.promise;return this.status();}
   search(input:unknown,external?:AbortSignal){const b=object(input);return this.operation(signal=>this.upstream.search(string(b.query,200),this.secret(),external?AbortSignal.any([signal,external]):signal));}
   read(input:unknown){const b=object(input),kind=b.kind;if(!['video','comments','debrief'].includes(String(kind)))throw new InputError('INVALID_REQUEST');return this.operation(signal=>this.upstream.read(this.bvid(b.bvid),kind as 'video'|'comments'|'debrief',this.secret(),signal));}
   private bvid(input:unknown){const value=string(input,12);if(!/^BV[0-9A-Za-z]{10}$/.test(value))throw new InputError('INVALID_BVID');return value;}
@@ -68,5 +96,5 @@ export class Bilibili {
   private state(id:string,status:string,result?:VideoTask['result'],error:string|null=null){this.db.prepare('UPDATE video_tasks SET status=?,result=COALESCE(?,result),error=? WHERE id=?').run(status,result?JSON.stringify(result):null,error,id);}
   cancel(id:string){this.task(id);this.operations.get(id)?.control.abort();return this.task(id);}
   share(id:string,input:unknown){const task=this.task(id);if(!['completed','partial'].includes(task.status)||!task.result?.summary)throw new InputError('VIDEO_NOT_UNDERSTOOD',409);const b=object(input);if(!this.channels.status().config)throw new InputError('CHANNEL_NOT_CONFIGURED',409);const {evidence,summary}=task.result;return this.channels.send({target:b.target,segments:[{type:'text',data:{text:`${evidence.title}\n${evidence.url}\n${summary}`}}]});}
-  async close(){this.closing=true;await this.abort();this.qr?.dispose();}
+  async close(){this.closing=true;await this.abort();await this.connecting?.promise;this.qr?.dispose();}
 }

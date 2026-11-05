@@ -59,3 +59,5 @@
 - [Spec 028：QQ 表情回复](spec-028-qq-stickers/spec.md)：[返工独立验收PASS](spec-028-qq-stickers/acceptance.md)；内置/上传与梗鲸网络表情、受控看图与发送。
 
 - [Spec 029：简化 QQ 连接与折叠交互](spec-029-qq-connect-flow/spec.md)：[独立验收PASS](spec-029-qq-connect-flow/acceptance.md)；单次连接与清楚的设置入口。
+
+- [Spec 030：同步 B站与抖音连接体验](spec-030-other-connect-flows/spec.md)：[独立验收PASS](spec-030-other-connect-flows/acceptance-r2.md)；单次连接、自动核验与功能页签。
