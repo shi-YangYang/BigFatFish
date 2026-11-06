@@ -1,3 +1,4 @@
+import { recentMessageIssues } from './issues.js';
 import {QQReplyTurn} from './reply-turn.js';
 import {NetworkStickers} from './sticker-network.js';
 import {StickerLibrary} from './stickers.js';
@@ -154,6 +155,7 @@ export class Channels {
     const action=this.deliver(id,to,parts,revision,{kind:'proactive',assertScope}).catch(error=>{this.state(id,'blocked',error instanceof InputError?error.message:'PERMISSION_REVOKED');this.audit('send.blocked',id);return 'blocked';});
     this.actions.add(action);try{return {id,status:await action};}finally{this.actions.delete(action);}
   }
+  messageIssues(){return recentMessageIssues(this.db);}
   auditLog(){return this.db.prepare("SELECT event,at FROM audit WHERE event LIKE 'qq.%' ORDER BY id DESC LIMIT 100").all();}
   async close(){this.closing=true;this.invalidate();await Promise.all([...this.queues.values(),...this.actions]);this.plugin.dispose();}
 }

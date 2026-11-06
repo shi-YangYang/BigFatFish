@@ -1004,9 +1004,6 @@ audio {
 .qq-reply-options > .qq-proactive-row { border-top: 1px solid var(--border); padding-top: 16px; }
 .qq-setting-hint { color: var(--muted); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .qq-reply-actions { border-top: 1px solid var(--border); padding-top: 12px; }
-.qq-history { display: grid; gap: 12px; }
-.qq-history > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-.qq-history time { color: var(--muted); font-size: 12px; }
 @media (max-width: 480px) { .qq-account-heading { align-items: flex-start; flex-wrap: wrap; } }
 
 

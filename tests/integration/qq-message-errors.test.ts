@@ -11,7 +11,8 @@ import {requestRuntime} from '../../apps/runtime/src/connection.js';
 import type {ChatMessage} from '../../apps/runtime/src/ai/types.js';
 import type {ChannelStatus,SendResult} from '../../apps/runtime/src/channels/types.js';
 import {onebotFixture} from '../fixtures/onebot.js';
-import {qqAuditText} from '../../apps/desktop/src/features/connections/qq/qq-feedback.js';
+import {DatabaseSync} from 'node:sqlite';
+import type { QQMessageIssue } from '../../apps/runtime/src/channels/types.js';
 type DeliveryRecord=SendResult&{error?:string|null};
 const until=async<T>(read:()=>Promise<T>,done:(v:T)=>boolean)=>{let v=await read();for(let i=0;i<300&&!done(v);i++){await delay(50);v=await read();}expect(done(v),JSON.stringify(v)).toBe(true);return v;};
 const event=(id:string)=>({post_type:'message',message_type:'private',self_id:'10001',user_id:'20002',message_id:id,message:[{type:'text',data:{text:'你好'}}]});
@@ -45,6 +46,56 @@ it('keeps real model failure causes through DSH, Chat and QQ without claiming pe
   expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(sentCount);
  }finally{await runtime.stop();await bot.close();model.closeAllConnections();await new Promise<void>(r=>model.close(()=>r()));rmSync(p.root,{recursive:true,force:true});}
 },60000);
-it('shows readable audit actions without exposing internal event identifiers',()=>{
- expect(qqAuditText('qq.blocked:10001:private:20002:123')).toBe('消息未发送');expect(qqAuditText('qq.legacy:private-id')).toBe('历史操作记录');
+it('lists the 20 newest QQ problems by operation, even after a busy successful day', async () => {
+  const p = paths(mkdtempSync(join(tmpdir(), 'bff-qq-issue-list-')));
+  const runtime = await startRuntime(p);
+  const db = new DatabaseSync(p.database);
+  const insert = db.prepare('INSERT INTO channel_deliveries(id,target,author,segments,status,error,created_at) VALUES(?,?,?,?,?,?,?)');
+  const audit = db.prepare('INSERT INTO audit(event,at) VALUES(?,?)');
+  const at = (minute: number) => new Date(Date.UTC(2026, 0, 1, 0, minute)).toISOString();
+  const add = (id: string, status: string, error: string | null, minute: number) =>
+    insert.run(id, '{"kind":"private","id":"20002"}', '20002', 'PRIVATE_MESSAGE', status, error, at(minute));
+  const issues = () => requestRuntime<QQMessageIssue[]>(runtime.connection, '/v1/channels/qq/message-issues');
+  try {
+    for (const [status, error] of [['skipped', null], ['sent', null], ['blocked', 'PERMISSION_REVOKED'], ['interrupted', 'CANCELLED'], ['blocked', 'OLD_UNRECOGNIZED_STATUS']] as const) {
+      add('hidden-' + status + error, status, error, 200);
+    }
+    expect(await issues()).toEqual([]);
+
+    for (let i = 1; i <= 22; i++) add('test-' + i, 'failed', 'ACTION_REJECTED', i);
+    add('legacy', 'blocked', 'MODEL_RUN_FAILED', 23);
+    add('turn', 'unknown', 'REPLY_PARTIALLY_SENT', 24);
+    add('turn:output:0', 'sent', null, 25);
+    add('turn:output:1', 'unknown', 'SEND_UNKNOWN', 26);
+    add('uncertain', 'unknown', 'RUNTIME_RESTARTED', 27);
+    // After restart the parent no longer records partial delivery. A confirmed
+    // segment from the neighbouring operation must not count for this one.
+    add('restart1', 'interrupted', 'RUNTIME_RESTARTED', 28);
+    add('restart1:output:0', 'sent', null, 29);
+    add('restart1:output:1', 'unknown', 'RUNTIME_RESTARTED', 30);
+    add('restart', 'interrupted', 'RUNTIME_RESTARTED', 31);
+    add('restart:output:0', 'unknown', 'RUNTIME_RESTARTED', 32);
+    for (let i = 0; i < 120; i++) {
+      add('success-' + i, 'sent', null, i + 30);
+      audit.run('qq.send.sent:success-' + i, at(i + 30));
+    }
+
+    const result = await issues();
+    expect(result).toHaveLength(20);
+    expect(result.slice(0, 5).map(row => row.kind)).toEqual(['unknown', 'partial_unknown', 'unknown', 'partial_unknown', 'reply_failed']);
+    expect(result[1]?.at).toBe(at(30));
+    expect(result[3]).toMatchObject({ at: at(26), target: { kind: 'private', id: '20002' } });
+    expect(result.slice(5).every(row => row.kind === 'send_failed')).toBe(true);
+    expect(result.at(-1)?.at).toBe(at(8));
+    expect(JSON.stringify(result)).not.toMatch(/PRIVATE_MESSAGE|:output:|MODEL_RUN_FAILED/);
+
+    const raw = await requestRuntime<{event: string}[]>(runtime.connection, '/v1/channels/qq/audit');
+    expect(raw).toHaveLength(100);
+    expect(raw[0]?.event).toBe('qq.send.sent:success-119');
+    expect(await requestRuntime(runtime.connection, '/v1/permissions/audit')).toEqual(raw);
+  } finally {
+    db.close();
+    await runtime.stop();
+    rmSync(p.root, { recursive: true, force: true });
+  }
 });

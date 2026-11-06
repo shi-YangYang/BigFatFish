@@ -1,20 +1,30 @@
-import { qqAuditText } from "./qq-feedback";
+import type { QQMessageIssue } from "../../../../../runtime/src/channels/types";
 import { ContentScroll, Card, Alert, Loading } from "../../../components/Surfaces";
 import { Button } from "../../../components/Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../../api/client";
 
+const issueLabels: Record<QQMessageIssue["kind"], string> = {
+  reply_failed: "回复生成失败",
+  send_failed: "消息发送失败",
+  partial: "部分消息已发送，请到 QQ 核对",
+  partial_unknown: "部分消息已发送，其余请到 QQ 核对",
+  unknown: "未能确认是否送达，请到 QQ 核对",
+  offline: "QQ 已离线，消息未发送",
+  queue_full: "等待回复的消息过多，本条未回复",
+};
+
 export function QQMessages() {
-  const [audit, setAudit] = useState<{ event: string; at: string }[]>([]);
+  const [issues, setIssues] = useState<QQMessageIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [historyError, setHistoryError] = useState(false);
   const alive = useRef(true), sequence = useRef(0);
   const refresh = useCallback(async () => {
     const n = ++sequence.current;
     try {
-      const records = await api<{ event: string; at: string }[]>("/v1/channels/qq/audit");
+      const records = await api<QQMessageIssue[]>("/v1/channels/qq/message-issues");
       if (!alive.current || n !== sequence.current) return;
-      setAudit(records);
+      setIssues(records);
       setHistoryError(false);
     } catch {
       if (alive.current && n === sequence.current) setHistoryError(true);
@@ -48,15 +58,19 @@ export function QQMessages() {
         </Alert>
       )}
       {loading && <Loading />}
-      <ContentScroll label="操作记录" className="qq-history">
-        {audit.map((item, index) => (
-          <div key={index}>
-            <span>{qqAuditText(item.event)}</span>
-            <time>{new Date(item.at).toLocaleString()}</time>
+      {issues.length > 0 && <ContentScroll label="操作记录" className="operation-record-list">
+        {issues.map(issue => (
+          <div key={issue.id} className="operation-record">
+            <div className="operation-record-heading">
+              <span>{issueLabels[issue.kind]}</span>
+              {issue.target && <span className="operation-record-status">{issue.target.kind === "group" ? "群聊" : "私聊"} · {issue.target.id}</span>}
+            </div>
+            <time dateTime={issue.at}>{new Date(issue.at).toLocaleString()}</time>
           </div>
         ))}
-      </ContentScroll>
-      {!loading && !historyError && !audit.length && <p className="muted">暂无操作记录</p>}
+      </ContentScroll>}
+      {!loading && !historyError && !issues.length && <p className="muted">暂无需要处理的问题</p>}
+      {issues.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}
     </Card>
   );
 }
