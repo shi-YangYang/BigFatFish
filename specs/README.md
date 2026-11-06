@@ -87,3 +87,8 @@
 - [Spec 043：登录等待与连接错误提示](spec-043-connection-login-feedback/spec.md) · [验收通过](spec-043-connection-login-feedback/acceptance-r1.md)。
 - [Spec 044：聊天页只显示本地对话](spec-044-local-chat-history/spec.md) · [验收通过](spec-044-local-chat-history/acceptance.md)。
 - [Spec 045：项目目录职责整理](spec-045-project-layout/spec.md) · [验收通过](spec-045-project-layout/acceptance.md)。
+- [Spec 046：一条鱼的分层记忆](spec-046-layered-memory/spec.md) · [返工验收通过](spec-046-layered-memory/acceptance-r1.md)：主人绑定与群聊隐私、可纠正的偏好、B 站和抖音观看经历。
+- [Spec 047：自然对话记忆与本地语义检索](spec-047-semantic-recall/spec.md) · [验收通过](spec-047-semantic-recall/acceptance.md)。
+- [Spec 048：自动记忆与人物归属](spec-048-automatic-personal-memory/spec.md) · [验收通过](spec-048-automatic-personal-memory/acceptance-r1.md)。
+- [Spec 049：回复后的记忆整理](spec-049-background-memory/spec.md) · [独立复验通过](spec-049-background-memory/acceptance-r1.md)。
+- [Spec 050：能追溯到原话的人物资料](spec-050-memory-layers/spec.md) · [真实模型验证](spec-050-memory-layers/live.md) · [独立复验通过](spec-050-memory-layers/acceptance-r1.md)。

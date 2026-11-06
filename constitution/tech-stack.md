@@ -8,6 +8,7 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 | --- | --- |
 | Runtime、CLI | Node.js `>=24.9.0 <25`、TypeScript 5.9、Fastify 5、WebSocket、内置 `node:sqlite`。命令入口为 `bigfatfishd` 和 `bigfatfish`。 |
 | 引擎与模型 | `DSHAdapter` 实现 `AgentEngine`，使用固定的 DSH SDK 与模型适配包 `0.2.2-alpha.2`。Runtime 管理 OpenAI 兼容与 DeepSeek 聊天配置、模型发现和连接诊断。 |
+| 本机语义检索 | 可选的中文 BGE small zh v1.5 INT8 由 Node worker 使用 ONNX Runtime WASM 在本机 CPU 运行。模型按需下载。SQLite 保存可重建的向量索引。 |
 | 共享界面 | React 19、Vite 8、TypeScript。beUI 组件以源码引入，Tailwind 4 和 Motion 用于样式与交互，Desktop/Web 构建均携带 beUI 许可证。 |
 | 桌面宿主 | Tauri 2、Rust 1.90+，使用 autostart 与 updater 插件。原生宿主负责本机凭据、IPC、启动和维护。 |
 | 平台与外部依赖 | QQ 使用原版 NapCat 和 OneBot；B站复用 whale，抽帧使用 ffmpeg；抖音使用专用 Chromium、Playwright/CDP、独立 Python FastMCP 辅助服务。按平台启用和准备相应依赖。 |

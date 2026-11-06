@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {setTimeout as delay} from 'node:timers/promises';
 import sharp from 'sharp';
-import {migrate,migrations,openDatabase} from '../../apps/runtime/src/storage/database.js';
+import {migrate,migrations,openDatabase,SCHEMA_VERSION} from '../../apps/runtime/src/storage/database.js';
 import {ConversationNotes} from '../../apps/runtime/src/memory/notes.js';
 import {MemoryStore} from '../../apps/runtime/src/memory/store.js';
 import {personaCards} from '../../apps/runtime/src/ai/persona-cards.js';
@@ -32,17 +32,17 @@ it('preserves complete card fingerprints, scope provenance and schema7/8 archive
  try{
   const privateMemory=store.create({kind:'fact',subject:'秘密',content:'秘密主人数据',importance:3});const shared=store.update(privateMemory.id,{version:privateMemory.version,visibility:'shared'});
   const checks:(()=>void)[]=[];
-  const tool=(scope:string,observe=(c:()=>void)=>checks.push(c))=>Object.fromEntries(notes.tools(scope,{id:'incoming',author:'qq-user:2',text:'我喜欢海洋'},store,'group',()=>{},observe).map(t=>[t.name,t]));
+  const tool=(scope:string,observe=(c:()=>void)=>checks.push(c))=>Object.fromEntries(notes.tools(scope,{id:'incoming',author:'qq-user:2',text:'刚才在聊海洋'},store,'group',()=>{},observe).map(t=>[t.name,t]));
   const a=tool('qq:1:group:2'),b=tool('qq:1:group:3');
-  const note=await a.memory_append!.execute({content:'我喜欢海洋',quote:'喜欢海洋'},signal) as {id:string};
+  const note=await a.memory_append!.execute({content:'刚才在聊海洋',quote:'在聊海洋'},signal) as {id:string};
   expect(JSON.stringify(await b.memory_query!.execute({query:'海洋'},signal))).not.toContain(note.id);
   await expect(b.memory_remove!.execute({id:note.id},signal)).rejects.toThrow('MEMORY_NOTE_NOT_FOUND');
   await a.memory_query!.execute({query:'秘密'},signal);store.update(shared.id,{version:shared.version,visibility:'private'});expect(()=>checks.forEach(c=>c())).toThrow('MEMORY_SCOPE_CHANGED');
   expect(JSON.stringify(await b.memory_query!.execute({query:'秘密'},signal))).not.toContain('秘密主人数据');
-  await expect(a.memory_append!.execute({content:'来自共享记忆的秘密',quote:'喜欢海洋'},signal)).rejects.toThrow('INVALID_MEMORY_SOURCE');
-  db.close();const file=join(root,'notes.json');await exportArchive(p,file,{scopes:['memories']});const q=paths(join(root,'restored'));await restoreArchive(q,file);const restored=openDatabase(q.database);expect(restored.prepare('SELECT * FROM conversation_notes').get()).toMatchObject({id:note.id,scope:'qq:1:group:2',source_id:'incoming',quote:'喜欢海洋'});restored.close();
-  const envelope=JSON.parse(readFileSync(file,'utf8')),payload=JSON.parse(Buffer.from(envelope.files[0].content,'base64').toString());payload.schema=7;delete payload.tables.conversation_notes;const bytes=Buffer.from(JSON.stringify(payload));envelope.files[0]={path:'data.json',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),content:bytes.toString('base64')};const oldFile=join(root,'old.json');writeFileSync(oldFile,JSON.stringify(envelope));const oldP=paths(join(root,'old'));await restoreArchive(oldP,oldFile);const old=openDatabase(oldP.database);expect(old.prepare('SELECT * FROM conversation_notes').all()).toEqual([]);old.close();
-  const upgrade=new DatabaseSync(':memory:');migrate(upgrade,migrations.slice(0,7));migrate(upgrade);expect(upgrade.prepare('PRAGMA user_version').get()!.user_version).toBe(8);upgrade.close();
+  await expect(a.memory_append!.execute({content:'来自共享记忆的秘密',quote:'在聊海洋'},signal)).rejects.toThrow('INVALID_MEMORY_SOURCE');
+  db.close();const file=join(root,'notes.json');await exportArchive(p,file,{scopes:['memories']});const q=paths(join(root,'restored'));await restoreArchive(q,file);const restored=openDatabase(q.database);expect(restored.prepare('SELECT * FROM conversation_notes').get()).toMatchObject({id:note.id,scope:'qq:1:group:2',source_id:'incoming',quote:'在聊海洋'});restored.close();
+  const envelope=JSON.parse(readFileSync(file,'utf8')),payload=JSON.parse(Buffer.from(envelope.files[0].content,'base64').toString());payload.schema=7;for(const link of payload.tables.memory_links){delete link.asserted_at;delete link.speaker_verified;}delete payload.tables.conversation_notes;for(const m of payload.tables.memories){delete m.actor_role;delete m.person_key;delete m.scope_key;}const bytes=Buffer.from(JSON.stringify(payload));envelope.files[0]={path:'data.json',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),content:bytes.toString('base64')};const oldFile=join(root,'old.json');writeFileSync(oldFile,JSON.stringify(envelope));const oldP=paths(join(root,'old'));await restoreArchive(oldP,oldFile);const old=openDatabase(oldP.database);expect(old.prepare('SELECT * FROM conversation_notes').all()).toEqual([]);old.close();
+  const upgrade=new DatabaseSync(':memory:');migrate(upgrade,migrations.slice(0,7));migrate(upgrade);expect(upgrade.prepare('PRAGMA user_version').get()!.user_version).toBe(SCHEMA_VERSION);upgrade.close();
  }finally{try{db.close();}catch{}rmSync(root,{recursive:true,force:true});}
 });
 

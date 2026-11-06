@@ -98,6 +98,8 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     const errors: string[] = [], writes: { route: string; body: Record<string, unknown> }[] = [];
     page.on('pageerror', error => errors.push(error.message));
     let revision = 0;
+    let recallState = 'off';
+    const recallWrites: boolean[] = [];
     const memories: Record<string, unknown>[] = [];
     let legacyRuntime = true;
     const streams: (string | null)[] = [];
@@ -108,9 +110,20 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     await page.route('**/api/v1/**', async route => {
       const name = new URL(route.request().url()).pathname.replace('/api', '');
       const body = route.request().postDataJSON() ?? {};
+      if (name === '/v1/memory-recall') {
+        if (route.request().method() === 'PUT') {
+          recallWrites.push(body.enabled);
+          recallState = body.enabled ? 'downloading' : 'off';
+        }
+        return route.fulfill({ json: { state: recallState } });
+      }
       if (name === '/v1/memories' && route.request().method() === 'POST') {
         writes.push({ route: name, body }); revision++;
-        memories.push({ ...body, id: 'm1', status: 'confirmed', version: 1, visibility: 'private', conflicts: [], sources: [] });
+        memories.push({ ...body, id: 'm1', role:'general',scopeKey:'',personKey:'',status: 'confirmed', version: 1, visibility: 'private', conflicts: [], sources: [] });
+      }
+      if (name === '/v1/memories/search' && body.role === 'other') {
+        return route.fulfill({json:[{id:'m2',role:'other',personKey:'qq:10001:30003',scopeKey:'qq:10001:group:41001',
+          subject:'朋友的偏好',content:'喜欢花茶',kind:'preference',importance:4,status:'confirmed',visibility:'private',version:1,conflicts:[],sources:[]}]});
       }
       if (name === '/v1/conversations/local') {
         if (legacyRuntime) return route.fulfill({ status: 404, json: { error: 'Not Found' } });
@@ -145,6 +158,15 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     legacyRuntime = false;
     await page.getByRole('tab', { name: '记忆', exact: true }).click();
     await page.getByText('没有符合条件的记忆。可整理对话，或直接添加。', { exact: true }).waitFor();
+    const recallCard = page.getByRole('article').filter({ hasText: '按语义回忆' });
+    await recallCard.getByRole('button', { name: '启用' }).click();
+    await recallCard.getByRole('button', { name: '取消' }).waitFor();
+    recallState = 'failed';
+    await recallCard.getByRole('button', { name: '重试' }).click();
+    recallState = 'ready';
+    await recallCard.getByRole('button', { name: '停用' }).click();
+    await recallCard.getByRole('button', { name: '启用' }).waitFor();
+    expect(recallWrites).toEqual([true, true, false]);
     expect(await page.getByLabel('主题', { exact: true }).count()).toBe(0);
     expect(await page.getByRole('button', { name: '合并所选两条', exact: true }).count()).toBe(0);
     expect(await page.getByRole('button', { name: '下一页', exact: true }).count()).toBe(0);
@@ -163,6 +185,12 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     expect(await page.getByLabel('内容', { exact: true }).inputValue()).toBe('喜欢蓝色');
     await page.getByRole('button', { name: '取消编辑', exact: true }).click();
+    await page.getByRole('combobox', { name:'归属', exact:true }).click();
+    await page.getByRole('option', { name:'其他人', exact:true }).click();
+    const friend = page.getByRole('article').filter({ hasText:'朋友的偏好' });
+    await friend.getByText('QQ 30003 · QQ 群 41001', {exact:true}).waitFor();
+    expect(await friend.getByRole('button', {name:'确认',exact:true}).count()).toBe(0);
+    expect(await friend.getByRole('button', {name:'共享给 QQ',exact:true}).count()).toBe(0);
     await page.getByRole('button', { name: '从对话整理', exact: true }).click();
     await page.getByRole('combobox', { name: '选择对话', exact: true }).waitFor();
     // Pausing frame callbacks reproduces the native-background WebView condition.

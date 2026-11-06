@@ -92,7 +92,9 @@ it('keeps conversational persona out of activity-selection requests while retain
     chat.config.saveRoutes({ chat: 'fixture' });
     const persona = chat.config.savePersona(applyPersonaPreset(chat.config.persona(), personaPresets[1]!));
     chat.life.memories.create({ kind: 'interest', subject: '鱼的兴趣', content: '喜欢了解海洋生物', importance: 4 });
-    chat.life.memories.record({ id: 'activity-fixture', kind: 'video.completed', sourceId: 'fixture-video', summary: '看过海洋生物介绍', occurredAt: '2026-11-04T12:00:00.000Z' });
+    chat.life.memories.record({ id: 'activity-fixture', kind: 'bilibili.watched', sourceId: 'fixture-video', summary: '看过海洋生物介绍', occurredAt: '2026-11-04T12:00:00.000Z' });
+    chat.life.memories.create({kind:'interest',subject:'我的私人爱好',content:'我的保密行程',importance:5});
+    chat.life.memories.record({id:'private-chat',kind:'chat.completed',sourceId:'private',summary:'保密对话标题',occurredAt:'2026-11-04T12:30:00.000Z'});
     const before = chat.life.overview();
     const choices = [{ kind: 'bilibili.watch', title: '海洋生物观察', bvid: 'fixture-choice' }];
 
@@ -108,9 +110,11 @@ it('keeps conversational persona out of activity-selection requests while retain
     expect(prompt).toContain(`候选：${JSON.stringify(choices)}`);
     const state = JSON.parse(prompt.split('；状态：')[1]!);
     expect(state).not.toHaveProperty('persona');
-    expect(state).toMatchObject({ mood: before.mood, interests: before.interests, recent: before.recent, confirmedCount: 1 });
+    expect(state).toMatchObject({mood:before.mood!.mood,interests:[{content:'喜欢了解海洋生物'}]});
+    expect(wireText).toContain('看过海洋生物介绍');
+    expect(wireText).not.toContain('保密对话标题');
+    expect(wireText).not.toContain('我的保密行程');
     expect(state.interests).toHaveLength(1);
-    expect(state.recent).toHaveLength(1);
     expect(chat.life.overview()).toEqual(before);
   } finally { await chat.close(); await fixture.close(); db.close(); rmSync(p.root, { recursive: true, force: true }); }
 }, 30000);

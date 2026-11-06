@@ -1,5 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
-export const SCHEMA_VERSION = 8;
+import { classifyLegacyMemories } from '../memory/attribution.js';
+import { rebuildPersonProfiles } from '../memory/person-profile.js';
+export const SCHEMA_VERSION = 11;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -41,19 +43,51 @@ export const migrations = [
    CREATE INDEX activity_video ON activity_tasks(platform,kind,json_extract(input,'$.videoId'),status);`,
   `CREATE TABLE qq_stickers(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),builtin INTEGER NOT NULL CHECK(builtin IN (0,1)),revision TEXT NOT NULL,mime_type TEXT NOT NULL,bytes INTEGER NOT NULL,data TEXT NOT NULL); CREATE TABLE qq_sticker_options(id INTEGER PRIMARY KEY CHECK(id=1),network_enabled INTEGER NOT NULL CHECK(network_enabled IN (0,1)),revision TEXT NOT NULL);`,
   `CREATE TABLE conversation_notes(id TEXT PRIMARY KEY,scope TEXT NOT NULL,source_id TEXT NOT NULL,author TEXT NOT NULL,content TEXT NOT NULL,quote TEXT NOT NULL,created_at TEXT NOT NULL); CREATE INDEX conversation_notes_scope ON conversation_notes(scope);`,
+  `ALTER TABLE memories ADD COLUMN actor_role TEXT NOT NULL DEFAULT 'unassigned'
+      CHECK (actor_role IN ('owner','other','general','unassigned'));
+   ALTER TABLE memories ADD COLUMN person_key TEXT NOT NULL DEFAULT '';
+   ALTER TABLE memories ADD COLUMN scope_key TEXT NOT NULL DEFAULT '';
+   CREATE INDEX channel_sessions_conversation ON channel_sessions(conversation_id);
+   DROP INDEX memories_identity;
+   CREATE INDEX memories_identity ON memories(actor_role,person_key,kind,subject,scope_key,normalized);`,
+  `CREATE TABLE memory_turn_jobs (
+     seq INTEGER PRIMARY KEY,
+     source_id TEXT NOT NULL UNIQUE REFERENCES messages(id) ON DELETE CASCADE,
+     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','done','failed')),
+     attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL DEFAULT 0, error TEXT
+   );
+   CREATE INDEX memory_turn_pending ON memory_turn_jobs(seq) WHERE status='pending';
+   CREATE INDEX memory_links_source ON memory_links(source_type,source_id,memory_id);`,
+  `ALTER TABLE memory_links ADD COLUMN asserted_at TEXT;
+   ALTER TABLE memory_links ADD COLUMN speaker_verified INTEGER NOT NULL DEFAULT 0 CHECK(speaker_verified IN (0,1));
+   UPDATE memory_links SET asserted_at=(SELECT created_at FROM messages WHERE id=memory_links.source_id)
+     WHERE source_type='message';
+   CREATE TABLE memory_profile_fields(
+     memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+     field_key TEXT NOT NULL, label TEXT NOT NULL, value TEXT NOT NULL, observed_at TEXT NOT NULL,
+     source_type TEXT NOT NULL, source_id TEXT NOT NULL, PRIMARY KEY(memory_id,field_key)
+   ) WITHOUT ROWID;`,
 ];
+export function transaction<T>(db: DatabaseSync, run: () => T): T {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = run();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
+}
 export function migrate(db: DatabaseSync, steps = migrations) {
   const current = Number(db.prepare('PRAGMA user_version').get()?.user_version);
   if (current > steps.length) throw new Error('DATABASE_VERSION_TOO_NEW');
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  transaction(db, () => {
     for (let index = current; index < steps.length; index++) {
       db.exec(steps[index]!);
+      if (index === 8) classifyLegacyMemories(db);
+      if (index === 10) rebuildPersonProfiles(db);
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(index + 1, new Date().toISOString());
       db.exec(`PRAGMA user_version = ${index + 1}`);
     }
-    db.exec('COMMIT');
-  } catch (error) { db.exec('ROLLBACK'); throw error; }
+  });
 }
 export function openDatabase(file: string) {
   const db = new DatabaseSync(file);

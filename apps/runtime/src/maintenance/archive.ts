@@ -1,3 +1,5 @@
+import {classifyLegacyMemories, validAttribution} from '../memory/attribution.js';
+import {canShareMemory, type MemoryAttribution} from '../memory/types.js';
 import {ConversationNotes} from '../memory/notes.js';
 import {StickerLibrary} from '../channels/stickers.js';
 import {validateBundle,hash as pluginHash} from '../plugins/package.js';
@@ -30,6 +32,7 @@ import {
   type DataPaths,
 } from "../paths.js";
 import { acquireInstance } from "../instance.js";
+import { rebuildPersonProfiles } from "../memory/person-profile.js";
 import { openDatabase, SCHEMA_VERSION } from "../storage/database.js";
 import { privateCopy } from "../memory/files.js";
 import { Configuration } from "../ai/configuration.js";
@@ -157,7 +160,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || ![6, 7, SCHEMA_VERSION].includes(payload.schema))
+  if (payload.version !== 1 || ![6, 7, 8, 9, 10, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -308,13 +311,19 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
           .prepare(`PRAGMA table_info(${table})`)
           .all()
           .map((r) => String(r.name));
+        const legacyMemory = table === 'memories' && payload.schema < 9;
+        const importedColumns = legacyMemory ? columns.filter(c => !['actor_role','person_key','scope_key'].includes(c)) : table === 'memory_links' && payload.schema < 11 ? columns.filter(c => c !== 'asserted_at' && c !== 'speaker_verified') : columns;
         for (const row of rows) {
           if (
             !row ||
-            Object.keys(row).length !== columns.length ||
-            columns.some((c) => !Object.hasOwn(row, c))
+            Object.keys(row).length !== importedColumns.length ||
+            importedColumns.some((c) => !Object.hasOwn(row, c))
           )
             throw new Error("INVALID_ARCHIVE_COLUMNS");
+          if (table === 'memories' && !legacyMemory) {
+            const actor = {role:row.actor_role,personKey:row.person_key,scopeKey:row.scope_key} as MemoryAttribution;
+            if (!validAttribution(actor) || (row.visibility === 'shared' && !canShareMemory(actor))) throw new Error('INVALID_ARCHIVE_MEMORY');
+          }
           if (table === "settings" && row.key !== "model_routes")
             throw new Error("INVALID_ARCHIVE_SETTING");
           if (table === "models" || table === "plugin_config")
@@ -330,10 +339,12 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
             row.revision = randomUUID();
           }
           db.prepare(
-            `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")})`,
-          ).run(...columns.map((c) => row[c]!));
+            `INSERT INTO ${table} (${importedColumns.join(",")}) VALUES (${importedColumns.map(() => "?").join(",")})`,
+          ).run(...importedColumns.map((c) => row[c]!));
         }
       }
+      if (payload.schema < 9) classifyLegacyMemories(db);
+      rebuildPersonProfiles(db);
       await new StickerLibrary(db).validateStored();
       new ConversationNotes(db).validateStored();
       // Canonical message history will seed a fresh DSH session, excluding old hidden context and host paths.

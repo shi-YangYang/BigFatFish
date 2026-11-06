@@ -1,6 +1,10 @@
 # 上游来源与适配依据
 
-本文记录 2026-11-02 核查的上游版本、协议及选型依据。当前应用的配置、支持范围和操作步骤分别见[模型与聊天](ai-core.md)、[QQ](qq.md)、[B站](bilibili.md)和[抖音](douyin.md)。
+本文记录项目核查的上游版本、协议及选型依据。当前应用的配置、支持范围和操作步骤分别见[模型与聊天](ai-core.md)、[QQ](qq.md)、[B站](bilibili.md)和[抖音](douyin.md)。
+
+## 中文记忆检索
+
+使用智源 BGE small zh v1.5（MIT）的 INT8 量化权重和配套分词器。首次启用时按固定版本下载并逐文件校验 SHA-256。在本机对检索问题加中文检索指令，取 CLS 并归一化。文件版本、大小与摘要见[下载清单](../apps/runtime/src/memory/bge-assets.ts)。[原始模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5) · [固定的 ONNX 转换版本](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
 
 ## DSH Harness
 

@@ -5,7 +5,7 @@ import { adapterEffort, openAIModelOptions, MODEL_REQUEST_TIMEOUT_MS } from './m
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { privateFile, assertRegular, type DataPaths } from '../paths.js';
@@ -17,8 +17,11 @@ export class DSHAdapter implements AgentEngine {
   async close() { await Promise.all([...this.children].map(h => h.close())); }
   async run(input: EngineInput): Promise<string> {
     if(input.images?.length && (input.images.length>2 || input.images.some(i=>i.data.length>5600000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(i.data))))throw new Error('INVALID_ENGINE_IMAGES');
-    const home = join(this.p.data, 'engine', input.conversationId);
-    for (const path of [join(this.p.data, 'engine'), home, join(home, 'workspace')]) {
+    const engineRoot = join(this.p.data, 'engine');
+    assertRegular(engineRoot, true); mkdirSync(engineRoot, {recursive:true, mode:0o700});
+    if (process.platform === 'win32') windowsAcl('restrict', [{ path:engineRoot, directory:true }]);
+    const home = input.ephemeral ? mkdtempSync(join(engineRoot, 'background-')) : join(engineRoot, input.conversationId);
+    for (const path of [home, join(home, 'workspace')]) {
       assertRegular(path, true); mkdirSync(path, { recursive: true, mode: 0o700 });
       if (process.platform === 'win32') windowsAcl('restrict', [{ path, directory: true }]);
     }
@@ -73,6 +76,7 @@ export class DSHAdapter implements AgentEngine {
     let runError: unknown;
     const cleanupErrors: unknown[] = [];
     try {
+    privateFile(profile);
     await new Promise<void>((resolve, reject) => { bridge.once('error', reject); bridge.listen(0, '127.0.0.1', resolve); });
     const bridgePort = (bridge.address() as { port: number }).port;
     const plugin = fileURLToPath(new URL('./dsh-bridge.mjs', import.meta.url));
@@ -84,7 +88,7 @@ export class DSHAdapter implements AgentEngine {
       patches.push({ insert: [{ id: 'llm-bff', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { bff: { api: 'openai-completions', ...(input.model.reasoningEffort ? { reasoning: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: `http://127.0.0.1:${bridgePort}/model`, apiKeyEnv: 'BFF_MODEL_API_KEY', models: [{ id: input.model.model, ...openAIModelOptions(input.model), input: ['text','image'] }], timeoutMs: MODEL_REQUEST_TIMEOUT_MS, streamIdleTimeoutMs: MODEL_REQUEST_TIMEOUT_MS, retryPolicy: { mode: 'normal', maxRetries: 0 } } } } }] });
     } else patches.push({ id: 'llm-deepseek', config: { ...(input.model.reasoningEffort ? { reasoningEffort: adapterEffort(input.model.reasoningEffort) } : {}), baseURL: input.model.baseURL, apiKeyEnv: 'BFF_MODEL_API_KEY', streamIdleTimeoutMs: MODEL_REQUEST_TIMEOUT_MS } });
     patches.push({ insert: [{ id: 'bff-bridge', name: plugin }] });
-    privateFile(profile); writeFileSync(profile, JSON.stringify(patches));
+    writeFileSync(profile, JSON.stringify(patches));
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
     Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters,resultKind})=>({name,description,parameters,resultKind}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
@@ -129,6 +133,7 @@ export class DSHAdapter implements AgentEngine {
       for(const {tool,value,presented} of imageResults.values())if(!presented)await cleanup(()=>{tool.onImageResult?.(value,false);input.onTool?.({name:tool.name,state:'failed'});});
       imageResults.clear();
       await cleanup(() => rmSync(profile, { force: true }));
+      if (input.ephemeral) await cleanup(() => rmSync(home, {recursive:true, force:true}));
     }
     if (cleanupErrors.length) throw new AggregateError([...(runError ? [runError] : []), ...cleanupErrors], 'ENGINE_CLEANUP_FAILED');
     if (runError) throw runError;

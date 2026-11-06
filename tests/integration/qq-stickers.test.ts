@@ -14,7 +14,7 @@ import {onebotFixture} from '../fixtures/onebot.js';
 import {StickerLibrary,validateStickerImage,type StickerInfo} from '../../apps/runtime/src/channels/stickers.js';
 import {NetworkStickers,stickerURL,publicIPv4} from '../../apps/runtime/src/channels/sticker-network.js';
 import {StickerTurn} from '../../apps/runtime/src/channels/sticker-turn.js';
-import {migrate,migrations} from '../../apps/runtime/src/storage/database.js';
+import {migrate,migrations,SCHEMA_VERSION} from '../../apps/runtime/src/storage/database.js';
 import {exportArchive,restoreArchive} from '../../apps/runtime/src/maintenance/archive.js';
 import type {ChannelStatus} from '../../apps/runtime/src/channels/types.js';
 import {DSHAdapter} from '../../apps/runtime/src/ai/dsh.js';
@@ -40,7 +40,7 @@ it('validates/persists the local library, backups and old schema archives',async
   const db=new DatabaseSync(restored.database);const library=new StickerLibrary(db);expect(library.info(item.id)).toMatchObject({name:item.name,enabled:false});expect(library.options().networkEnabled).toBe(false);library.remove(item.id);expect(()=>library.image(item.id)).toThrow('STICKER_NOT_FOUND');db.close();
   // A valid schema-6 archive has no sticker tables. Its data restores without inventing rows.
   const envelope=JSON.parse(readFileSync(archive,'utf8')),payload=JSON.parse(Buffer.from(envelope.files[0].content,'base64').toString());payload.schema=6;delete payload.tables.qq_stickers;delete payload.tables.qq_sticker_options;const bytes=Buffer.from(JSON.stringify(payload));envelope.files[0]={path:'data.json',content:bytes.toString('base64'),size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};const legacy=join(root,'legacy.json');writeFileSync(legacy,JSON.stringify(envelope));const legacyP=paths(join(root,'legacy'));await restoreArchive(legacyP,legacy);const old=new DatabaseSync(legacyP.database);expect(new StickerLibrary(old).list()).toHaveLength(0);old.close();
-  const migration=new DatabaseSync(':memory:');migrate(migration,migrations.slice(0,6));migrate(migration);expect(migration.prepare('PRAGMA user_version').get()?.user_version).toBe(8);migration.close();
+  const migration=new DatabaseSync(':memory:');migrate(migration,migrations.slice(0,6));migrate(migration);expect(migration.prepare('PRAGMA user_version').get()?.user_version).toBe(SCHEMA_VERSION);migration.close();
  }finally{if(!stopped)await rt.stop();rmSync(root,{recursive:true,force:true});}
 });
 

@@ -40,14 +40,17 @@ it('binds the actual generated memory scope through the final asynchronous healt
     await call('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:'20002',groups:['30003'],enabled:true,replyEnabled:true,proactiveEnabled:true,token:'fixture-token',revision:''});
     await wait(()=>call<ChannelStatus>('/v1/channels/qq'),s=>s.health.state==='online');
     const sends=()=>bot.requests.filter(r=>r.action.startsWith('send_'));
-    const terminal=async(id:string)=>{const rows=await wait(()=>call<Delivery[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>(d.id===id||d.id.endsWith(':'+id))&&!['queued','generating','sending'].includes(d.status)));return rows.find(d=>(d.id===id||d.id.endsWith(':'+id)))!;};
+    // Generated QQ replies can have several outputs. The health/permission guard
+    // runs on each output delivery, while its inbound parent remains generating.
+    const actual=(id:string,short:string)=>id===short||id.endsWith(':'+short+':output:0');
+    const terminal=async(id:string)=>{const rows=await wait(()=>call<Delivery[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>actual(d.id,id)&&!['queued','generating','sending'].includes(d.status)));return rows.find(d=>actual(d.id,id))!;};
     const pending=async(id:string,kind='group')=>{
       const gate=bot.pauseNextLogin();bot.event(event(id,kind));await gate.reached;
       const conversations=await call<{id:string}[]>('/v1/conversations');
       const messages=(await Promise.all(conversations.map(c=>call<ChatMessage[]>('/v1/conversations/'+c.id+'/messages')))).flat();
       expect(messages.some(m=>m.role==='assistant'&&m.status==='completed'&&m.content.includes(marker))).toBe(true);
       expect(usedContexts.at(-1)).toContain(marker);
-      expect((await call<Delivery[]>('/v1/channels/qq/deliveries')).find(d=>d.id.endsWith(':'+id))?.status).toBe('sending');
+      expect((await call<Delivery[]>('/v1/channels/qq/deliveries')).find(d=>actual(d.id,id))?.status).toBe('sending');
       return gate;
     };
     // Successful control: the same fully generated response can pass unchanged.

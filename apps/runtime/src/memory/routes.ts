@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { InputError, object } from '../ai/types.js';
 import type { LifeService } from './life.js';
 export function registerLife(app: FastifyInstance, life: LifeService) {
   app.get('/v1/life/updates',async()=>life.updates());
@@ -6,6 +7,16 @@ export function registerLife(app: FastifyInstance, life: LifeService) {
   app.get('/v1/life/timeline',async()=>life.memories.timeline());
   app.post('/v1/life/source',async req=>life.source(req.body));
   app.get('/v1/life/moods',async()=>life.moods());
+  const recallStatus = () => ({ ...life.embedder.status(), ...life.semantic.status() });
+  app.get('/v1/memory-recall', async () => recallStatus());
+  app.put('/v1/memory-recall', async req => {
+    const { enabled } = object(req.body);
+    if (typeof enabled !== 'boolean') throw new InputError('INVALID_REQUEST');
+    if (enabled) await life.embedder.enable();
+    else await life.embedder.disable();
+    return recallStatus();
+  });
+  app.post('/v1/memory-profile/search',async req=>life.memories.profileEntries(req.body));
   app.get('/v1/memories',async()=>life.memories.list());
   app.post('/v1/memories/search',async req=>life.memories.list(req.body));
   app.post('/v1/memories',async req=>life.memories.create(req.body));

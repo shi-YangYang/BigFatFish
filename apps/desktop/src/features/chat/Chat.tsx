@@ -50,6 +50,7 @@ export function Chat({
   const selected = selection.id,
     currentSelection = useRef(selection),
     draftVersion = useRef(0),
+    transcribedDrafts = useRef(new Set<string>()),
     mounted = useRef(false),
     pending = useRef(new Map<string, PendingMessage>()),
     sending = useRef<PendingMessage | null>(null),
@@ -61,6 +62,7 @@ export function Chat({
   const canChat = models.some(model => model.id === (selected ? sessionModel : chatModel));
   function updateText(value: string) {
     draftVersion.current++;
+    if (!value) transcribedDrafts.current.delete(currentSelection.current.id);
     textRef.current = value;
     setText(value);
   }
@@ -137,9 +139,11 @@ export function Chat({
       return;
     let origin = currentSelection.current;
     const version = draftVersion.current;
-    if (pending.current.get(origin.id)?.content !== text)
+    const inputOrigin = transcribedDrafts.current.has(origin.id) ? "transcription" : undefined;
+    if (pending.current.get(origin.id)?.content !== text || pending.current.get(origin.id)?.inputOrigin !== inputOrigin)
       pending.current.set(origin.id, {
         content: text,
+        inputOrigin,
         requestId: crypto.randomUUID(),
       });
     const request = pending.current.get(origin.id)!;
@@ -158,6 +162,7 @@ export function Chat({
         // including edits made while conversation creation was in flight.
         drafts.current.set(session.id, textRef.current);
         drafts.current.delete(origin.id);
+        if (transcribedDrafts.current.delete(origin.id)) transcribedDrafts.current.add(session.id);
         origin = { id: session.id };
         currentSelection.current = origin;
         setSelection(origin);
@@ -206,9 +211,10 @@ export function Chat({
         mounted.current &&
         origin === currentSelection.current &&
         version === draftVersion.current
-      )
+      ) {
+        transcribedDrafts.current.add(origin.id);
         updateText(result.text);
-      else if (mounted.current)
+      } else if (mounted.current)
         fail("转写期间对话或草稿已变化，请重新选择音频。");
     } catch (e) {
       fail(e);

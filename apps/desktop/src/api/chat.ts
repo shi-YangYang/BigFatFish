@@ -1,7 +1,7 @@
 import type { Conversation } from "../../../runtime/src/ai/types";
 import { api } from "./client";
 
-export type PendingMessage = { content: string; requestId: string };
+export type PendingMessage = { content: string; requestId: string; inputOrigin?: "transcription" };
 
 export function loadConversations() {
   return api<Conversation[]>("/v1/conversations");

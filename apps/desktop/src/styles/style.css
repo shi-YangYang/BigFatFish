@@ -1092,3 +1092,28 @@ audio {
   .qq-account-online { grid-template-columns: minmax(0, 1fr); }
   .qq-account-online .qq-connect-actions { grid-column: 1; grid-row: auto; }
 }
+
+.memory-layer-switch { display: flex; gap: 4px; }
+.memory-layer-switch [aria-pressed="true"] { color: var(--brand); background: var(--soft); }
+.profile-fields { display: grid; }
+.profile-fields .profile-field {
+  height: auto;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(4em, auto) minmax(0, 1fr) auto 16px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px;
+  white-space: normal;
+  text-align: start;
+}
+.profile-field + .profile-field { border-top: 1px solid var(--border); border-radius: 0; }
+.profile-field-name, .profile-field time, .profile-field svg { color: var(--muted); }
+.profile-field strong { overflow-wrap: anywhere; font-weight: 600; }
+.profile-field time { grid-column: 3; font-size: 12px; }
+.profile-field svg { grid-column: 4; align-self: center; }
+@media (max-width: 620px) {
+  .profile-fields .profile-field { grid-template-columns: minmax(4em, auto) minmax(0, 1fr) 16px; gap: 2px 8px; }
+  .profile-field time { grid-column: 2; grid-row: 2; }
+  .profile-field svg { grid-column: 3; grid-row: 1; }
+}

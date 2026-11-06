@@ -1,3 +1,4 @@
+import { memoryOrigin } from "./memory-origin";
 import { usePoll } from "../../hooks/usePoll";
 import { loadActivities, type ActivityOverview } from "../../api/activities";
 import { activityState } from "./activity-labels";
@@ -141,7 +142,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
                 ? "正在聊天"
                 : "暂无聊天或记忆整理"}
           </p>
-          <p>已确认 {data.confirmedCount} 条记忆</p>
+          <p>已记住 {data.confirmedCount} 条</p>
           </ContentScroll>
           {navigate && (
             <p>
@@ -154,8 +155,8 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
         {(data.interests.length > 0 || data.relationships.length > 0) && <Card>
           <h3>兴趣与关系</h3>
           <ContentScroll label="兴趣与关系">
-          {data.interests.map((m) => <p key={m.id}>{m.content}</p>)}
-          {data.relationships.map((m) => <p key={m.id}>{m.content}</p>)}
+          {data.interests.map((m) => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
+          {data.relationships.map((m) => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
           </ContentScroll>
         </Card>}
         <Card>
@@ -363,9 +364,7 @@ export function Sources({
               ? "聊天"
               : s.type === "user"
                 ? "用户填写"
-                : "活动"}{" "}
-            · {s.id}
-            {s.author && ` · ${s.author}`}
+                : "活动"}
           </small>
           {s.type !== "user" && (
             <Button
@@ -388,7 +387,7 @@ export function Sources({
       {original && (
         <Card>
           <time>{new Date(original.occurredAt).toLocaleString()}</time>
-          {original.conversationId && <p>会话：{original.conversationId}</p>}
+          <h3>{original.conversationId ? "聊天原文" : "活动原文"}</h3>
           <p className="prewrap">{original.content}</p>
           <Button type="button" onClick={() => setOriginal(undefined)}>
             收起原文

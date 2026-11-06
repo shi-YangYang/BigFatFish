@@ -1,5 +1,8 @@
 import { copyFileSync, mkdirSync, cpSync } from 'node:fs';
 copyFileSync('apps/runtime/src/windows-acl.ps1', 'dist/runtime/src/windows-acl.ps1');
+mkdirSync('dist/runtime/src/memory', { recursive: true });
+copyFileSync('apps/runtime/src/memory/bge-worker.mjs', 'dist/runtime/src/memory/bge-worker.mjs');
+cpSync('apps/runtime/src/memory/licenses', 'dist/runtime/src/memory/licenses', { recursive: true });
 mkdirSync('dist/runtime/src/ai', { recursive: true });
 copyFileSync('apps/runtime/src/ai/dsh-bridge.mjs', 'dist/runtime/src/ai/dsh-bridge.mjs');
 mkdirSync('dist/plugins/qq', { recursive: true });

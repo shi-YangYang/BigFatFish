@@ -1,3 +1,6 @@
+import { memoryOrigin, memoryRoles } from "./memory-origin";
+import { PersonProfiles } from "./PersonProfiles";
+import { SemanticRecall } from "./SemanticRecall";
 import { loadConversations } from "../../api/chat";
 import { ContentScroll, Card , Alert} from "../../components/Surfaces";
 import {
@@ -13,10 +16,12 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { Sources, TaskList, useLifeRefresh } from "./Life";
+import { canShareMemory } from "../../../../runtime/src/memory/types";
 import type {
   Memory,
   MemoryKind,
   MemoryTask,
+  ProfileEntry,
 } from "../../../../runtime/src/memory/types";
 import type { Conversation } from "../../../../runtime/src/ai/types";
 const labels: Record<MemoryKind, string> = {
@@ -29,8 +34,8 @@ const labels: Record<MemoryKind, string> = {
 };
 const states: Record<string, string> = {
   candidate: "待确认",
-  confirmed: "已确认",
-  rejected: "已拒绝",
+  confirmed: "已记住",
+  rejected: "已忽略",
 };
 const empty = {
   kind: "fact" as MemoryKind,
@@ -40,10 +45,13 @@ const empty = {
 };
 export function Memories({ fail }: { fail: (e: unknown) => void }) {
   const [memories, setMemories] = useState<Memory[]>([]),
+    [layer, setLayer] = useState<"重要记忆" | "人物资料">("重要记忆"),
+    [profiles, setProfiles] = useState<ProfileEntry[]>([]),
     [sessions, setSessions] = useState<Conversation[]>([]),
     [tasks, setTasks] = useState<MemoryTask[]>([]),
     [query, setQuery] = useState(""),
     [status, setStatus] = useState(""),
+    [role, setRole] = useState(""),
     [kind, setKind] = useState(""),
     [offset, setOffset] = useState(0),
     [session, setSession] = useState(""),
@@ -56,10 +64,16 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     [exportPath, setExportPath] = useState("");
   const load = useCallback(
     async (isCurrent: () => boolean = () => true) => {
+      if (layer === "人物资料") {
+        const rows = await api<ProfileEntry[]>("/v1/memory-profile/search", "POST", { query, role, offset, limit: 100 });
+        if (isCurrent()) setProfiles(rows);
+        return;
+      }
       const [a, b, c] = await Promise.all([
         api<Memory[]>("/v1/memories/search", "POST", {
           query,
           status,
+          role,
           kind,
           offset,
         }),
@@ -72,12 +86,12 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         setTasks(c);
       }
     },
-    [query, status, kind, offset],
+    [query, status, role, kind, offset, layer],
   );
   const refreshError = useLifeRefresh(load);
   useEffect(() => {
     setSelected([]);
-  }, [query, status, kind, offset]);
+  }, [query, status, role, kind, offset]);
   const acting = useRef(false);
   const act = async (run: () => Promise<unknown>) => {
     if (acting.current) return;
@@ -112,20 +126,37 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     });
     setExportPath(result.path);
   };
+  const mergeable = memories.filter(m => selected.includes(m.id));
+  const canMerge = mergeable.length === 2 && mergeable.every(m => m.kind === mergeable[0].kind &&
+    m.role === mergeable[0].role && m.personKey === mergeable[0].personKey && m.scopeKey === mergeable[0].scopeKey);
   return (
     <section className="page-section">
       <div className="section-heading">
         <h2>记忆</h2>
-        <ActionRow>
+        {layer === "重要记忆" && <ActionRow>
           <Button disabled={busy} aria-expanded={panel === "extract"} onClick={() => setPanel(panel === "extract" ? null : "extract")}>从对话整理</Button>
           <Button variant="primary" disabled={busy} aria-expanded={panel === "edit"} onClick={() => setPanel(panel === "edit" ? null : "edit")}>{editing ? "继续编辑" : "添加记忆"}</Button>
-        </ActionRow>
+        </ActionRow>}
+      </div>
+      <div className="memory-layer-switch" role="group" aria-label="记忆视图">
+        {(["重要记忆", "人物资料"] as const).map(name => (
+          <Button key={name} variant="ghost" size="compact" disabled={busy} aria-pressed={layer === name}
+            onClick={() => {
+              if (layer === name) return;
+              setOffset(0);
+              setSelected([]);
+              if (name === "人物资料" && role !== "owner" && role !== "other") setRole("");
+              setLayer(name);
+            }}>{name}</Button>
+        ))}
       </div>
       {refreshError && (
         <Alert role="alert" className="error">
           {refreshError}
         </Alert>
       )}
+      {layer === "重要记忆" && <>
+      <SemanticRecall fail={fail} />
       {panel === "extract" && <Card>
       <h3>从对话整理</h3>
       <form
@@ -258,6 +289,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </ActionRow>
       </form>
       </Card>}
+      </>}
       <FormGrid className="filters">
         <Field>
           搜索
@@ -271,6 +303,13 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           />
         </Field>
         <Field>
+          归属
+          <Select disabled={busy} value={role} onValueChange={value => { setOffset(0); setRole(value); }}>
+            <option value="">全部</option>
+            {Object.entries(memoryRoles).filter(([key]) => layer === "重要记忆" || key === "owner" || key === "other").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </Select>
+        </Field>
+        {layer === "重要记忆" && <><Field>
           状态
           <Select
             disabled={busy}
@@ -305,13 +344,14 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
               </option>
             ))}
           </Select>
-        </Field>
+        </Field></>}
       </FormGrid>
+      {layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
       {selected.length > 0 && <ActionRow>
         <span>已选 {selected.length} 条</span>
         <Button
           type="button"
-          disabled={selected.length !== 2 || busy}
+          disabled={!canMerge || busy}
           onClick={() => {
             const a = memories.find((m) => m.id === selected[0]),
               b = memories.find((m) => m.id === selected[1]);
@@ -371,7 +411,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           </Field>
           <h3>{m.subject}</h3>
           <p>
-            {m.visibility === "shared" ? "允许在已授权群聊中使用" : "主人私有"}
+            {memoryOrigin(m)}
           </p>
           <p className="prewrap">{m.content}</p>
           {!!m.conflicts.length && (
@@ -381,14 +421,14 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           )}
           <Sources sources={m.sources} fail={fail} />
           <ActionRow className="actions">
-            <Button
+            {canShareMemory(m) && <Button
               type="button"
               disabled={busy}
               onClick={() => {
                 if (
                   m.visibility === "shared" ||
                   window.confirm(
-                    "允许所有已授权 QQ 群使用这条记忆的内容？来源原文仍保持私有。",
+                    "允许已授权的 QQ 好友和群聊使用这条记忆？",
                   )
                 )
                   void act(() =>
@@ -400,9 +440,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
                   );
               }}
             >
-              {m.visibility === "shared" ? "设为私有" : "允许群聊使用"}
-            </Button>
-            {m.status !== "confirmed" && (
+              {m.visibility === "shared" ? "取消共享" : "共享给 QQ"}
+            </Button>}
+            {m.status !== "confirmed" && m.role !== "unassigned" && (
               <Button
                 type="button"
                 disabled={busy}
@@ -431,7 +471,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
                   )
                 }
               >
-                拒绝
+                忽略
               </Button>
             )}
             <Button
@@ -473,7 +513,8 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Card>
       ))}
       </ContentScroll>
-      {(offset > 0 || memories.length >= 100) && <ActionRow>
+      </>}
+      {(offset > 0 || (layer === "人物资料" ? profiles : memories).length >= 100) && <ActionRow>
         <Button
           type="button"
           disabled={busy || offset === 0}
@@ -483,7 +524,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Button>
         <Button
           type="button"
-          disabled={busy || memories.length < 100}
+          disabled={busy || (layer === "人物资料" ? profiles : memories).length < 100}
           onClick={() => setOffset(offset + 100)}
         >
           下一页

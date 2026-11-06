@@ -1,4 +1,5 @@
 /* global fetch, Buffer */
+import { trimPortableEmbedding } from "./portable-embedding.mjs";
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
@@ -67,6 +68,7 @@ execFileSync(
   ["ci", "--omit=dev", "--maxsockets=4", "--no-audit", "--no-fund"],
   { cwd: out, stdio: "inherit", shell: win },
 );
+trimPortableEmbedding(out);
 for (const [command, entry] of [
   ["bigfatfish", "cli"],
   ["bigfatfishd", "runtime"],

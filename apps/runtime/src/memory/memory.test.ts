@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrate, migrations, openDatabase } from '../storage/database.js';
+import { migrate, migrations, openDatabase, SCHEMA_VERSION } from '../storage/database.js';
 import { preparePaths, paths } from '../paths.js';
 import { Configuration } from '../ai/configuration.js';
 import { MemoryStore } from './store.js';
@@ -16,7 +16,7 @@ const candidate=(content='主人喜欢茶',subject='主人饮品偏好',id='manu
 it('preserves P1 data while migrating and rolls back a failed P2 migration',()=>{
  const db=new DatabaseSync(':memory:');migrate(db,migrations.slice(0,2));db.prepare("INSERT INTO settings VALUES('retained','yes')").run();
  expect(()=>migrate(db,[...migrations.slice(0,2),migrations[2]!+'BROKEN SQL'])).toThrow();expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(2);expect(db.prepare("SELECT name FROM sqlite_master WHERE name='memories'").get()).toBeUndefined();
- migrate(db);expect(db.prepare("SELECT value FROM settings WHERE key='retained'").get()!.value).toBe('yes');expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(4);db.close();
+ migrate(db);expect(db.prepare("SELECT value FROM settings WHERE key='retained'").get()!.value).toBe('yes');expect(db.prepare('PRAGMA user_version').get()!.user_version).toBe(SCHEMA_VERSION);db.close();
 });
 it('deduplicates normalized statements, preserves sources/rejection and requires explicit conflict choice',()=>{
  const db=openDatabase(':memory:'),store=new MemoryStore(db);
@@ -76,7 +76,7 @@ it('bounds long context excerpts while retaining full valid evidence and skippin
  const db=openDatabase(':memory:'),store=new MemoryStore(db);
  try {
   const m=store.insert({...candidate(),sources:[{type:'user',id:'long',quote:'茶'.repeat(4000)}]},'confirmed');
-  db.prepare("INSERT INTO memory_links VALUES(?, 'activity', 'missing', '茶')").run(m.id);
+  db.prepare("INSERT INTO memory_links(memory_id,source_type,source_id,quote) VALUES(?, 'activity', 'missing', '茶')").run(m.id);
   const context=store.retrieve('茶');expect(context).toHaveLength(1);expect(context[0]!.sources).toEqual([{type:'user',id:'long',quote:'茶'.repeat(500)}]);
   expect(store.get(m.id).sources[0]!.quote).toHaveLength(4000);
  } finally { db.close(); }
@@ -129,4 +129,19 @@ it.each([
   const task=life.start('diary',{day,timezone,requestId:'timezone'});await new Promise(resolve=>setTimeout(resolve,0));
   expect(life.task(task.id).status).toBe('completed');expect(life.diaries()[0]!.sources.map(s=>s.id)).toEqual(inside.map((_,i)=>`inside-${i}`));
  } finally { await life.close();db.close(); }
+});
+
+
+it('recalls named subjects in a multi-topic question when the original noun is a single Han character', () => {
+  const db = openDatabase(':memory:'), store = new MemoryStore(db);
+  try {
+    for (const [name, text] of [['橘团','我养了一只叫橘团的猫。'], ['圆圆','我养了一条叫圆圆的狗。']] as const) {
+      store.create({kind:'fact', subject:name, content:text, importance:3});
+    }
+    const cat = '你还记得我的年龄、性别、小猫名字，以及体检是星期几吗？请只用一句话回答。';
+    expect(store.retrieve(cat).map(m => m.subject)).toEqual(['橘团']);
+    expect(store.retrieve('狗狗叫什么？').map(m => m.subject)).toEqual(['圆圆']);
+    expect(store.retrieve(cat,4000,8,'group')).toEqual([]);
+    expect(store.retrieve('今天小心着凉')).toEqual([]);
+  } finally { db.close(); }
 });
