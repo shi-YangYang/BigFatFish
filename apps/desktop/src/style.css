@@ -370,30 +370,6 @@ fieldset > .ui-button,
   gap: 12px;
   border-bottom: 1px solid var(--border);
 }
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-}
-.status-dot {
-  height: 7px;
-  width: 7px;
-  background: #b4bdc4;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 7px;
-}
-.status-dot.online {
-  background: #4a977c;
-}
-.runtime-menu { margin: 0; font-size: 12px; white-space: nowrap; }
-.runtime-popover { display: grid; gap: 4px; }
-.runtime-popover button {
-  border: 0;
-  text-align: left;
-  justify-content: flex-start;
-}
 .topbar .new-chat-button { min-width: 100px; }
 .workspace-main {
   flex: 1;
@@ -917,9 +893,6 @@ audio {
   .topbar h1 {
     font-size: 16px;
   }
-  .topbar-actions {
-    gap: 8px;
-  }
   .content-page {
     --page-padding: 16px;
     padding: var(--page-padding);
@@ -978,9 +951,6 @@ audio {
   .topbar {
     gap: 8px;
   }
-  .topbar-actions {
-    gap: 4px;
-  }
   .composer-tools {
     gap: 4px;
   }
@@ -988,10 +958,6 @@ audio {
     max-width: 130px;
   }
   .topbar { padding: 0 10px; gap: 6px; }
-  .topbar-actions { gap: 6px; }
-  .runtime-menu { width: 40px; padding: 0; }
-  .runtime-menu .status-dot { margin: 0; width: 8px; height: 8px; }
-  .runtime-menu .runtime-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .connection-list .business-card { grid-template-columns: 40px minmax(0, 1fr); }
   .connection-list .business-card > .ui-button { grid-column: 2; }
   .chat-welcome h2 {

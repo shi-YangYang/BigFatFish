@@ -186,7 +186,7 @@ export function Settings({
         <Media fail={fail} />
       ) : tab === "通用" ? (
         isWeb ? (
-          <WebSettings fail={fail} />
+          <WebSettings fail={fail} showLogout />
         ) : (
           <Setup fail={fail} done={done} />
         )

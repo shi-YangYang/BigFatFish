@@ -24,7 +24,7 @@ it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls 
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop-usability.html')}?states`;
     await page.goto(url);
     await page.getByText('还没有活动计划。', { exact: true }).waitFor();
-    expect(await page.getByRole('button', { name: /^(暂停全部活动|恢复活动)$/ }).count()).toBe(0);
+    await page.getByRole('button', { name: '暂停全部活动', exact: true }).waitFor();
     const checkbox = page.getByRole('checkbox', { name: '动态选择', exact: true });
     const selectedColor = await page.getByRole('checkbox', { name: '已选样例', exact: true }).evaluate(element => getComputedStyle(element).backgroundColor);
     const unselectedColor = await checkbox.evaluate(element => getComputedStyle(element).backgroundColor);
@@ -47,10 +47,10 @@ it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls 
     expect(await checkbox.getAttribute('aria-checked')).toBe('false');
     expect(await page.getByRole('checkbox', { name: '已选样例', exact: true }).isDisabled()).toBe(true);
 
-    const trigger = page.getByRole('button', { name: '运行状态', exact: true });
+    const trigger = page.getByRole('button', { name: '菜单样例', exact: true });
     await trigger.focus();
     await page.keyboard.press('Enter');
-    const menu = page.getByRole('dialog', { name: '运行状态', exact: true });
+    const menu = page.getByRole('dialog', { name: '菜单样例', exact: true });
     await menu.waitFor();
     expect(await trigger.getAttribute('aria-expanded')).toBe('true');
     expect(await menu.evaluate(element => {
@@ -58,7 +58,7 @@ it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls 
       return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight &&
         element.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
     })).toBe(true);
-    await menu.getByRole('button', { name: '重新连接', exact: true }).focus();
+    await menu.getByRole('button', { name: '操作样例', exact: true }).focus();
     await page.keyboard.press('Escape');
     expect(await trigger.getAttribute('aria-expanded')).toBe('false');
     expect(await trigger.evaluate(element => document.activeElement === element)).toBe(true);
@@ -84,7 +84,7 @@ it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls 
     activity = { ...activity, paused: false, tasks: activity.tasks.map(task => ({ ...task, status: 'completed' })) };
     await page.reload();
     await page.getByText('还没有活动计划。', { exact: true }).waitFor();
-    expect(await page.getByRole('button', { name: /^(暂停全部活动|恢复活动)$/ }).count()).toBe(0);
+    await page.getByRole('button', { name: '暂停全部活动', exact: true }).waitFor();
     expect(errors).toEqual([]);
   } finally { await browser.close(); await server.close(); }
 }, 30000);

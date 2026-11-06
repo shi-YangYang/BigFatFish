@@ -275,24 +275,24 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
     }
   }, [fail]);
   usePoll(load);
-  const canControlActivities = data && (data.paused || data.schedules.length > 0 ||
-    data.tasks.some(task => ["queued", "running", "understanding"].includes(task.status)));
   return (
     <section className="page-section">
       <div className="section-heading">
         <h2>活动计划</h2>
         <ActionRow>
-        {canControlActivities && <Button
-        type="button"
-        onClick={() =>
-          void api("/v1/activities/pause", "POST", { paused: !data?.paused })
-            .then(load)
-            .catch(fail)
-        }
-      >
-        {data?.paused ? "恢复活动" : "暂停全部活动"}
-      </Button>}
-        <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>{creating ? "收起创建" : "创建计划"}</Button>
+          {data && (
+            <Button
+              type="button"
+              onClick={() =>
+                void api("/v1/activities/pause", "POST", { paused: !data.paused })
+                  .then(load)
+                  .catch(fail)
+              }
+            >
+              {data.paused ? "恢复活动" : "暂停全部活动"}
+            </Button>
+          )}
+          <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>{creating ? "收起创建" : "创建计划"}</Button>
         </ActionRow>
       </div>
       {creating && <Card>

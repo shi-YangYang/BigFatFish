@@ -7,14 +7,21 @@ import {
 } from "../../desktop/src/components/Controls";
 import { useState } from "react";
 import { webRequest } from "../../desktop/src/api";
-export function WebSettings({ fail }: { fail: (e: unknown) => void }) {
+export function WebSettings({ fail, showLogout = false }: { fail: (e: unknown) => void; showLogout?: boolean }) {
   const [password, setPassword] = useState(""),
     [credentials, setCredentials] = useState(false),
     [busy, setBusy] = useState(false),
     [result, setResult] = useState("");
   return (
     <section className="page-section">
-      <h2>管理设置</h2>
+      <div className="section-heading">
+        <h2>管理设置</h2>
+        {showLogout && (
+          <Button type="button" onClick={() => void webRequest("/auth/logout", "POST").catch(fail)}>
+            退出登录
+          </Button>
+        )}
+      </div>
       <h3>更新与备份</h3>
       <ActionRow>
         <Button

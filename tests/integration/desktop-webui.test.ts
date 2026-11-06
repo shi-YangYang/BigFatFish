@@ -250,7 +250,7 @@ it.skipIf(!existsSync(executable))(
             ),
         );
         expect(await page.locator(".topbar:visible").count()).toBe(1);
-        const headerButtons = await page.locator(".topbar:visible > button:visible, .topbar:visible .topbar-actions > button").evaluateAll((buttons) => buttons.map((button) => ({
+        const headerButtons = await page.locator(".topbar:visible > button:visible").evaluateAll((buttons) => buttons.map((button) => ({
           height: button.getBoundingClientRect().height,
           radius: getComputedStyle(button).borderRadius,
           library: button.getAttribute("data-beui"),
@@ -443,9 +443,8 @@ it.skipIf(!existsSync(executable))(
       expect(await page.getByRole("dialog", { name: "历史对话" }).count()).toBe(0);
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
       expect(await page.getByRole("button", { name: /待审批/ }).count()).toBe(0);
-      await page.getByRole("button", { name: "运行状态", exact: true }).click();
+      expect(await page.getByRole("button", { name: "运行状态", exact: true }).count()).toBe(0);
       expect(await page.getByRole("button", { name: "审批与记录", exact: true }).count()).toBe(0);
-      await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1100, height: 760 });
       await page.getByRole("button", { name: "连接", exact: true }).click();
       await page.screenshot({

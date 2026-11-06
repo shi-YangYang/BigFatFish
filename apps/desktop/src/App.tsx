@@ -1,14 +1,13 @@
 import { Notifications, notifyError, clearNotifications } from './components/Notifications';
-import { Alert, Loading, Menu } from "./components/Surfaces";
+import { Alert, Loading } from "./components/Surfaces";
 import { BounceSidebar } from "./components/beui/bounce-sidebar";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { api, isWeb, webRequest } from "./api";
+import { api, isWeb } from "./api";
 import { Chat } from "./components/Chat";
 import { Setup } from "./components/Setup";
 import { MyFish, Connections, Settings } from "./components/Workspaces";
-import { type ActivityOverview } from "./components/Douyin";
 import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
 export default function App() {
@@ -21,11 +20,8 @@ export default function App() {
   const [models, setModels] = useState<(ModelConfig & { hasKey: boolean })[]>(
       [],
     ),
-    [menu, setMenu] = useState(false),
-    [runtimeMenuOpen, setRuntimeMenuOpen] = useState(false),
-    [activity, setActivity] = useState<ActivityOverview>();
+    [menu, setMenu] = useState(false);
   const live = useRef(false);
-  const runtimeMenuTrigger = useRef<HTMLButtonElement>(null);
   const fail = notifyError;
   const reload = useCallback(async () => {
     setModels(await api("/v1/models"));
@@ -89,24 +85,13 @@ export default function App() {
   }, [connect, fail]);
   useEffect(() => {
     if (!initialized) return;
-    let active = true, lastFailure = "";
+    let active = true;
     const poll = async () => {
       try {
         await api("/v1/status");
         if (active) setConnected(true);
       } catch {
         if (active) setConnected(false);
-        return;
-      }
-      try {
-        const a = await api<ActivityOverview>("/v1/activities");
-        if (active) {
-          lastFailure = "";
-          setActivity(a);
-
-        }
-      } catch (e) {
-        if (active && lastFailure !== String(e)) { lastFailure = String(e); fail(e); }
       }
     };
     void poll();
@@ -115,7 +100,7 @@ export default function App() {
       active = false;
       clearInterval(timer);
     };
-  }, [initialized, fail]);
+  }, [initialized]);
   function navigate(next: string) {
     setPage(next);
     setMenu(false);
@@ -164,52 +149,6 @@ export default function App() {
         <Icon name="menu" />
       </Button>
       {content}
-      <div className="topbar-actions">
-        <Menu open={runtimeMenuOpen} onOpenChange={setRuntimeMenuOpen} trigger={<Button ref={runtimeMenuTrigger} className="runtime-menu" aria-label="运行状态" title={connected ? activity?.paused ? "活动已暂停" : "服务在线" : "服务离线"}>
-            <span className={`status-dot ${connected ? "online" : ""}`} />
-            <span className="runtime-label">{connected
-              ? activity?.paused
-                ? "活动已暂停"
-                : "服务在线"
-              : "服务离线"}</span>
-          </Button>}>
-
-          <div className="runtime-popover">
-            <Button type="button" onClick={() => void connect()}>
-              重新连接
-            </Button>
-            {activity && (
-              <Button
-                type="button"
-                onClick={() =>
-                  void api("/v1/activities/pause", "POST", {
-                    paused: !activity.paused,
-                  })
-                    .then(() =>
-                      setActivity({
-                        ...activity,
-                        paused: !activity.paused,
-                      }),
-                    )
-                    .catch(fail)
-                }
-              >
-                {activity.paused ? "恢复活动" : "暂停活动"}
-              </Button>
-            )}
-            {isWeb && (
-              <Button
-                type="button"
-                onClick={() =>
-                  void webRequest("/auth/logout", "POST").catch(fail)
-                }
-              >
-                退出登录
-              </Button>
-            )}
-          </div>
-        </Menu>
-      </div>
     </header>
   );
   const chatVisible = initialized && !loading && !firstRun && page === "聊天";
