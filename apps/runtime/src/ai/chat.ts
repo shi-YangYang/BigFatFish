@@ -30,8 +30,9 @@ export class ChatService {
     this.life = new LifeService(db, p, this.config, this.engine, this.events);
     db.prepare("UPDATE messages SET status='interrupted', error='RUNTIME_RESTARTED' WHERE role='assistant' AND status IN ('queued','running')").run();
   }
-  conversations() {
-    const rows = this.db.prepare("SELECT id, title, model_id AS modelId, created_at AS createdAt, principal != 'local-owner' AS readOnly FROM conversations ORDER BY created_at DESC LIMIT 500").all();
+  conversations(scope: 'all' | 'local' = 'all') {
+    const where = scope === 'local' ? "WHERE principal = 'local-owner'" : "";
+    const rows = this.db.prepare(`SELECT id, title, model_id AS modelId, created_at AS createdAt, principal != 'local-owner' AS readOnly FROM conversations ${where} ORDER BY created_at DESC LIMIT 500`).all();
     return rows.map(row => ({ ...row, readOnly: Boolean(row.readOnly) })) as unknown as Conversation[];
   }
   conversation(id: string) {

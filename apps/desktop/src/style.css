@@ -1078,7 +1078,6 @@ audio {
 .model-list > div { min-width: 0; }
 .model-name { height: auto; min-height: 40px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .model-defaults { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.readonly-chat { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 13px; }
 @media (max-width: 600px) {
   .model-defaults { grid-template-columns: minmax(0, 1fr); }
   :root { --surface-padding: 16px; }

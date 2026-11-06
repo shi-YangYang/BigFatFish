@@ -83,3 +83,4 @@
 - [Spec 041：取消平台逐条审批](spec-041-remove-platform-approvals/spec.md)：[返工独立PASS](spec-041-remove-platform-approvals/acceptance-r1.md)；抖音互动直接执行，移除全局审批入口；权限、幂等和操作记录保留。
 - [Spec 042：移除顶栏服务在线标签](spec-042-remove-online-tag/spec.md) · [验收通过](spec-042-remove-online-tag/acceptance.md)。
 - [Spec 043：登录等待与连接错误提示](spec-043-connection-login-feedback/spec.md) · [验收通过](spec-043-connection-login-feedback/acceptance-r1.md)。
+- [Spec 044：聊天页只显示本地对话](spec-044-local-chat-history/spec.md) · [验收通过](spec-044-local-chat-history/acceptance.md)。

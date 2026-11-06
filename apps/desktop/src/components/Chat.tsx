@@ -14,6 +14,16 @@ import type {
 import { api, errorText, statusText } from "../api";
 import { Drawer, FishAvatar, Icon } from "./UI";
 type PendingMessage = { content: string; requestId: string };
+async function loadLocalConversations() {
+  try {
+    return await api<Conversation[]>("/v1/conversations/local");
+  } catch (error) {
+    // An older Runtime returns Fastify's missing-route error through either transport.
+    if ((error instanceof Error ? error.message : error) !== "Not Found") throw error;
+    const sessions = await api<Conversation[]>("/v1/conversations");
+    return sessions.filter(session => session.readOnly === false);
+  }
+}
 export function Chat({
   models,
   fail,
@@ -38,7 +48,6 @@ export function Chat({
     [text, setText] = useState(""),
     [busy, setBusy] = useState(false),
     [history, setHistory] = useState(false),
-    [readOnly, setReadOnly] = useState<string[]>([]),
     [streamOffline, setStreamOffline] = useState(false),
     [streamRetry, setStreamRetry] = useState(0);
   const [tools, setTools] = useState<
@@ -57,8 +66,6 @@ export function Chat({
     textRef = useRef(text),
     fileInput = useRef<HTMLInputElement>(null);
   const currentSession = sessions.find(session => session.id === selected);
-  const locked = readOnly.includes(selected) || currentSession?.readOnly === true;
-  const senderLabel = locked ? "对方" : "你";
   const sessionModel = currentSession?.modelId;
   const canChat = models.some(model => model.id === (selected ? sessionModel : chatModel));
   function updateText(value: string) {
@@ -95,12 +102,12 @@ export function Chat({
   useEffect(() => {
     let live = true;
     const origin = currentSelection.current;
-    void api<Conversation[]>("/v1/conversations")
+    void loadLocalConversations()
       .then((items) => {
         if (!live) return;
         setSessions(items);
         if (currentSelection.current === origin && draftVersion.current === 0)
-          selectSession(items.find(session => !session.readOnly)?.id ?? "");
+          selectSession(items[0]?.id ?? "");
       })
       .catch((e) => {
         if (live) fail(e);
@@ -133,7 +140,6 @@ export function Chat({
     if (
       !text.trim() ||
       sending.current ||
-      locked ||
       !connected ||
       !canChat
     )
@@ -180,16 +186,9 @@ export function Chat({
         pending.current.delete(origin.id);
     } catch (e) {
       if (mounted.current && currentSelection.current === origin) {
-        if (
-          (e instanceof Error ? e.message : String(e)) ===
-          "EXTERNAL_CONVERSATION_READ_ONLY"
-        ) {
-          setReadOnly((items) => [...items, origin.id]);
-          notifyMessage("这是外部渠道会话，请从 QQ 继续对话。");
-        } else
-          notifyMessage(
-            `${errorText(e)} 若发送结果未知，请先核对历史；重试同一内容会沿用本次请求。`,
-          );
+        notifyMessage(
+          `${errorText(e)} 若发送结果未知，请先核对历史；重试同一内容会沿用本次请求。`,
+        );
       }
     } finally {
       if (sending.current === request) {
@@ -311,7 +310,7 @@ export function Chat({
                   onClick={() => selectSession(s.id)}
                 >
                   <span>{s.title}</span>
-                  <small>{s.readOnly || readOnly.includes(s.id) ? "QQ · 只读" : "本地聊天"} · {new Date(s.createdAt).toLocaleDateString()}</small>
+                  <small>{new Date(s.createdAt).toLocaleDateString()}</small>
                 </Button>
               ))
             ) : (
@@ -327,11 +326,11 @@ export function Chat({
               <div className="chat-welcome">
                 <FishAvatar />
                 <h2>
-                  {locked ? "QQ 会话记录" : canChat
+                  {canChat
                     ? "今天想聊些什么？"
                     : "先为大肥鱼添加一个模型"}
                 </h2>
-                {locked ? <p>请在 QQ 中继续对话。</p> : !canChat ? (
+                {!canChat ? (
                   <Button type="button" onClick={configureModel}>
                     添加聊天模型
                   </Button>
@@ -341,12 +340,12 @@ export function Chat({
               </div>
             )}
             {messages.map((m) => (
-              <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? `${senderLabel}的消息` : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
+              <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? "你的消息" : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
                 <MessageAvatar className="message-avatar">
-                  {m.role === "assistant" ? <FishAvatar /> : <span>{locked ? "QQ" : "你"}</span>}
+                  {m.role === "assistant" ? <FishAvatar /> : <span>你</span>}
                 </MessageAvatar>
                 <MessageContent className="message-content items-start">
-                  <strong>{m.role === "user" ? senderLabel : "大肥鱼"}</strong>
+                  <strong>{m.role === "user" ? "你" : "大肥鱼"}</strong>
                   <MessageBubble align="start" variant={m.role === "assistant" ? "ghost" : "soft"} className="chat-bubble"><MessageBubbleContent className="max-w-full text-[15px] leading-[1.85]">
                     {m.content ||
                       (["queued", "running"].includes(m.status)
@@ -411,10 +410,9 @@ export function Chat({
           )}
           <div className="composer-area">
             {streamOffline && <p role="status" className="stream-status">聊天连接已断开，已有回复已保留。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
-            {locked && <div className="readonly-chat"><span>QQ 会话 · 只读，请在 QQ 中继续对话。</span>{voiceOptions}<Button onClick={() => selectSession("")}>开始本地对话</Button></div>}
-            {!locked && <PromptInput className="composer" onSubmit={() => send()}
+            <PromptInput className="composer" onSubmit={() => send()}
               aria-label="消息" value={text} onValueChange={updateText}
-              placeholder="和大肥鱼聊聊…" disabled={locked || !canChat}
+              placeholder="和大肥鱼聊聊…" disabled={!canChat}
               submitDisabled={busy || !connected} footer={
               <div className="composer-tools">
                 <Input
@@ -428,18 +426,18 @@ export function Chat({
                   type="button"
                   size="compact"
                   variant="ghost"
-                  disabled={mediaBusy || locked || !connected}
+                  disabled={mediaBusy ||  !connected}
                   onClick={() => fileInput.current?.click()}
                 >
                   {mediaBusy ? "处理中…" : "上传音频"}
                 </Button>
                 {voiceOptions}
                 <Button variant="primary" className="send-button" type="submit"
-                  disabled={busy || locked || !connected || !canChat || !text.trim()}>
+                  disabled={busy ||  !connected || !canChat || !text.trim()}>
                   {busy ? "发送中…" : "发送"}
                 </Button>
               </div>
-            } />}
+            } />
           </div>
         </div>
       </div>

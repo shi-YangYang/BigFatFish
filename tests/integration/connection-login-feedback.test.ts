@@ -25,7 +25,7 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     const douyin = { config: { enabled: true, accountId: '12345', executablePath: '', pythonPath: 'python3', headless: false },
       browser: { state: 'ready' }, accountState: 'login-required', revision: 'fixture', connection: { phase: 'login', loginState: 'verification', error: '' } };
     const responses: Record<string, unknown> = {
-      '/v1/status': { state: 'running' }, '/v1/models': [], '/v1/conversations': [], '/v1/model-routes': {},
+      '/v1/status': { state: 'running' }, '/v1/models': [], '/v1/conversations/local': [], '/v1/model-routes': {},
       '/v1/channels/qq': channel, '/v1/channels/qq/component': component, '/v1/channels/qq/component/contacts': { friends: [], groups: [] },
       '/v1/bilibili': bili, '/v1/bilibili/tasks': [], '/v1/douyin': douyin, '/v1/activities': { tasks: [], schedules: [] },
     };

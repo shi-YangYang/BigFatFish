@@ -68,8 +68,8 @@ it.skipIf(!existsSync(executable))(
         createdAt: "2026-11-03T08:00:00Z",
       },
       {
-        id: "qq",
-        title: "QQ 里的对话",
+        id: "another-local",
+        title: "另一个本地对话",
         modelId: "demo",
         createdAt: "2026-11-02T08:00:00Z",
       },
@@ -94,6 +94,7 @@ it.skipIf(!existsSync(executable))(
       "/v1/model-routes": { chat: "demo" },
       "/v1/status": { state: "running" },
       "/v1/activities": { paused: false, tasks: [], schedules: [] },
+      "/v1/conversations/local": sessions,
       "/v1/conversations": sessions,
       "/v1/life/updates": { revision: "1" },
       "/v1/life": {
@@ -198,8 +199,6 @@ it.skipIf(!existsSync(executable))(
             sessions.unshift(item);
             return item;
           }
-          if (route === "/v1/conversations/qq/messages")
-            throw new Error("EXTERNAL_CONVERSATION_READ_ONLY");
           if (route.endsWith("/messages")) {
             if (hold) {
               onHold?.();
@@ -391,18 +390,13 @@ it.skipIf(!existsSync(executable))(
       await page.getByRole("button", { name: "发送", exact: true }).click();
       await page.getByText(/若发送结果未知/).waitFor();
       const first = requests.at(-1)!.body.requestId;
-      await selectHistory(/QQ 里的对话/);
+      await selectHistory(/另一个本地对话/);
       await selectHistory(/聊聊最近的生活/);
       expect(await input.inputValue()).toBe("需要核对的消息");
       unknown = false;
       await page.getByRole("button", { name: "发送", exact: true }).click();
       await new Promise((r) => setTimeout(r, 100));
       expect(requests.at(-1)!.body.requestId).toBe(first);
-      await selectHistory(/QQ 里的对话/);
-      await input.fill("从本机发送");
-      await page.getByRole("button", { name: "发送", exact: true }).click();
-      await page.getByText("此会话仅供查看，请从 QQ 继续。").waitFor();
-      expect(await input.isDisabled()).toBe(true);
       await page.getByRole("button", { name: "新对话", exact: true }).click();
       await input.fill("第一句话");
       // Restoring an unsaved conversation must not keep its draft after it is sent.
@@ -464,6 +458,7 @@ it.skipIf(!existsSync(executable))(
       expect(errors).toEqual([]);
       // A clean launch without a model leads directly to configuration.
       data["/v1/models"] = [];
+      data["/v1/conversations/local"] = [];
       data["/v1/conversations"] = [];
       await page.reload();
       await page

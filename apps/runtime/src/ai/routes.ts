@@ -30,6 +30,7 @@ export async function registerAi(app: FastifyInstance, chat: ChatService) {
   app.get('/v1/persona/history', async () => chat.config.history());
   app.get<{Params:{id:string}}>('/v1/conversations/:id/tools',async req=>chat.tools(req.params.id));
   app.get('/v1/conversations', async () => chat.conversations());
+  app.get('/v1/conversations/local', async () => chat.conversations('local'));
   app.post('/v1/conversations', async req => chat.create(req.body));
   app.get<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.messages(req.params.id));
   app.post<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.send(req.params.id, req.body));

@@ -20,7 +20,7 @@ it.skipIf(!existsSync(executable)).each(['desktop', 'web'])('%s keeps activity c
     }
     if(route==='/v1/activities/pause'){paused=Boolean(body.paused);return {paused};}
     const data:Record<string,unknown>={
-     '/v1/status':{state:'running'},'/v1/models':[],'/v1/model-routes':{},'/v1/conversations':[],
+     '/v1/status':{state:'running'},'/v1/models':[],'/v1/model-routes':{},'/v1/conversations/local':[],
      '/v1/activities':{paused,tasks,schedules:[]},
      '/v1/life/updates':{revision:'fixture'},'/v1/life':{persona:{name:'大肥鱼'},activity:[],interests:[],relationships:[],recent:[],diaries:[]},
      '/v1/channels/qq':{config:null,health:{state:'stopped'}},'/v1/bilibili':{enabled:false,accountState:'unverified'},

@@ -99,6 +99,8 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     page.on('pageerror', error => errors.push(error.message));
     let revision = 0;
     const memories: Record<string, unknown>[] = [];
+    let legacyRuntime = true;
+    const streams: (string | null)[] = [];
     const sessions = [
       { id: 'external', title: 'QQ群会话', modelId: 'fixture', readOnly: true, createdAt: '2026-11-05T08:00:00Z' },
       { id: 'local', title: 'QQ 群 12345', modelId: 'fixture', readOnly: false, createdAt: '2026-11-04T08:00:00Z' },
@@ -110,6 +112,10 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
         writes.push({ route: name, body }); revision++;
         memories.push({ ...body, id: 'm1', status: 'confirmed', version: 1, visibility: 'private', conflicts: [], sources: [] });
       }
+      if (name === '/v1/conversations/local') {
+        if (legacyRuntime) return route.fulfill({ status: 404, json: { error: 'Not Found' } });
+        return route.fulfill({ json: sessions.filter(session => !session.readOnly) });
+      }
       const data: Record<string, unknown> = {
         '/v1/model-routes': { chat: 'fixture' }, '/v1/conversations': sessions,
         '/v1/memories/search': memories, '/v1/memory-tasks': [], '/v1/life/updates': { revision: String(revision) },
@@ -118,6 +124,7 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     });
     await page.routeWebSocket('**/events?**', socket => {
       const conversationId = new URL(socket.url()).searchParams.get('conversationId');
+      streams.push(conversationId);
       socket.send(JSON.stringify({ type: 'snapshot-start', conversationId }));
       socket.send(JSON.stringify({ type: 'snapshot-message', conversationId, message: { id: 'message', conversationId, role: 'user', content: '你好', status: 'completed' } }));
       socket.send(JSON.stringify({ type: 'snapshot-end', conversationId }));
@@ -127,16 +134,15 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     const input = page.getByRole('textbox', { name: '消息', exact: true });
     await input.fill('保留本地草稿');
     await page.getByRole('button', { name: '历史对话', exact: true }).click();
-    await page.getByRole('button', { name: /QQ群会话/ }).click();
-    await page.getByText('QQ 会话 · 只读，请在 QQ 中继续对话。', { exact: true }).waitFor();
-    expect(await input.count()).toBe(0);
+    expect(await page.getByRole('button', { name: /QQ群会话/ }).count()).toBe(0);
+    await page.getByRole('button', { name: /QQ 群 12345/ }).click();
+    await page.getByText('你好', { exact: true }).waitFor();
+    expect(streams).toEqual(['local']);
+    expect(await input.inputValue()).toBe('保留本地草稿');
     await page.getByRole('button', { name: '声音', exact: true }).click();
     await page.getByLabel('声音名称', { exact: true }).fill('fixture-voice');
     await page.keyboard.press('Escape');
-    await page.getByText('对方', { exact: true }).waitFor();
-    await page.getByRole('button', { name: '历史对话', exact: true }).click();
-    await page.getByRole('button', { name: /QQ 群 12345/ }).click();
-    expect(await input.inputValue()).toBe('保留本地草稿');
+    legacyRuntime = false;
     await page.getByRole('tab', { name: '记忆', exact: true }).click();
     await page.getByText('没有符合条件的记忆。可整理对话，或直接添加。', { exact: true }).waitFor();
     expect(await page.getByLabel('主题', { exact: true }).count()).toBe(0);
@@ -166,6 +172,15 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     expect(await page.getByRole('tabpanel').evaluate(element => getComputedStyle(element).opacity)).toBe('1');
     await page.getByRole('tab', { name: '记忆', exact: true }).dispatchEvent('click');
     expect(await page.getByRole('tabpanel').evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+    sessions.splice(1); // The only remaining conversation belongs to QQ.
+    streams.length = 0;
+    await page.reload();
+    await page.getByRole('heading', { name: '新对话', exact: true }).waitFor();
+    await page.getByRole('button', { name: '历史对话', exact: true }).click();
+    await page.getByText('还没有对话', { exact: true }).waitFor();
+    expect(streams).toEqual([]);
+    await page.keyboard.press('Escape');
+    expect(await input.isEnabled()).toBe(true);
     expect(errors).toEqual([]);
   } finally { await browser.close(); await server.close(); }
 }, 30000);
