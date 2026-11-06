@@ -1,5 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
@@ -10,7 +10,6 @@ import { assertRegular, privateFile } from '../paths.js';
 import { InputError, object, string } from '../ai/types.js';
 import type { ChatService } from '../ai/chat.js';
 import { transcribe } from '../ai/media.js';
-import { ApprovalStore, digest } from '../permissions/store.js';
 import type { TaskQueue } from '../tasks/queue.js';
 import { BrowserManager, asset, type BrowserConfig } from './browser.js';
 import { callMcp, READ_TOOLS, WRITE_TOOLS } from './mcp.js';
@@ -20,15 +19,15 @@ interface Capture{state:{video:{id:string;title:string;author:string;duration:nu
 interface Controller{captureSharedFrames(seconds:number,signal:AbortSignal):Promise<Capture>;captureAudio(seconds:number,signal:AbortSignal):Promise<{data:string;mimeType:string}>;state():Promise<{loginRequired:boolean;verificationRequired:boolean;video?:{id:string}}>}
 export class Douyin{
  private connection:{phase:string;error?:string;loginState?:string}={phase:'idle'};private connecting?:{control:AbortController;promise:Promise<void>};
- readonly browser:BrowserManager;readonly approvals:ApprovalStore;private config:BrowserConfig={enabled:false,executablePath:'',pythonPath:'python3',headless:false,accountId:''};private revision='';private accountState='unverified';private closed=false;private transitioning=false;
- constructor(private db:DatabaseSync,private chat:ChatService,private queue:TaskQueue,private p:DataPaths,fixture?:(context:BrowserContext)=>Promise<void>){this.browser=new BrowserManager(p,fixture);this.approvals=new ApprovalStore(db,'douyin');const r=db.prepare("SELECT config,revision FROM plugin_config WHERE id='douyin'").get();if(r){this.config=JSON.parse(r.config as string);this.revision=r.revision as string;}}
+ readonly browser:BrowserManager;private config:BrowserConfig={enabled:false,executablePath:'',pythonPath:'python3',headless:false,accountId:''};private revision='';private accountState='unverified';private closed=false;private transitioning=false;
+ constructor(private db:DatabaseSync,private chat:ChatService,private queue:TaskQueue,private p:DataPaths,fixture?:(context:BrowserContext)=>Promise<void>){this.browser=new BrowserManager(p,fixture);const r=db.prepare("SELECT config,revision FROM plugin_config WHERE id='douyin'").get();if(r){this.config=JSON.parse(r.config as string);this.revision=r.revision as string;}}
  assertPlugin:()=>void=()=>{};
  resource:(path:string)=>string=asset;
  async reload(directory:string){await this.stop();this.resource=path=>path.startsWith('plugins/douyin/')?join(directory,path.slice(15)):path.startsWith('services/douyin/')?join(directory,path):asset(path);this.browser.resource=this.resource;}
  status(){return {connection:this.connection,config:this.config,revision:this.revision,browser:this.browser.status(),accountState:this.accountState,writeCapabilities};}
  discover(){return {browsers:this.browser.discover()};}
  private check(revision=this.revision){this.assertPlugin();if(this.closed||this.transitioning||!this.config.enabled||revision!==this.revision||this.queue.paused)throw new InputError('DOUYIN_DISABLED',409);}
- async configure(value:unknown,connectionControl?:AbortController){if(!connectionControl)this.cancelConnection();if(this.closed)throw new InputError('RUNTIME_STOPPING',503);const b=object(value);if(b.enabled)this.assertPlugin();if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);if(typeof b.enabled!=='boolean'||typeof b.headless!=='boolean')throw new InputError('INVALID_REQUEST');const executablePath=string(b.executablePath??'',2000,true),pythonPath=string(b.pythonPath??'python3',2000),accountId=string(b.accountId??'',100,true);if(executablePath&&!isAbsolute(executablePath))throw new InputError('INVALID_BROWSER_PATH');if(pythonPath!=='python3'&&!isAbsolute(pythonPath))throw new InputError('INVALID_PYTHON_PATH');if(accountId&&!/^\d{1,100}$/.test(accountId))throw new InputError('INVALID_ACCOUNT');this.transitioning=true;this.approvals.revoke();await this.queue.abort('douyin');await this.browser.close();this.transitioning=false;connectionControl?.signal.throwIfAborted();if(this.closed)throw new InputError('RUNTIME_STOPPING',503);if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);this.config={enabled:b.enabled,headless:b.headless,executablePath,pythonPath,accountId};this.revision=randomUUID();this.accountState='unverified';this.db.prepare("INSERT INTO plugin_config(id,config,revision) VALUES('douyin',?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,revision=excluded.revision").run(JSON.stringify(this.config),this.revision);return this.status();}
+ async configure(value:unknown,connectionControl?:AbortController){if(!connectionControl)this.cancelConnection();if(this.closed)throw new InputError('RUNTIME_STOPPING',503);const b=object(value);if(b.enabled)this.assertPlugin();if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);if(typeof b.enabled!=='boolean'||typeof b.headless!=='boolean')throw new InputError('INVALID_REQUEST');const executablePath=string(b.executablePath??'',2000,true),pythonPath=string(b.pythonPath??'python3',2000),accountId=string(b.accountId??'',100,true);if(executablePath&&!isAbsolute(executablePath))throw new InputError('INVALID_BROWSER_PATH');if(pythonPath!=='python3'&&!isAbsolute(pythonPath))throw new InputError('INVALID_PYTHON_PATH');if(accountId&&!/^\d{1,100}$/.test(accountId))throw new InputError('INVALID_ACCOUNT');this.transitioning=true;await this.queue.abort('douyin');await this.browser.close();this.transitioning=false;connectionControl?.signal.throwIfAborted();if(this.closed)throw new InputError('RUNTIME_STOPPING',503);if(b.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);this.config={enabled:b.enabled,headless:b.headless,executablePath,pythonPath,accountId};this.revision=randomUUID();this.accountState='unverified';this.db.prepare("INSERT INTO plugin_config(id,config,revision) VALUES('douyin',?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,revision=excluded.revision").run(JSON.stringify(this.config),this.revision);return this.status();}
  private cancelConnection(){this.connecting?.control.abort();this.connection={phase:'idle'};}
  connect(value:unknown){
   const body=object(value);if(body.revision!==this.revision)throw new InputError('CHANNEL_VERSION_CONFLICT',409);
@@ -48,7 +47,7 @@ export class Douyin{
      check();const account=await this.browser.account();check();
      if(raw.loggedIn===true&&account.loggedIn&&/^\d{1,100}$/.test(account.id)){
       if(this.config.accountId&&this.config.accountId!==account.id){this.accountState='account-mismatch';throw new InputError('DOUYIN_ACCOUNT_CHANGED',409);}
-      if(!this.config.accountId){this.approvals.revoke();this.config={...this.config,accountId:account.id};this.revision=randomUUID();this.db.prepare("UPDATE plugin_config SET config=?,revision=? WHERE id='douyin'").run(JSON.stringify(this.config),this.revision);}
+      if(!this.config.accountId){this.config={...this.config,accountId:account.id};this.revision=randomUUID();this.db.prepare("UPDATE plugin_config SET config=?,revision=? WHERE id='douyin'").run(JSON.stringify(this.config),this.revision);}
       this.accountState='verified';this.connection={phase:'online'};return;
      }
      this.accountState='login-required';
@@ -71,12 +70,47 @@ export class Douyin{
   const {capture}=captured;const evidence={platform:'douyin',videoId:id,url:`https://www.douyin.com/video/${id}`,title:capture.state.video.title||id,author:capture.state.video.author,observedAt:new Date().toISOString(),subtitles:transcript,transcriptSource:transcript?'sampled-audio-asr':null,asrModelId,observation:capture.observation,modelFrameIndexes:[0,2],frames:capture.frames.map(({videoId,time})=>({videoId,time})),warnings};
   const result=await this.chat.understandVideo(taskId,evidence,[capture.frames[0]!,capture.frames[2]!].map(frame=>({type:'image' as const,data:frame.data,mimeType:frame.mimeType})),signal);signal.throwIfAborted();this.check(revision);const eventId=`douyin:${taskId}`,summary=`观看抖音《${evidence.title}》 ${evidence.url}；实际3帧采样，其中2帧用于理解${transcript?'及音轨转写':'，无音轨转写'}。模型总结：${result.summary}`;this.chat.life.memories.record({id:eventId,kind:'douyin.watched',sourceId:taskId,summary,occurredAt:evidence.observedAt});for(const interest of result.interests)this.chat.life.memories.insert({kind:'interest',subject:`鱼的兴趣候选：${interest}`,content:`本次视频推测兴趣：${interest}；不是主人事实。`,importance:2,sources:[{type:'activity',id:eventId,quote:summary.slice(0,2000)}]});return {status:warnings.length?'partial':'completed',evidence,summary:result.summary,modelId:result.modelId};});}
  async discoverContent(query:string|undefined,signal:AbortSignal){this.check();const revision=this.revision;return this.browser.lease(this.config,signal,async()=>{const raw=await this.mcp(query?'douyin_search':'douyin_feed',query?{keyword:query,num:10}:{num:5,scrolls:2,skip_live:true},signal);this.check(revision);if(raw.ok!==true||raw.needLogin||!Array.isArray(raw.items)||raw.source==='none')throw new InputError('DOUYIN_PAGE_CHANGED',409);return raw.items.slice(0,10).map(value=>{const item=object(value);return {platform:'douyin' as const,videoId:videoId(item.aweme_id),title:string(item.title??'',1000,true),author:string(item.author??'',200,true)};}).filter(item=>!this.db.prepare("SELECT id FROM activity_tasks WHERE platform='douyin' AND kind='watch' AND json_extract(input,'$.videoId')=? AND status IN ('completed','partial','queued','running')").get(item.videoId));});}
- attachment(value:unknown){const b=object(value),data=string(b.data,24_000_000);if(!/^[A-Za-z0-9+/]+={0,2}$/.test(data))throw new InputError('INVALID_MEDIA');const bytes=Buffer.from(data,'base64');if(bytes.length<12||bytes.length>16_000_000||bytes.subarray(4,8).toString()!=='ftyp')throw new InputError('INVALID_MEDIA');const id=randomUUID(),dir=join(this.p.data,'douyin-attachments');mkdirSync(dir,{recursive:true,mode:0o700});const file=join(dir,id+'.mp4');writeFileSync(file,bytes,{mode:0o600,flag:'wx'});privateFile(file);return {id,digest:digest(bytes.toString('base64')),bytes:bytes.length};}
- private attachmentFile(id:unknown){const name=string(id,64);if(!/^[a-f0-9-]{36}$/.test(name))throw new InputError('INVALID_MEDIA');const file=join(this.p.data,'douyin-attachments',name+'.mp4');assertRegular(file);const bytes=readFileSync(file);if(bytes.length>16_000_000)throw new InputError('INVALID_MEDIA');return {file,digest:digest(bytes.toString('base64'))};}
- propose(value:unknown){this.check();if(!this.config.accountId)throw new InputError('DOUYIN_ACCOUNT_REQUIRED',409);const b=object(value),tool=string(b.tool,64);if(!WRITE_TOOLS.includes(tool as never))throw new InputError('TOOL_NOT_ALLOWED',403);const args=toolArgs(tool,b.args);return this.approvals.create({tool,args,accountId:this.config.accountId,...(tool==='douyin_publish'?{attachmentDigest:this.attachmentFile(args.attachmentId).digest}:{})},this.revision);}
- decide(id:string,value:unknown){const b=object(value);if(Object.keys(b).some(k=>!['digest','decision'].includes(k)))throw new InputError('INVALID_REQUEST');this.check();const expectedDigest=string(b.digest,64);const a=this.approvals.decide(id,expectedDigest,this.revision,string(b.decision,20));if(b.decision==='reject')return this.approvals.get(id);const revision=this.revision;try{return this.queue.enqueue('douyin','write',{approvalId:id,tool:a.payload.tool,args:a.payload.args},`approval:${id}`,'Activity',async signal=>{
-   let submitted=false;try{return await this.browser.lease(this.config,signal,async()=>{const guard=async()=>{if(await this.browser.blocked())throw new InputError('DOUYIN_VERIFICATION_REQUIRED',409);const account=await this.browser.account();signal.throwIfAborted();this.check(revision);const current=this.approvals.check(id,expectedDigest,revision);if(!account.loggedIn||!account.id||account.id!==current.payload.accountId)throw new InputError('DOUYIN_ACCOUNT_CHANGED',403);const args=object(current.payload.args);if(current.payload.attachmentDigest&&current.payload.attachmentDigest!==this.attachmentFile(args.attachmentId).digest)throw new InputError('APPROVAL_MISMATCH',409);};await guard();this.browser.mode='write';this.browser.submitted=false;const gate=new WriteGate(String(a.payload.tool),object(a.payload.args),guard);this.browser.gate=gate;const args={...object(a.payload.args)};if(a.payload.tool==='douyin_publish'){args.video_path=this.attachmentFile(args.attachmentId).file;delete args.attachmentId;}const raw=await this.mcp(String(a.payload.tool),args,signal,()=>gate.arm());await gate.settle();submitted=this.browser.submitted;const status=(this.approvals.get(id).status==='revoked'||this.browser.denied)&&!submitted?'revoked':gate.receipt&&!this.browser.denied?'completed':raw.status==='unknown'||submitted?'unknown':raw.needLogin?'blocked':'failed';this.approvals.state(id,status);this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`douyin.${status}:${id}`,new Date().toISOString());return {...publicResult(gate.receipt??raw),verified:status==='completed',...(gate.error?{error:gate.error}:{}),status};});}catch(e){submitted ||=this.browser.submitted;const status=submitted?'unknown':'revoked';this.approvals.state(id,status);return {status,error:submitted?'ACTION_UNKNOWN':e instanceof InputError?e.message:'ACTION_NOT_SENT'};}});}catch(e){this.approvals.state(id,'revoked');throw e;}}
- revoke(id:string){this.approvals.get(id);this.approvals.revoke(id);return this.approvals.get(id);}
- async stop(){this.cancelConnection();this.approvals.revoke();await this.queue.abort('douyin');await this.browser.close();await this.connecting?.promise;this.accountState='unverified';return this.status();}
+ attachment(value:unknown){const b=object(value),data=string(b.data,24_000_000);if(!/^[A-Za-z0-9+/]+={0,2}$/.test(data))throw new InputError('INVALID_MEDIA');const bytes=Buffer.from(data,'base64');if(bytes.length<12||bytes.length>16_000_000||bytes.subarray(4,8).toString()!=='ftyp')throw new InputError('INVALID_MEDIA');const id=randomUUID(),dir=join(this.p.data,'douyin-attachments');mkdirSync(dir,{recursive:true,mode:0o700});const file=join(dir,id+'.mp4');writeFileSync(file,bytes,{mode:0o600,flag:'wx'});privateFile(file);return {id,digest:createHash('sha256').update(bytes.toString('base64')).digest('hex'),bytes:bytes.length};}
+ private attachmentFile(id:unknown){const name=string(id,64);if(!/^[a-f0-9-]{36}$/.test(name))throw new InputError('INVALID_MEDIA');const file=join(this.p.data,'douyin-attachments',name+'.mp4');assertRegular(file);const bytes=readFileSync(file);if(bytes.length>16_000_000)throw new InputError('INVALID_MEDIA');return {file,digest:createHash('sha256').update(bytes.toString('base64')).digest('hex')};}
+ write(value:unknown){
+  this.check();
+  if(!this.config.accountId)throw new InputError('DOUYIN_ACCOUNT_REQUIRED',409);
+  const b=object(value);
+  if(Object.keys(b).some(key=>!['tool','args','requestId'].includes(key)))throw new InputError('INVALID_REQUEST');
+  const tool=string(b.tool,64),requestId=string(b.requestId,100);
+  if(!WRITE_TOOLS.includes(tool as never))throw new InputError('TOOL_NOT_ALLOWED',403);
+  const args=toolArgs(tool,b.args),revision=this.revision,accountId=this.config.accountId;
+  const attachmentDigest=tool==='douyin_publish'?this.attachmentFile(args.attachmentId).digest:undefined;
+  if(writeCapabilities[tool as keyof typeof writeCapabilities]!=='bounded-http')throw new InputError('ACTION_PROTOCOL_UNSUPPORTED',409);
+  const input={tool,args,accountId,revision,...(attachmentDigest?{attachmentDigest}:{})};
+  return this.queue.enqueue('douyin','write',input,requestId,'Activity',async(signal,taskId)=>{
+   let submitted=false;
+   try{return await this.browser.lease(this.config,signal,async()=>{
+    this.browser.submitted=false;
+    try{
+    const guard=async()=>{
+     signal.throwIfAborted();this.check(revision);
+     if(await this.browser.blocked())throw new InputError('DOUYIN_VERIFICATION_REQUIRED',409);
+     const account=await this.browser.account();
+     signal.throwIfAborted();this.check(revision);
+     if(!account.loggedIn||!account.id||account.id!==accountId)throw new InputError('DOUYIN_ACCOUNT_CHANGED',403);
+     if(attachmentDigest&&attachmentDigest!==this.attachmentFile(args.attachmentId).digest)throw new InputError('ACTION_CONTENT_CHANGED',409);
+    };
+    await guard();this.browser.mode='write';this.browser.submitted=false;
+    const gate=new WriteGate(tool,args,guard);this.browser.gate=gate;
+    const callArgs={...args};
+    if(tool==='douyin_publish'){callArgs.video_path=this.attachmentFile(args.attachmentId).file;delete callArgs.attachmentId;}
+    const raw=await this.mcp(tool,callArgs,signal,()=>gate.arm());await gate.settle();
+    submitted=this.browser.submitted||gate.submitted;
+    const status=gate.receipt&&!this.browser.denied?'completed':submitted||raw.status==='unknown'?'unknown':signal.aborted?'cancelled':this.browser.denied?'revoked':raw.needLogin?'blocked':'failed';
+    this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`douyin.${status}:${taskId}`,new Date().toISOString());
+    return {...publicResult(gate.receipt??raw),verified:status==='completed',...(gate.error?{error:gate.error}:{}),status};
+    }finally{submitted ||=this.browser.submitted;}
+   });}catch(e){
+    return {status:submitted?'unknown':signal.aborted?'cancelled':'revoked',error:submitted?'ACTION_UNKNOWN':signal.aborted?'CANCELLED':e instanceof InputError?e.message:'ACTION_NOT_SENT'};
+   }
+  });
+ }
+ async stop(){this.cancelConnection();await this.queue.abort('douyin');await this.browser.close();await this.connecting?.promise;this.accountState='unverified';return this.status();}
  async close(){this.closed=true;await this.stop();}
 }

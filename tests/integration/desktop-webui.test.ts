@@ -7,7 +7,7 @@ const executable =
   process.env.BFF_TEST_BROWSER ??
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 it.skipIf(!existsSync(executable))(
-  "shared WebUI preserves drafts, request ownership, approval context and usable layouts",
+  "shared WebUI preserves drafts, request ownership, direct interactions and usable layouts",
   async () => {
     const root = resolve("apps/desktop/dist");
     const server = createServer((req, res) => {
@@ -89,7 +89,6 @@ it.skipIf(!existsSync(executable))(
         status: "completed",
       },
     ];
-    let pending = true;
     const data: Record<string, unknown> = {
       "/v1/models": [model],
       "/v1/model-routes": { chat: "demo" },
@@ -158,7 +157,6 @@ it.skipIf(!existsSync(executable))(
         browser: { state: "closed" },
         accountState: "unverified",
       },
-      "/v1/douyin/approvals": [],
       "/v1/permissions/audit": [],
     };
     const context = await browser.newContext({
@@ -200,12 +198,6 @@ it.skipIf(!existsSync(executable))(
             sessions.unshift(item);
             return item;
           }
-          if (route === "/v1/permissions/approvals/approval") {
-            pending = false;
-            return {};
-          }
-          if (route === "/v1/douyin/approvals/douyin-approval/decide")
-            throw new Error("ACTION_UNKNOWN");
           if (route === "/v1/conversations/qq/messages")
             throw new Error("EXTERNAL_CONVERSATION_READ_ONLY");
           if (route.endsWith("/messages")) {
@@ -222,23 +214,6 @@ it.skipIf(!existsSync(executable))(
           }
           return {};
         }
-        if (route === "/v1/permissions/approvals")
-          return pending
-            ? [
-                {
-                  id: "approval",
-                  payload: {
-                    target: { kind: "private", id: "123456" },
-                    segments: [
-                      { type: "text", data: { text: "一起看这段视频吧" } },
-                    ],
-                  },
-                  status: "pending",
-                  digest: "fixture-digest",
-                  expiresAt: Date.now() + 300000,
-                },
-              ]
-            : [];
         if (route.endsWith("/messages"))
           return route.includes("/recent/") ? messages : [];
         if (route.endsWith("/tools")) return [];
@@ -467,40 +442,9 @@ it.skipIf(!existsSync(executable))(
       await page.locator(".session-list button").first().click();
       expect(await page.getByRole("dialog", { name: "历史对话" }).count()).toBe(0);
       expect(await input.inputValue()).toBe("新会话发送期间继续写");
-      data["/v1/douyin/approvals"] = [
-        {
-          id: "douyin-approval",
-          payload: {
-            tool: "douyin_comment",
-            accountId: "fixture-account",
-            args: { aweme_id: "12345", text: "一条待审批评论" },
-          },
-          status: "pending",
-          digest: "douyin-digest",
-          expiresAt: Date.now() + 300000,
-        },
-      ];
-      await page.getByRole("button", { name: /待审批/ }).click();
-      const dialog = page.getByRole("dialog", { name: "审批与记录" });
-      await dialog.getByText("一条待审批评论",{exact:true}).waitFor();
-      expect(await dialog.getByRole("button",{name:"批准发送",exact:true}).count()).toBe(0);
-      await dialog
-        .getByRole("button", { name: "批准这次操作", exact: true })
-        .click();
-      await dialog
-        .getByRole("alert")
-        .getByText("操作结果未知，请先在平台核对，勿直接重试。", {
-          exact: true,
-        })
-        .waitFor();
-      await page.setViewportSize({ width: 640, height: 760 });
-      const alertBox = await dialog.getByRole("alert").boundingBox();
-      expect(alertBox!.x).toBeGreaterThanOrEqual(0);
-      expect(alertBox!.x + alertBox!.width).toBeLessThanOrEqual(640);
-      expect(alertBox!.y + alertBox!.height).toBeLessThanOrEqual(760);
-      await page.screenshot({
-        path: "build/beui-interface/regression-approval-error-640.png",
-      });
+      expect(await page.getByRole("button", { name: /待审批/ }).count()).toBe(0);
+      await page.getByRole("button", { name: "运行状态", exact: true }).click();
+      expect(await page.getByRole("button", { name: "审批与记录", exact: true }).count()).toBe(0);
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1100, height: 760 });
       await page.getByRole("button", { name: "连接", exact: true }).click();

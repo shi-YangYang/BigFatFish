@@ -32,7 +32,7 @@ function StateFixture() {
     <Checkbox label="已选样例" checked onCheckedChange={() => {}} disabled />
     {(['off', 'on', 'mixed'] as const).map(state => <button key={state} onClick={() => setTimeout(() => setSelection(state), 0)}>{state}</button>)}
     <Menu open={menuOpen} onOpenChange={setMenuOpen} trigger={<Button aria-label="运行状态">服务在线</Button>}>
-      <div className="runtime-popover"><Button>重新连接</Button><Button>暂停活动</Button><Button>审批与记录</Button></div>
+      <div className="runtime-popover"><Button>重新连接</Button><Button>暂停活动</Button></div>
     </Menu>
     <Activities fail={fail} />
   </div>;

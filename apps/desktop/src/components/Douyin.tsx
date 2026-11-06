@@ -13,7 +13,6 @@ import { OperationRecords } from "./OperationRecords";
 import { Tabs } from "./UI";
 import { api, errorText } from "../api";
 import type { BrowserConfig } from "../../../runtime/src/douyin/browser";
-import type { StoredApproval } from "../../../runtime/src/permissions/store";
 import type { ActivityTask } from "../../../runtime/src/tasks/queue";
 const actionNames: Record<string, string> = {
   douyin_like: "点赞",
@@ -41,10 +40,6 @@ export const activityState: Record<string, string> = {
   unknown: "结果未知，请核对平台",
   blocked: "需要处理",
   revoked: "已撤销",
-  pending: "待审批",
-  executing: "执行中",
-  rejected: "已拒绝",
-  expired: "已过期",
 };
 export interface ActivityOverview {
   paused: boolean;
@@ -115,12 +110,15 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
     </ActionRow>
    </Card>
    <Tabs items={['记录','互动','设置']} value={tab} onChange={setTab} label="抖音功能">
-    {tab==='互动'&&<div className="platform-records"><Card><h3>准备互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
+    {tab==='互动'&&<div className="platform-records"><Card><h3>互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             const args = tool === "douyin_comment" ? { aweme_id: videoId, text } : { aweme_id: videoId };
-            void act(() => api("/v1/douyin/approvals", "POST", { tool, args }));
+            void act(async () => {
+              await api("/v1/douyin/write", "POST", { tool, args, requestId: crypto.randomUUID() });
+              if(alive.current)setTab("记录");
+            });
           }}
         >
           <Field>视频 ID<Input required value={videoId} onChange={e=>setVideoId(e.target.value)}/></Field>
@@ -139,10 +137,10 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
           </Field>
           {tool === "douyin_comment" && <Field>正文<Textarea value={text} onChange={e=>setText(e.target.value)} required/></Field>}
           <Button type="submit" variant="primary" disabled={busy}>
-            生成审批预览
+            {busy ? "正在提交…" : tool === "douyin_comment" ? "发送评论" : "点赞"}
           </Button>
         </form>
-    </fieldset></Card><DouyinApprovals fail={fail}/></div>}
+    </fieldset></Card></div>}
     {tab==='记录'&&<OperationRecords error={recordsError} records={tasks?.map(t=>({
       id:t.id,
       action:t.kind==='watch'?'观看视频':t.kind==='decision'?'活动决策':actionNames[String(t.input.tool)]??'读取',
@@ -260,108 +258,6 @@ export function ActivityRows({
         </Card>
       ))}
     </ContentScroll>
-  );
-}
-export function DouyinApprovals({ fail }: { fail: (e: unknown) => void }) {
-  const [items, setItems] = useState<StoredApproval[]>([]);
-  const load = useCallback(async () => {
-    try {
-      setItems(await api("/v1/douyin/approvals"));
-    } catch (e) {
-      fail(e);
-    }
-  }, [fail]);
-  usePoll(load);
-  return (
-    <>
-      <h3>抖音审批</h3>
-      {!items.length && <p>暂无待审批动作</p>}
-      {items.slice(0, 10).map((a) => (
-        <Card key={a.id}>
-          <p>
-            {
-              (
-                {
-                  douyin_like: "点赞",
-                  douyin_comment: "评论",
-                  douyin_chat_send: "私信",
-                  douyin_share_video: "分享视频",
-                  douyin_publish: "投稿",
-                } as Record<string, string>
-              )[String(a.payload.tool)]
-            }{" "}
-            · {activityState[a.status]} · 账号 {String(a.payload.accountId)}
-          </p>
-          <dl className="approval-details">
-            {Object.entries(a.payload.args as Record<string, unknown>).map(
-              ([k, v]) => (
-                <div key={k}>
-                  <dt>
-                    {(
-                      {
-                        aweme_id: "视频 ID",
-                        text: "正文",
-                        reply_cid: "回复评论 ID",
-                        nickname: "接收人",
-                        peer_id: "接收人 ID",
-                        attachmentId: "附件",
-                        title: "标题",
-                        tags: "标签",
-                        draft: "仅保存草稿",
-                        ai_declare: "声明 AI 生成",
-                        undo: "取消点赞",
-                      } as Record<string, string>
-                    )[k] ?? k}
-                  </dt>
-                  <dd>
-                    {typeof v === "boolean"
-                      ? v
-                        ? "是"
-                        : "否"
-                      : String(v) || "无"}
-                  </dd>
-                </div>
-              ),
-            )}
-          </dl>
-          {!!a.payload.attachmentDigest && (
-            <p>附件摘要：{String(a.payload.attachmentDigest)}</p>
-          )}
-          <small>有效至 {new Date(a.expiresAt).toLocaleString()}</small>
-          <ActionRow className="approval-actions">
-            {a.status === "pending" &&
-              ["approve", "reject"].map((d) => (
-                <Button
-                  type="button"
-                  key={d}
-                  onClick={() =>
-                    void api(`/v1/douyin/approvals/${a.id}/decide`, "POST", {
-                      digest: a.digest,
-                      decision: d,
-                    })
-                      .then(load)
-                      .catch(fail)
-                  }
-                >
-                  {d === "approve" ? "批准这次操作" : "拒绝"}
-                </Button>
-              ))}
-            {["pending", "executing"].includes(a.status) && (
-              <Button
-                type="button"
-                onClick={() =>
-                  void api(`/v1/douyin/approvals/${a.id}/revoke`, "POST")
-                    .then(load)
-                    .catch(fail)
-                }
-              >
-                撤销
-              </Button>
-            )}
-          </ActionRow>
-        </Card>
-      ))}
-    </>
   );
 }
 export function Activities({ fail }: { fail: (e: unknown) => void }) {

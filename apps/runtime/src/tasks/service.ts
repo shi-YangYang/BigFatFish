@@ -33,7 +33,7 @@ export class Activities{
   if(choice.platform==='douyin')return this.douyin.watch({videoId:choice.videoId,requestId},mode);
   return this.queue.enqueue('bilibili','watch',{videoId:choice.videoId},requestId,mode,async signal=>{const task=this.bili.watch({bvid:choice.videoId,requestId});const cancel=()=>this.bili.cancel(task.id);signal.addEventListener('abort',cancel,{once:true});try{for(;;){if(signal.aborted)cancel();const current=this.bili.task(task.id);if(!['queued','running','understanding'].includes(current.status))return {status:current.status,videoTaskId:current.id,...current.result,error:current.error};await delay(100);}}finally{signal.removeEventListener('abort',cancel);}});
  }
- cancel(id:string){const task=this.queue.list().find(t=>t.id===id);if(task){if(task.platform==='douyin'&&typeof task.input.approvalId==='string')this.douyin.revoke(task.input.approvalId);return this.queue.cancel(id);}return this.bili.cancel(id);}
- async pause(value:boolean){if(typeof value!=='boolean')throw new InputError('INVALID_REQUEST');if(value){for(const task of this.bili.tasks())if(['queued','running','understanding'].includes(task.status))this.bili.cancel(task.id);this.douyin.approvals.revoke();}return this.queue.pause(value);}
+ cancel(id:string){const task=this.queue.list().find(t=>t.id===id);if(task)return this.queue.cancel(id);return this.bili.cancel(id);}
+ async pause(value:boolean){if(typeof value!=='boolean')throw new InputError('INVALID_REQUEST');if(value){for(const task of this.bili.tasks())if(['queued','running','understanding'].includes(task.status))this.bili.cancel(task.id);}return this.queue.pause(value);}
  async close(){this.closed=true;clearInterval(this.timer);await this.queue.close();}
 }

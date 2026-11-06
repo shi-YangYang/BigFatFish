@@ -4,7 +4,11 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。此前「每完成一个阶段就本地 commit」的持续授权已撤销。今后只有用户对相应任务明确要求 commit 时才可提交，开发完成或验收通过不构成提交授权；不得沿用下方历史阶段中的自动提交授权。此次仅更新交接记录，不暂存、不提交，也不改写已存在的提交。
 
-## 当前任务：Spec040 Desktop 全页面排版修复
+## 当前任务：Spec041 取消平台逐条审批（完成）
+
+2026-11-06：用户已确认「全部取消，操作直接执行」。dev/5aa72b1 已本地提交上轮 Spec040，未 push，远端未刷新；Spec041 从干净状态开发，当前未 commit/push，无继续提交授权。全局/抖音审批、轮询和旧执行链已移除，CLI/API/UI 同步直接操作，保留账号/插件/联系人限制、精确参数、幂等/取消和单次提交，旧待办不重放。9项定向测试与相关类型通过，Desktop/Web隔离截图已复核。首验仅发现旧Python测试在取消后用closed context，新的实施 Agent 调整场景顺序，一次真实Chrome生命周期检查通过；新的独立验收 acceptance-r1.md PASS，全部报告已读，Spec041 Done，无待返工，立即停止继续验证。Python测试环境缺失，完整Python链与真实外发未验证；未改真实数据/配置或重启用户后台，重新运行 npm run desktop:dev 才加载新后端。
+
+## 历史任务：Spec040 Desktop 全页面排版修复
 
 2026-11-06完成：Spec040 Done，首轮70状态×4宽完整after及原生逐页检查后，新实施`/root/rework_desktop_layout_states`关闭R1共享Drawer/Disclosure停帧不可见、R2焦点压字/颜色、R3Disclosure42px；新独立`/root/accept_desktop_layout_r1`在`acceptance-r1.md` PASS，全部报告已读，无待返工。返工仅定向验证：正常/减少动画与真预加载冻结帧回归、前端类型、8组App32图及root14张原生复查；未重跑未变280状态。证据覆盖事故准确记在Plan/audit-report/before-integrity；不能宣称完整before原图或详细几何保存。dev/06d299d仍为基线，本轮改动未暂存/commit/push，真实服务/数据不变，远端未刷新。额外原生审计窗口已恢复900聊天后关闭；隔离预览完成后回收。需求和必要验证已满足，停止继续探索/测试，等待用户新的明确指令。
 

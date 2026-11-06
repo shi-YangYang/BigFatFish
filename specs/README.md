@@ -80,3 +80,4 @@
 - [Spec 039：移除设定页版本记录](spec-039-remove-persona-history/spec.md)：[PASS](spec-039-remove-persona-history/acceptance.md)；已移除版本历史界面及加载逻辑，保留当前设定编辑与保存。
 
 - [Spec 040：Desktop 全页面布局修复](spec-040-desktop-layout-audit/spec.md)：[返工独立PASS](spec-040-desktop-layout-audit/acceptance-r1.md)；70状态×4宽度及原生逐页检查，统一页面/卡片/表单/浮层布局，修复停帧可用性、焦点和控件尺寸；原始before证据损失另有说明。
+- [Spec 041：取消平台逐条审批](spec-041-remove-platform-approvals/spec.md)：[返工独立PASS](spec-041-remove-platform-approvals/acceptance-r1.md)；抖音互动直接执行，移除全局审批入口；权限、幂等和操作记录保留。

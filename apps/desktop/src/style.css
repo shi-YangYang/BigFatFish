@@ -241,9 +241,6 @@ fieldset > .ui-button,
 }
 .video-query-row > .ui-field { min-width: 0; }
 .video-query-row > .ui-button { width: 100%; white-space: nowrap; }
-.approval-actions {
-  margin-top: 16px;
-}
 .ui-actions > [role="status"] {
   color: var(--accent);
   font-size: 12px;
@@ -397,15 +394,7 @@ fieldset > .ui-button,
   text-align: left;
   justify-content: flex-start;
 }
-.topbar .new-chat-button,
-.topbar .approval-button {
-  min-width: 100px;
-}
-.approval-button {
-  color: #8e6021;
-  background: #fff7e9;
-  border-color: #f0dfbd;
-}
+.topbar .new-chat-button { min-width: 100px; }
 .workspace-main {
   flex: 1;
   min-height: 0;
@@ -847,31 +836,8 @@ audio {
   overflow-y: auto;
   padding: 24px;
 }
-.approval-error {
-  position: sticky;
-  top: 72px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.approval-error span {
-  flex: 1;
-}
 .drawer-body h2 {
   font-size: 20px;
-}
-.approval-details {
-  margin: 12px 0;
-}
-.approval-details dt {
-  font-size: 12px;
-  color: var(--muted);
-}
-.approval-details dd {
-  margin: 4px 0 12px;
-  overflow-wrap: anywhere;
 }
 .mobile-navigation .primary-nav {
   margin-bottom: 40px;
@@ -1001,7 +967,6 @@ audio {
   .drawer-body {
     padding: 20px;
   }
-  .topbar .approval-button { min-width: 0; }
   .topbar .new-chat-button { min-width: 40px; width: 40px; padding: 0; }
   .new-chat-button span { display: none; }
   .chat-welcome > .fish-portrait {

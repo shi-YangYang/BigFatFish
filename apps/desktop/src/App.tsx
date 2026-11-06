@@ -1,5 +1,5 @@
 import { Notifications, notifyError, clearNotifications } from './components/Notifications';
-import { Alert, Loading, Menu, Badge } from "./components/Surfaces";
+import { Alert, Loading, Menu } from "./components/Surfaces";
 import { BounceSidebar } from "./components/beui/bounce-sidebar";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -8,7 +8,7 @@ import { api, isWeb, webRequest } from "./api";
 import { Chat } from "./components/Chat";
 import { Setup } from "./components/Setup";
 import { MyFish, Connections, Settings } from "./components/Workspaces";
-import { DouyinApprovals, type ActivityOverview } from "./components/Douyin";
+import { type ActivityOverview } from "./components/Douyin";
 import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
 export default function App() {
@@ -21,10 +21,8 @@ export default function App() {
   const [models, setModels] = useState<(ModelConfig & { hasKey: boolean })[]>(
       [],
     ),
-    [drawer, setDrawer] = useState(false),
     [menu, setMenu] = useState(false),
     [runtimeMenuOpen, setRuntimeMenuOpen] = useState(false),
-    [approvalCount, setApprovalCount] = useState(0),
     [activity, setActivity] = useState<ActivityOverview>();
   const live = useRef(false);
   const runtimeMenuTrigger = useRef<HTMLButtonElement>(null);
@@ -101,16 +99,11 @@ export default function App() {
         return;
       }
       try {
-        const [a, d] = await Promise.all([
-          api<ActivityOverview>("/v1/activities"),
-          api<{ status: string }[]>("/v1/douyin/approvals"),
-        ]);
+        const a = await api<ActivityOverview>("/v1/activities");
         if (active) {
           lastFailure = "";
           setActivity(a);
-          setApprovalCount(
-            d.filter((v) => v.status === "pending").length,
-          );
+
         }
       } catch (e) {
         if (active && lastFailure !== String(e)) { lastFailure = String(e); fail(e); }
@@ -172,15 +165,6 @@ export default function App() {
       </Button>
       {content}
       <div className="topbar-actions">
-        {approvalCount > 0 && (
-          <Button
-            type="button"
-            className="approval-button"
-            onClick={() => setDrawer(true)}
-          >
-            待审批 <Badge status="warning">{approvalCount}</Badge>
-          </Button>
-        )}
         <Menu open={runtimeMenuOpen} onOpenChange={setRuntimeMenuOpen} trigger={<Button ref={runtimeMenuTrigger} className="runtime-menu" aria-label="运行状态" title={connected ? activity?.paused ? "活动已暂停" : "服务在线" : "服务离线"}>
             <span className={`status-dot ${connected ? "online" : ""}`} />
             <span className="runtime-label">{connected
@@ -213,14 +197,6 @@ export default function App() {
                 {activity.paused ? "恢复活动" : "暂停活动"}
               </Button>
             )}
-            <Button type="button" onClick={() => {
-              setRuntimeMenuOpen(false);
-              // Give the drawer a stable return target outside the closing menu.
-              runtimeMenuTrigger.current?.focus({ preventScroll: true });
-              setDrawer(true);
-            }}>
-              审批与记录
-            </Button>
             {isWeb && (
               <Button
                 type="button"
@@ -328,20 +304,6 @@ export default function App() {
           <div className="mobile-navigation">{menuContents}</div>
         </Drawer>
       )}
-      {drawer && (
-        <Drawer title="审批与记录" close={() => setDrawer(false)}>
-          <ApprovalContents />
-        </Drawer>
-      )}
     </div>
-  );
-}
-
-function ApprovalContents() {
-  const fail = notifyError;
-  return (
-    <>
-      <DouyinApprovals fail={fail} />
-    </>
   );
 }

@@ -43,7 +43,7 @@ bigfatfish web serve --data-dir /absolute/path/fish
 
 Web 配置位于受保护的 `runtime/web-config.json`，不进入逻辑备份。正在运行的网关持有独立锁，`web configure` 返回 `WEB_STOP_REQUIRED`，不会假装已换密。先停止 `web serve`（Ctrl+C 或停止所属服务），再配置和启动；所有旧会话随进程退出失效。证书续期后也须重启网关。本地测试证书仅在独立浏览器上下文中信任，不安装全局 CA。
 
-Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人格、经历、记忆、模型、平台、任务、审批、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
+Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人格、经历、记忆、模型、平台、任务、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
 
 备份与恢复由仍在线的网关先排空 Runtime、调用同一离线维护核心及固定实例锁，再启动 Runtime。只有恢复/备份及启动均结束才返回 completed；浏览器上传/下载字节，不指定服务器任意文件路径。恢复替换当前鱼，原始目录在 rollback 目录保留；插件安装代码、旧授权和会话不随逻辑备份恢复。恢复后重新安装/授权。schema 保持6，P6归档可直接导入，未知版本仍拒绝。
 
@@ -96,7 +96,7 @@ bigfatfish plugins disable hello-fish --data-dir /absolute/path/fish
 
 manifest 字段以 `examples/hello-fish/manifest.json` 为可执行范例：协议1、ID/版本、名称/作者/许可/来源、Runtime兼容范围 `^0.1.0`、OS数组、entry、dependencies、configSchema、permissions、extensions、tools。v1仅支持固定协议及当前0.1兼容线，不把未知版本当可兼容。依赖只允许产品已管理的 ws/qrcode/playwright-core，通过宿主安装目录解析；不自动npm install。configSchema只接受非敏感配置，支持对象的 string/number/boolean 字段和required；writeOnly、maxLength等未实现约束一律拒绝，不能用配置保存凭据。模型密钥使用统一模型配置，平台凭据使用其专用入口。工具参数支持有界object/array/string/boolean/number/integer、required和enum，未知键拒绝，不支持的高级JSON Schema约束不要声明为有效。
 
-QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版本/停用管理。首次由产品已信任的随包代码建立默认组件；账户连接仍受各平台显式enabled/凭据/审批控制。升级为其他来源同样必须用户信任。QQ已有in-process接口、B站短命子进程及抖音Chrome/Python组合按真实依赖运行；它们不是全都变成同一种RPC进程。平台停用排空原队列、撤销在途审批并阻断直接平台入口；资源加载来自选中安装目录，抖音包同时携带其Python服务源码，Python环境仍由用户明确准备。
+QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版本/停用管理。首次由产品已信任的随包代码建立默认组件；账户连接仍受各平台显式 enabled / 凭据 / 权限控制。升级为其他来源同样必须用户信任。QQ已有in-process接口、B站短命子进程及抖音Chrome/Python组合按真实依赖运行；它们不是全都变成同一种RPC进程。平台停用排空原队列、取消在途任务并阻断直接平台入口；资源加载来自选中安装目录，抖音包同时携带其Python服务源码，Python环境仍由用户明确准备。
 
 ## RPC、权限与扩展方式
 
@@ -119,9 +119,9 @@ QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版�
 | media.transcribe / media.synthesize | 调用统一ASR/TTS路由，继承调用取消 |
 | channel.qq / activity.bilibili / activity.douyin | 对应受信任随包平台组件的加载许可，不等于账号发送授权 |
 
-扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度审批；Channel的受信任平台契约位于 channels/types.ts，第三方RPC渠道需获channel.send权限才可向QQ直接发送，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
+扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度与权限范围；Channel的受信任平台契约位于 channels/types.ts，第三方RPC渠道需获channel.send权限才可向QQ直接发送，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
 
-MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥有的CDP实例，工具白名单、实际请求审批和最终提交门不能省略。固定依赖安装步骤见 [抖音](douyin.md)，平台来源与许可见 [上游记录](upstreams.md)。
+MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥有的CDP实例，工具白名单、实际请求校验和最终提交门不能省略。固定依赖安装步骤见 [抖音](douyin.md)，平台来源与许可见 [上游记录](upstreams.md)。
 
 ## QQ 媒体与实际协议
 

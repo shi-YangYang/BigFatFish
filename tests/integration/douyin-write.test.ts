@@ -1,7 +1,7 @@
 import { expect,it } from 'vitest';
 import { createServer } from 'node:http';
 import { mkdtempSync,rmSync } from 'node:fs';import { join } from 'node:path';import { tmpdir } from 'node:os';import { setTimeout as delay } from 'node:timers/promises';
-import { startRuntime } from '../../apps/runtime/src/lifecycle.js';import { paths } from '../../apps/runtime/src/paths.js';import { requestRuntime } from '../../apps/runtime/src/connection.js';import type { ActivityTask } from '../../apps/runtime/src/tasks/queue.js';import type { StoredApproval } from '../../apps/runtime/src/permissions/store.js';
+import { startRuntime } from '../../apps/runtime/src/lifecycle.js';import { paths } from '../../apps/runtime/src/paths.js';import { requestRuntime } from '../../apps/runtime/src/connection.js';import type { ActivityTask } from '../../apps/runtime/src/tasks/queue.js';
 const python=process.env.BFF_TEST_PYTHON;
 it.skipIf(!python)('real Runtime/Chrome/Python binds actual like/comment target, content, endpoint and one submission',async()=>{
  const root=mkdtempSync(join(tmpdir(),'bff-write-'));const sent:Record<string,string>[]=[];let scenario='good',tool='douyin_like';const id='1234567890123456789';
@@ -21,14 +21,14 @@ it.skipIf(!python)('real Runtime/Chrome/Python binds actual like/comment target,
  try{
   await call('/v1/douyin','PUT',{enabled:true,headless:true,pythonPath:python,accountId:'12345',executablePath:'',revision:''});
   for(tool of ['douyin_like','douyin_comment'])for(scenario of ['good','wrong-target',...(tool==='douyin_comment'?['wrong-content','bad-receipt','wrong-parent','conflicting-parent','missing-parent']:['extra']),'duplicate','not-sent']){
-   const before=sent.length;const a=await call<StoredApproval>('/v1/douyin/approvals','POST',{tool,args:tool==='douyin_like'?{aweme_id:id}:{aweme_id:id,text:'海洋'}});const t=await call<ActivityTask>(`/v1/douyin/approvals/${a.id}/decide`,'POST',{digest:a.digest,decision:'approve'});const done=await wait(t.id);
+   const before=sent.length;const t=await call<ActivityTask>('/v1/douyin/write','POST',{tool,args:tool==='douyin_like'?{aweme_id:id}:{aweme_id:id,text:'海洋'},requestId:tool+'-'+scenario});const done=await wait(t.id);
    expect(sent.length-before,`${tool} ${scenario} ${JSON.stringify(done)}`).toBe(['wrong-target','wrong-content','not-sent'].includes(scenario)?0:1);
    expect(done.status,`${tool} ${scenario} ${JSON.stringify(done)}`).toBe(scenario==='good'?'completed':['wrong-target','wrong-content'].includes(scenario)?'revoked':'unknown');
   }
  }finally{await runtime.stop();rmSync(root,{recursive:true,force:true});}
 },200000);
 
-it.skipIf(!python)('Runtime marks a redirected approved write unknown with zero follow-up requests',async()=>{
+it.skipIf(!python)('Runtime marks a redirected direct write unknown with zero follow-up requests',async()=>{
  const root=mkdtempSync(join(tmpdir(),'bff-runtime-redirect-'));let first=0,extra=0;
  const receiver=createServer((_req,res)=>{extra++;res.end('{"status_code":0}');});
  await new Promise<void>(r=>receiver.listen(0,'127.0.0.1',r));const target=`http://127.0.0.1:${(receiver.address() as {port:number}).port}/UNAPPROVED`;
@@ -42,8 +42,7 @@ it.skipIf(!python)('Runtime marks a redirected approved write unknown with zero 
  const call=<T>(url:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,url,method,body);
  try{
   await call('/v1/douyin','PUT',{enabled:true,headless:true,pythonPath:python,accountId:'12345',executablePath:'',revision:''});
-  const a=await call<StoredApproval>('/v1/douyin/approvals','POST',{tool:'douyin_like',args:{aweme_id:'1234567890123456789'}});
-  const task=await call<ActivityTask>(`/v1/douyin/approvals/${a.id}/decide`,'POST',{digest:a.digest,decision:'approve'});
+  const task=await call<ActivityTask>('/v1/douyin/write','POST',{tool:'douyin_like',args:{aweme_id:'1234567890123456789'},requestId:'redirect'});
   await expect.poll(async()=>{
    const current=(await call<{tasks:ActivityTask[]}>('/v1/activities')).tasks.find(t=>t.id===task.id)!;
    return current.status;

@@ -101,13 +101,13 @@ Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；
 
 ## 内置 QQ 组件管理（Spec023）
 
-`apps/runtime/src/channels/managed/` 管理固定原版 NapCat 的安装、WebUI 认证、二维码、只读联系人发现和生命周期；`QQConnection.tsx` 使用现有 beUI 组件提供快速连接/已有服务入口。内部地址、凭据与账号由 Runtime 绑定，主人/好友/群仍需明确配置。Spec025/Decision015 更新QQ回复与主动发送规则，其他平台审批保持。没有新增 npm 包或 schema migration。
+`apps/runtime/src/channels/managed/` 管理固定原版 NapCat 的安装、WebUI 认证、二维码、只读联系人发现和生命周期；`QQConnection.tsx` 使用现有 beUI 组件提供快速连接/已有服务入口。内部地址、凭据与账号由 Runtime 绑定，主人/好友/群仍需明确配置。Spec025/Decision015 更新QQ回复与主动发送规则，Spec041 随后统一取消其余平台逐条审批。没有新增 npm 包或 schema migration。
 
 Mac/Linux 使用本机 Docker（固定 amd64/arm64 manifest digest、回环映射、实例标签与私有数据目录）；Windows x64 使用固定 SHA256 原版 Windows.Node 包、受限 ZIP 解包与 Job Object。QQ 数据在 `data/qq-component/`，不共享日常 QQ，不改系统 QQ 或安全设置。便携逻辑备份不包含此登录态/程序目录；恢复后的渠道保持停用。Windows 原生与真实账号仍待验，实际验证以 Spec023 Plan 为准。
 
 ## QQ 对话与直接发送（Spec025）
 
-QQConfig保留唯一ownerId，新增friendIds与groupReplyMode；旧配置分别按空好友列表及all读取。Runtime统一目标允许范围，主人私聊与好友/群受众分开，好友仅使用共享记忆。QQ主动消息使用`POST /v1/channels/qq/send`直接发送，B站分享、CLI和新插件channel.send共用服务，保留最终撤权、媒体与交付状态检查。旧审批接口及channel.propose明确废弃，不重放历史项；旧插件提案权限不自动升级。共用ApprovalStore继续用于抖音，无schema变化。实际本轮检查与限制见Spec025 Plan。
+QQConfig保留唯一ownerId，新增friendIds与groupReplyMode；旧配置分别按空好友列表及all读取。Runtime统一目标允许范围，主人私聊与好友/群受众分开，好友仅使用共享记忆。QQ主动消息使用`POST /v1/channels/qq/send`直接发送，B站分享、CLI和新插件channel.send共用服务，保留最终撤权、媒体与交付状态检查。旧审批接口及channel.propose明确废弃，不重放历史项；旧插件提案权限不自动升级。Spec041 已删除 ApprovalStore 执行机制，抖音改用 TaskQueue 直接写操作，历史表仅作兼容保留，无 schema 变化。实际本轮检查与限制见Spec025 Plan。
 
 ## 完整人设卡与聊天工具（Spec038）
 
@@ -116,3 +116,7 @@ QQConfig保留唯一ownerId，新增friendIds与groupReplyMode；旧配置分别
 Runtime 按可信会话注入只读网页及范围记忆工具；网页搜索使用无需账号的 Bing RSS，网页正文限公开 HTTPS、有界并固定已校验的 DNS 地址。QQ 回复动作先暂存、完成后在当前目标逐项授权投递，图文分开；拍一拍由原版 NapCat `send_poke` 完成，内置插件沿原更新 API 分发，不新增插件管理权限。
 
 独立自动笔记为 schema 8 新增 `conversation_notes` 表/索引，以账号与私聊/群范围隔离，包含来源与引用，不覆盖主人确认记忆。memories 逻辑归档包含笔记；原 schema 6/7 归档仍可恢复。此处描述代码契约，真实数据应用及验证结果见 Spec038。
+
+## 平台直接操作（Spec041）
+
+Desktop/Web 全局审批、抖音预览与批准流程已删除。抖音 `POST /v1/douyin/write` 接受 tool/args/requestId，CLI `douyin write` 调用相同入口；点赞/评论直接创建活动任务。旧审批 API 返回 410，不重放历史待办。TaskQueue 保留幂等与取消，WriteGate 保留账号/配置/插件/精确内容/单次提交/收据验证，未知结果不自动重试。未验证的私信/分享/投稿在入队前拒绝；权限与联系人范围保持。
