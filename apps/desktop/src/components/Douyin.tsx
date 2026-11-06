@@ -9,6 +9,8 @@ import {
   FormGrid, ActionRow,
 } from "./Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { douyinStatus, type DouyinStatus } from './connection-status';
+import { ConnectionReadError } from './ConnectionReadError';
 import { OperationRecords } from "./OperationRecords";
 import { Tabs } from "./UI";
 import { api, errorText } from "../api";
@@ -72,10 +74,12 @@ export function usePoll(load: () => Promise<void>) {
   }, [load]);
 }
 export function Douyin({ fail }: { fail: (e: unknown) => void }) {
-  const [state,setState]=useState<{config:BrowserConfig;revision:string;browser:{state:string};accountState:string;connection?:{phase:string;error?:string;loginState?:string}}>(),
+  const [state,setState]=useState<DouyinStatus>(),
     [form,setForm]=useState<BrowserConfig>(),[formRevision,setFormRevision]=useState(''),[tab,setTab]=useState('记录'),
     [videoId,setVideoId]=useState(''),[busy,setBusy]=useState(false),[tasks,setTasks]=useState<ActivityTask[]>(),[recordsError,setRecordsError]=useState<string>(),
     [tool,setTool]=useState('douyin_like'),[text,setText]=useState('');
+  const [readError,setReadError]=useState(false),[actionError,setActionError]=useState('');
+  useEffect(()=>setActionError(''),[state?.connection?.phase,state?.revision]);
   const editing=useRef(false),pending=useRef(false),sequence=useRef(0),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;++sequence.current;};},[]);
   const refresh=useCallback(async()=>{
@@ -83,25 +87,27 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
     await Promise.all([
       api<NonNullable<typeof state>>('/v1/douyin').then(s=>{
         if(!current())return;
-        setState(s);
+        setState(s);setReadError(false);
         if(!editing.current){setForm(s.config);setFormRevision(s.revision);}
-      },e=>{if(current())fail(e);}),
+      },()=>{if(current())setReadError(true);}),
       api<ActivityOverview>('/v1/activities').then(a=>{
         if(current()){setTasks(a.tasks.filter(t=>t.platform==='douyin'));setRecordsError(undefined);}
       },e=>{if(current())setRecordsError(errorText(e));}),
     ]);
-  },[fail]);
+  },[]);
   usePoll(refresh);
-  const act=async(action:()=>Promise<unknown>)=>{if(pending.current)return;pending.current=true;setBusy(true);++sequence.current;try{await action();if(alive.current)await refresh();}catch(e){if(alive.current)fail(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
-  if(!state||!form)return <Loading/>;
+  const act=async(action:()=>Promise<unknown>,onError=(e:unknown)=>setActionError(errorText(e)))=>{if(pending.current)return;pending.current=true;setBusy(true);setActionError('');++sequence.current;try{await action();if(alive.current)await refresh();}catch(e){if(alive.current)onError(e);}finally{pending.current=false;if(alive.current)setBusy(false);}};
+  const readWarning=readError&&<ConnectionReadError retry={refresh}/>;
+  if(!state||!form)return <Card className="platform-account-card"><h2>抖音</h2>{readWarning||<Loading/>}</Card>;
   const change=(patch:Partial<BrowserConfig>)=>{editing.current=true;setForm({...form,...patch});};
-  const connecting=['connecting','login'].includes(state.connection?.phase??''),locked=busy||connecting,connected=state.config.enabled&&state.browser.state==='ready'&&state.accountState==='verified';
+  const {label,error,connecting,connected}=douyinStatus(state),locked=busy||connecting;
+  const failure=actionError||(error&&errorText(error));
   return <section className="page-section platform-connection">
 
    <Card className="platform-account-card">
-    <div className="platform-account-heading"><div><h2>抖音</h2>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div><Badge>{connected?'已连接':connecting?'连接中':'未连接'}</Badge></div>
-    {state.connection?.error&&<Alert>{errorText(state.connection.error)}</Alert>}
-    {state.connection?.phase==='connecting'&&<Loading>正在打开登录…</Loading>}
+    <div className="platform-account-heading"><div><h2>抖音</h2>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div><Badge>{readError?'状态待更新':label}</Badge></div>
+    {readWarning}
+    {failure&&<Alert>{failure}</Alert>}
     {state.connection?.phase==='login'&&<p>{state.connection.loginState==='verification'?'请在专用浏览器中完成验证':state.connection.loginState==='confirmation'?'请在手机上确认登录':'请在打开的浏览器中登录抖音'}</p>}
     <ActionRow className="platform-connect-actions">
      {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{state.connection?.phase==='error'?'重试连接':'连接抖音'}</Button>}
@@ -118,7 +124,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
             void act(async () => {
               await api("/v1/douyin/write", "POST", { tool, args, requestId: crypto.randomUUID() });
               if(alive.current)setTab("记录");
-            });
+            },fail);
           }}
         >
           <Field>视频 ID<Input required value={videoId} onChange={e=>setVideoId(e.target.value)}/></Field>
@@ -146,7 +152,7 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
       action:t.kind==='watch'?'观看视频':t.kind==='decision'?'活动决策':actionNames[String(t.input.tool)]??'读取',
       title:operationTitle(t),status:activityState[t.status]??'状态未知',createdAt:t.createdAt,
       error:t.error||t.result?.error?errorText(t.error||t.result?.error):undefined,
-      actions:['queued','running'].includes(t.status)?<Button size="compact" disabled={busy} onClick={()=>void act(()=>api(`/v1/activities/${t.id}/cancel`,'POST'))}>取消任务</Button>:undefined,
+      actions:['queued','running'].includes(t.status)?<Button size="compact" disabled={busy} onClick={()=>void act(()=>api(`/v1/activities/${t.id}/cancel`,'POST'),fail)}>取消任务</Button>:undefined,
     }))}/>}
     {tab==='设置'&&<Card><h3>连接设置</h3><form onSubmit={e=>{e.preventDefault();void act(async()=>{await api('/v1/douyin/connect','POST',{...form,revision:formRevision});editing.current=false;});}}><fieldset disabled={locked}>
      <Field>浏览器路径<Input value={form.executablePath} placeholder="自动发现" onChange={e=>change({executablePath:e.target.value})}/></Field>

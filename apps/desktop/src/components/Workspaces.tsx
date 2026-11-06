@@ -8,6 +8,9 @@ import { Personality } from "./Personality";
 import { Activities, Douyin } from "./Douyin";
 import { Channels, QQMessages } from "./Channels";
 import { Bilibili } from "./Bilibili";
+import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
+import type { ChannelStatus } from "../../../runtime/src/channels/types";
+import type { ManagedQQStatus } from "../../../runtime/src/channels/managed/types";
 import { Models } from "./Models";
 import { Plugins } from "./Plugins";
 import { Media } from "./Media";
@@ -49,62 +52,32 @@ export function MyFish({ fail }: Fail) {
 export function Connections({ fail }: Fail) {
   const [tab, setTab] = useState(""),
     [states, setStates] = useState<Record<string, string>>({});
-  const load = useCallback(async () => {
-    const results = await Promise.allSettled([
-      api<{ config?: { enabled: boolean }; health: { state: string } }>(
-        "/v1/channels/qq",
-      ),
-      api<{ enabled: boolean; accountState: string }>("/v1/bilibili"),
-      api<{ config: { enabled: boolean }; accountState: string }>("/v1/douyin"),
-    ]);
-    const next: Record<string, string> = {};
-    results.forEach((r, i) => {
-      const key = ["QQ", "B站", "抖音"][i];
-      if (r.status === "rejected") {
-        next[key] = "暂时无法获取状态";
-        return;
-      }
-      if (i === 0) {
-        const q = r.value as {
-          config?: { enabled: boolean };
-          health: { state: string };
-        };
-        next[key] = !q.config
-          ? "未设置"
-          : !q.config.enabled
-            ? "已停用"
-            : ({
-                online: "已连接",
-                connecting: "连接中",
-                reconnecting: "重连中",
-                not_logged_in: "需要登录",
-                error: "连接异常",
-                stopped: "已停用",
-              }[q.health.state] ?? "未连接");
-      } else {
-        const p = r.value as {
-          config?: { enabled: boolean };
-          enabled?: boolean;
-          accountState: string;
-        };
-        next[key] = !(p.config?.enabled ?? p.enabled)
-          ? "未启用"
-          : p.accountState === "verified"
-            ? "已连接"
-            : ["login-required", "signed-out"].includes(p.accountState)
-              ? "需要登录"
-              : p.accountState === "unverified"
-                ? "待验证"
-                : "账号异常";
-      }
-    });
-    setStates(next);
-  }, []);
   useEffect(() => {
+    if (tab) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const load = async () => {
+      const qq = async () => {
+        const channel = await api<ChannelStatus>("/v1/channels/qq");
+        const component = channel.config?.enabled && channel.config.mode !== "managed" ? undefined
+          : await api<ManagedQQStatus>("/v1/channels/qq/component");
+        return qqStatus(activeQQMode(channel, component), channel, component).label;
+      };
+      const results = await Promise.allSettled([
+        qq(),
+        api<BiliStatus>("/v1/bilibili").then(status => biliStatus(status).label),
+        api<DouyinStatus>("/v1/douyin").then(status => douyinStatus(status).label),
+      ]);
+      if (!active) return;
+      setStates(Object.fromEntries(["QQ", "B站", "抖音"].map((name, i) => {
+        const result = results[i]!;
+        return [name, result.status === "fulfilled" ? result.value : "暂时无法获取状态"];
+      })));
+      timer = setTimeout(() => void load(), 5000);
+    };
     void load();
-    const t = setInterval(() => void load(), 5000);
-    return () => clearInterval(t);
-  }, [load]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [tab]);
   if (tab)
     return (
       <>
@@ -113,7 +86,6 @@ export function Connections({ fail }: Fail) {
           className="back-button"
           onClick={() => {
             setTab("");
-            void load();
           }}
         >
           ← 所有连接
