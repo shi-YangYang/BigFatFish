@@ -12,7 +12,7 @@ import type { ChannelStatus,QQConfig } from '../../../../../runtime/src/channels
 import type { ManagedQQStatus,QQContact } from '../../../../../runtime/src/channels/managed/types';
 const endpoint='/v1/channels/qq/component';
 const initial:QQConfig={url:'ws://127.0.0.1:3001',accountId:'',ownerId:'',friendIds:[],groupReplyMode:'all',groups:[],enabled:false,replyEnabled:true,proactiveEnabled:false};
-const errors:Record<string,string>={CONNECTION_INIT_FAILED:'无法初始化连接，请检查地址和凭据。',TOKEN_REJECTED:'连接凭据被拒绝，请核对 NapCat 中的 Token。',ACCOUNT_MISMATCH:'登录的 QQ 与配置不一致，请核对账号。',HEALTH_CHECK_FAILED:'无法确认 QQ 在线状态，请检查 NapCat。',CHANNEL_VERSION_CONFLICT:'回复设置已在其他地方更新，请重新打开页面后修改。',QQ_ACCOUNT_CHANGED:'登录账号已变化，请重新核对回复设置。',QQ_DOCKER_MISSING:'请先安装并启动 Docker Desktop，再重试。',QQ_DOCKER_FAILED:'无法使用 Docker，请确认它已启动，再重试。',QQ_DOCKER_LOCAL_REQUIRED:'请选择本机 Docker 环境。',QQ_DOCKER_LINUX_REQUIRED:'请将 Docker 切换为 Linux 容器。',QQ_PLATFORM_UNSUPPORTED:'此系统暂不支持内置组件，可连接已有服务。',QQ_COMPONENT_UNAVAILABLE:'QQ 组件暂时没有响应，请重新启动。',QQ_COMPONENT_START_FAILED:'QQ 组件未能启动，请重试。',QQ_COMPONENT_AUTH:'QQ 组件认证失败，请重新启动。',QQ_COMPONENT_REQUEST_FAILED:'QQ 组件未能完成操作，请重试。',QQ_COMPONENT_CHECKSUM:'组件校验失败，请重新准备。',QQ_COMPONENT_DOWNLOAD:'下载失败，请检查网络后重试。',QQ_COMPONENT_STATE_INVALID:'组件状态文件无效，请保留数据并修复安装。',QQ_COMPONENT_INSTALL_INVALID:'组件安装不完整，请重新准备。',QQ_COMPONENT_OWNERSHIP:'发现不属于当前数据目录的组件，已停止操作。',QQ_EXTERNAL_ACTIVE:'请先停用已有服务连接，再启动内置组件。',QQ_LOGIN_FAILED:'QQ 登录未完成，请刷新二维码并在手机上完成验证。'};
+const errors:Record<string,string>={CONNECTION_INIT_FAILED:'无法初始化连接，请检查地址和凭据。',TOKEN_REJECTED:'连接凭据被拒绝，请核对 NapCat 中的 Token。',ACCOUNT_MISMATCH:'登录的 QQ 与配置不一致，请核对账号。',HEALTH_CHECK_FAILED:'无法确认 QQ 在线状态，请检查 NapCat。',CHANNEL_VERSION_CONFLICT:'回复设置已在其他地方更新，请重新打开页面后修改。',QQ_ACCOUNT_CHANGED:'登录账号已变化，请重新核对回复设置。',QQ_DOCKER_MISSING:'请先安装并启动 Docker Desktop，再重试。',QQ_DOCKER_FAILED:'无法使用 Docker，请确认它已启动，再重试。',QQ_DOCKER_LOCAL_REQUIRED:'请选择本机 Docker 环境。',QQ_DOCKER_LINUX_REQUIRED:'请将 Docker 切换为 Linux 容器。',QQ_PLATFORM_UNSUPPORTED:'此系统暂不支持内置组件，可连接已有服务。',QQ_COMPONENT_UNAVAILABLE:'暂时无法确认 QQ 连接，请重试。',QQ_WEBUI_UNAVAILABLE:'无法连接 QQ 登录服务，请重试连接。',QQ_ONEBOT_UNAVAILABLE:'QQ 消息服务尚未就绪，请重试连接。',QQ_LOGIN_RECONNECTING:'QQ 未能恢复登录，请重试连接。',QQ_LOGIN_INITIALIZING:'未能确认 QQ 登录状态，请重试连接。',QQ_ACCOUNT_OFFLINE:'QQ 已离线，请重新连接并登录。',QQ_COMPONENT_START_FAILED:'QQ 组件未能启动，请重试。',QQ_COMPONENT_AUTH:'QQ 组件拒绝了连接凭据，请重试连接。',QQ_COMPONENT_REQUEST_FAILED:'QQ 组件未能完成操作，请重试。',QQ_COMPONENT_CHECKSUM:'组件校验失败，请重新准备。',QQ_COMPONENT_DOWNLOAD:'下载失败，请检查网络后重试。',QQ_COMPONENT_STATE_INVALID:'组件状态文件无效，请保留数据并修复安装。',QQ_COMPONENT_INSTALL_INVALID:'组件安装不完整，请重新准备。',QQ_COMPONENT_OWNERSHIP:'发现不属于当前数据目录的组件，已停止操作。',QQ_EXTERNAL_ACTIVE:'请先停用已有服务连接，再启动内置组件。',QQ_LOGIN_FAILED:'QQ 登录未完成，请刷新二维码并在手机上完成验证。'};
 function qqError(error: unknown) {
  const code = error instanceof Error ? error.message : String(error);
  return errors[code] ?? errorText(error);
@@ -41,7 +41,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
    else setLists(previous=>({...(accountChanged?{friends:[],groups:[]}:previous),error:'QQ_CONTACTS_UNAVAILABLE'}));
    if(accountChanged)setContactsError(undefined);
   }
-  accountSeen.current=m?.account?.id??'';
+  if(m?.phase!=='verifying')accountSeen.current=m?.account?.id??'';
   const saved=savePending.current!==undefined&&!!m&&!m.busy&&!m.error&&!m.operationError&&c.revision!==savePending.current;
   if(!editing.current||saved||accountChanged){
    const sameMode=c.config&&(c.config.mode==='managed'?'managed':'external')===draftMode.current;
@@ -96,9 +96,9 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
     <ActionRow className="qq-connect-actions">
      {component&&!component.busy&&['missing','ready','error'].includes(component.phase)&&<Button variant="primary" disabled={busy||!component.supported} onClick={()=>void act(endpoint+'/connect')}>{component.phase==='error'?'重试连接':'连接 QQ'}</Button>}
      {component?.phase==='online'&&matchingAccount&&!channel?.config?.enabled&&<Button variant="primary" disabled={locked} onClick={()=>void act(endpoint+'/connect')}>重新连接</Button>}
-     {component?.phase==='login'&&<Button disabled={locked} onClick={()=>void act(endpoint+'/refresh')}>刷新二维码</Button>}
-     {component&&['starting','login','online','error','installing'].includes(component.phase)&&<Button disabled={busy||component.phase==='stopping'} onClick={()=>void act(endpoint+'/stop')}>{component.busy?'取消连接':'断开连接'}</Button>}
-     {!component?.busy&&component?.phase!=='online'&&<Button variant="ghost" disabled={busy} onClick={switchMode}>连接已有服务</Button>}
+     {component?.phase==='login'&&(component.error||!['qrcode_scanned','initializing','reconnecting'].includes(component.loginPhase??''))&&<Button disabled={locked} onClick={()=>void act(endpoint+'/refresh')}>刷新二维码</Button>}
+     {component&&['starting','login','verifying','online','error','installing'].includes(component.phase)&&<Button disabled={busy||component.phase==='stopping'} onClick={()=>void act(endpoint+'/stop')}>{component.busy?'取消连接':'断开连接'}</Button>}
+     {!component?.busy&&component?.phase!=='online'&&component?.phase!=='verifying'&&<Button variant="ghost" disabled={busy} onClick={switchMode}>连接已有服务</Button>}
      {component?.phase==='online'&&<Menu trigger={<Button variant="ghost" disabled={locked}>连接选项</Button>}><Button variant="ghost" disabled={locked} onClick={switchMode}>连接已有服务</Button></Menu>}
     </ActionRow>
     {component?.phase==='missing'&&<p className="muted">首次连接需下载 QQ 组件。{component.engine==='docker'?'请先启动 Docker。':''}</p>}

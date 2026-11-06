@@ -33,6 +33,7 @@ export function qqStatus(mode: QQMode, channel: ChannelStatus, component?: Manag
   if (!component) return { label: '暂时无法获取状态' };
   const { phase, error, loginPhase } = component;
   if (phase === 'error') return { label: '连接异常', error: error ?? component.operationError ?? 'QQ_COMPONENT_UNAVAILABLE' };
+  if (phase === 'verifying') return { label: loginPhase === 'message_service' ? '正在连接消息服务' : loginPhase === 'reconnecting' ? '正在恢复登录服务' : '正在确认登录状态' };
   if (phase === 'login') {
     if (loginPhase === 'reconnecting') return { label: '正在恢复登录服务' };
     if (error) return { label: '登录失败', error };

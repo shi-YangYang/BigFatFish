@@ -105,6 +105,63 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   await call(base+'/stop','POST');releaseContacts();await cancelledRefresh;await until(status,s=>s.phase==='ready'&&!s.busy);expect(await contactList()).toEqual({friends:[],groups:[]});
  }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
 },25000);
+it('confirms the scanned account once the listener is ready and rechecks after transient WebUI loss',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-qq-handover-')));
+ let login=false,accepted=false,webDown=false,applies=0,rejectHandshake=false,observedId='10001',clockOffset=0,loginPhase='';
+ let healthReads=0;
+ const now=Date.now.bind(Date);vi.spyOn(Date,'now').mockImplementation(()=>now()+clockOffset);
+ vi.spyOn(ComponentPlatform.prototype,'install').mockResolvedValue();
+ let ws:WebSocketServer|undefined;
+ const serve=async()=>{
+  const state:ManagedState=JSON.parse(readFileSync(join(p.data,'qq-component','manager.json'),'utf8'));
+  ws=new WebSocketServer({port:state.botPort,host:'127.0.0.1'});
+  await new Promise<void>(r=>ws!.once('listening',r));
+  ws.on('connection',socket=>{
+   if(rejectHandshake){socket.send(JSON.stringify({status:'failed',retcode:1403}));socket.close();return;}
+   socket.on('message',raw=>{
+   const req=JSON.parse(raw.toString());
+   // The first handshake succeeds, then the contact check briefly sees an offline account.
+   const data=req.action==='get_login_info'?{user_id:observedId}:req.action==='get_status'?{online:++healthReads!==2}:[];
+   socket.send(JSON.stringify({echo:req.echo,status:'ok',retcode:0,data}));
+   });
+  });
+ };
+ vi.spyOn(ComponentPlatform.prototype,'start').mockResolvedValueOnce(undefined).mockImplementation(serve);
+ vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{if(ws){for(const s of ws.clients)s.terminate();await new Promise<void>(r=>ws!.close(()=>r()));ws=undefined;}});
+ const {InputError}=await import('../../apps/runtime/src/ai/types.js');
+ vi.spyOn(NapCatClient.prototype,'call').mockImplementation(async(action)=>{
+  if(webDown)throw new InputError('QQ_WEBUI_UNAVAILABLE',409);
+  if(action==='QQLogin/CheckLoginStatus')return {isLogin:login&&!loginPhase,coreReady:login&&!loginPhase,loginPhase,loginError:loginPhase?'upstream detail':'',qrLoginAccepted:accepted,qrcodeurl:'https://example.invalid/fixed-test-qr'};
+  if(action==='QQLogin/GetQQLoginInfo')return {uin:'10001',online:true};
+  if(action==='OB11Config/SetConfig')applies++;
+  return {};
+ });
+ const runtime=await startRuntime(p),base='/v1/channels/qq/component';
+ const status=()=>requestRuntime<ManagedQQStatus>(runtime.connection,base);
+ const act=(action:string)=>requestRuntime(runtime.connection,base+'/'+action,'POST');
+ try{
+  await act('connect');const qr=(await until(status,s=>s.phase==='login'&&!s.busy)).qr;expect(qr).toBeTruthy();
+  // A read interruption must not lose an unchanged QR if the upstream is still waiting for a scan.
+  webDown=true;await until(status,s=>s.phase==='verifying');webDown=false;
+  expect((await until(status,s=>s.phase==='login')).qr).toBe(qr);
+  accepted=true;await until(status,s=>s.phase==='verifying');expect(await status()).toMatchObject({loginPhase:'checking_login'});expect((await status()).qr).toBeUndefined();
+  login=true;await until(status,s=>s.loginPhase==='message_service');expect((await status()).error).toBeUndefined();expect(applies).toBe(1);
+  await serve();
+  await until(status,s=>healthReads>=2&&s.phase==='verifying'&&s.loginPhase==='message_service'&&!s.error);
+  expect((await until(status,s=>s.phase==='online')).account?.id).toBe('10001');expect(applies).toBe(1);
+  webDown=true;await until(status,s=>s.phase==='verifying');expect((await status()).account).toBeUndefined();
+  webDown=false;rejectHandshake=true;
+  expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_COMPONENT_AUTH');
+  rejectHandshake=false;observedId='20002';await act('connect');expect((await until(status,s=>s.phase==='error'&&!s.busy)).error).toBe('QQ_ACCOUNT_CHANGED');
+  observedId='10001';await act('connect');await until(status,s=>s.phase==='online'&&!s.busy);
+  loginPhase='reconnecting';expect((await until(status,s=>s.phase==='verifying')).loginPhase).toBe('reconnecting');
+  loginPhase='offline';expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_ACCOUNT_OFFLINE');
+  loginPhase='';await act('connect');await until(status,s=>s.phase==='online'&&!s.busy);
+  webDown=true;await until(status,s=>s.phase==='verifying');clockOffset=61000;
+  expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_WEBUI_UNAVAILABLE');
+  await act('stop');expect((await until(status,s=>!s.busy)).phase).toBe('ready');
+ }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
+},50000);
 it('stop cancels a pending install without late success and invalid component state does not prevent local Runtime',async()=>{
  const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-cancel-')));vi.spyOn(ComponentPlatform.prototype,'install').mockImplementation(async signal=>{await delay(10000,undefined,{signal});});vi.spyOn(ComponentPlatform.prototype,'stop').mockResolvedValue();const start=vi.spyOn(ComponentPlatform.prototype,'start').mockResolvedValue();
  let runtime=await startRuntime(p);

@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto';
 import { existsSync,readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
-import { setTimeout as delay } from 'node:timers/promises';
 import type { FastifyInstance } from 'fastify';
 import { InputError,object } from '../../ai/types.js';
 import { assertRegular,type DataPaths } from '../../paths.js';
@@ -19,6 +18,8 @@ export function onebotConfig(state:ManagedState,native:boolean){return {network:
 export class ManagedQQ {
  private resumeIntent?:{revision:string;accountId:string};private activationVersion=0;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
  private job?:Promise<void>;private control?:AbortController;private generation=0;private running=false;private closed=false;private timer?:ReturnType<typeof setTimeout>;private configuredAccount='';private qrUrl='';
+ // Applying OneBot configuration may start its listener asynchronously. Track the write separately from the verified identity.
+ private appliedAccount='';private readinessDeadline=0;private pollBlocked=false;
  private lists:{friends:QQContact[];groups:QQContact[];error?:string}={friends:[],groups:[]};
  private contactsAccount='';private contactsSequence=0;private contactsJob?:{accountId:string;generation:number;promise:Promise<ReturnType<ManagedQQ['contactList']>>};
  readonly directory:string;private stateFile:string;
@@ -52,9 +53,9 @@ export class ManagedQQ {
   }catch(error){
    if(!current())throw new InputError('CANCELLED',409);
    const code=error instanceof InputError?error.message:'';
-   if(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE')this.clearContacts();
+   if(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE'||code==='QQ_COMPONENT_AUTH')this.clearContacts();
    else this.lists={...this.lists,error:'QQ_CONTACTS_UNAVAILABLE'};
-   throw new InputError(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE'?code:'QQ_CONTACTS_UNAVAILABLE',409);
+   throw new InputError(code==='QQ_ACCOUNT_CHANGED'||code==='CHANNEL_OFFLINE'||code==='QQ_COMPONENT_AUTH'?code:'QQ_CONTACTS_UNAVAILABLE',409);
   }
  }
  refreshContacts(){
@@ -100,7 +101,12 @@ export class ManagedQQ {
   const current=this.channels.status();
   if(current.config?.enabled&&current.config.mode!=='managed')throw new InputError('QQ_EXTERNAL_ACTIVE',409);
   this.resumeIntent=current.config?.mode==='managed'?{revision:current.revision,accountId:current.config.accountId}:undefined;
-  return this.launch(this.running?this.view.phase:this.state.installed?'starting':'installing',async(signal,generation)=>{
+  // Only an explicit retry may restart an unreachable component or an expired QQ session.
+  const restart=this.running&&this.pollBlocked&&['QQ_WEBUI_UNAVAILABLE','QQ_COMPONENT_AUTH','QQ_ACCOUNT_OFFLINE','QQ_LOGIN_INITIALIZING','QQ_LOGIN_RECONNECTING'].includes(this.view.error??'');
+  if(this.pollBlocked)this.appliedAccount='';
+  this.pollBlocked=false;this.readinessDeadline=0;
+  return this.launch(this.running?'verifying':this.state.installed?'starting':'installing',async(signal,generation)=>{
+   if(restart){await this.platform.stop();this.running=false;signal.throwIfAborted();}
    if(!this.state.installed){await this.platform.install(signal);signal.throwIfAborted();this.state.installed=true;this.persist();}
    signal.throwIfAborted();
    if(this.running){await this.poll(generation);return;}
@@ -117,32 +123,66 @@ export class ManagedQQ {
    writePrivate(join(this.directory,'work','config','webui.json'),{host:this.platform.native?'127.0.0.1':'0.0.0.0',port:this.platform.native?this.state.webPort:6099,token:this.state.webToken,loginRate:10,autoLoginAccount:''});
    writePrivate(join(this.directory,'work','config','onebot11.json'),onebotConfig(this.state,this.platform.native));
    signal.throwIfAborted();
-   try{this.componentTouched=true;await this.platform.start();signal.throwIfAborted();this.running=true;this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
-   for(let attempt=0;attempt<60;attempt++){signal.throwIfAborted();try{await this.poll(generation);return;}catch{await delay(1000,undefined,{signal});}}throw new InputError('QQ_COMPONENT_START_FAILED');}
+   try{this.componentTouched=true;await this.platform.start();signal.throwIfAborted();this.running=true;this.pollBlocked=false;this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
+   await this.poll(generation);}
    catch(error){this.running=false;await this.platform.stop();this.componentTouched=false;throw error;}
 
  }
- private schedule(){clearTimeout(this.timer);if(!this.running||this.closed||this.job)return;this.timer=setTimeout(()=>{const generation=this.generation;void this.poll(generation).catch(error=>{if(generation===this.generation){this.view.error=this.error(error);this.view.phase='error';this.view.qr=undefined;}}).finally(()=>this.schedule());},3000);}
+ private schedule(){
+  clearTimeout(this.timer);if(!this.running||this.closed||this.job||this.pollBlocked)return;
+  this.timer=setTimeout(()=>{void this.poll(this.generation).finally(()=>this.schedule());},3000);
+ }
  private async poll(generation:number){
+  try{await this.checkLogin(generation);}
+  catch(error){
+   if(generation!==this.generation||!this.running)return;
+   const code=this.error(error);
+   const retry=code==='QQ_WEBUI_UNAVAILABLE'||code==='QQ_ONEBOT_UNAVAILABLE'||code==='QQ_LOGIN_INITIALIZING'||code==='QQ_LOGIN_RECONNECTING';
+   // The same deadline covers the entire handover, even if the failing endpoint changes.
+   if(!this.readinessDeadline)this.readinessDeadline=Date.now()+60000;
+   const waiting=retry&&Date.now()<this.readinessDeadline;
+   this.configuredAccount='';this.clearContacts();
+   this.pollBlocked=!waiting;
+   this.view={...this.view,phase:waiting?'verifying':'error',loginPhase:code==='QQ_ONEBOT_UNAVAILABLE'?'message_service':code==='QQ_LOGIN_RECONNECTING'?'reconnecting':'checking_login',
+    account:undefined,qr:undefined,error:waiting?undefined:code};
+  }
+ }
+ private async checkLogin(generation:number){
   const status=await this.client!.call('QQLogin/CheckLoginStatus');if(generation!==this.generation||!this.running)return;
   if(status.isLogin!==true||status.coreReady!==true){
-   this.configuredAccount='';this.clearContacts();
-   this.view={...this.view,phase:'login',account:undefined,error:status.loginError?'QQ_LOGIN_FAILED':undefined,loginPhase:typeof status.loginPhase==='string'?status.loginPhase:undefined};
-   if(typeof status.qrcodeurl==='string'&&status.qrcodeurl.length<4096&&status.qrcodeurl!==this.qrUrl){const qr=await qrcode.toDataURL(status.qrcodeurl,{width:240,margin:2});if(generation!==this.generation)return;this.qrUrl=status.qrcodeurl;this.view.qr=qr;}
+   if(status.loginPhase==='reconnecting')throw new InputError('QQ_LOGIN_RECONNECTING',409);
+   if(status.loginPhase==='offline'||status.isOffline===true)throw new InputError('QQ_ACCOUNT_OFFLINE',409);
+   if(!status.loginError&&(status.qrLoginAccepted===true||status.isLogin===true))throw new InputError('QQ_LOGIN_INITIALIZING',409);
+   this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.clearContacts();
+   const url=typeof status.qrcodeurl==='string'&&status.qrcodeurl.length<4096?status.qrcodeurl:'';
+   const qr=url?(this.view.qr&&url===this.qrUrl?this.view.qr:await qrcode.toDataURL(url,{width:240,margin:2})):undefined;
+   if(generation!==this.generation)return;this.qrUrl=url;
+   this.view={...this.view,phase:'login',account:undefined,qr,error:status.loginError?'QQ_LOGIN_FAILED':undefined,loginPhase:typeof status.loginPhase==='string'?status.loginPhase:undefined};
    return;
   }
-  const info=await this.client!.call('QQLogin/GetQQLoginInfo'),id=stableId(info.uin);if(info.online!==true)throw new InputError('CHANNEL_OFFLINE',409);
-  if(generation!==this.generation)return;
+  const info=await this.client!.call('QQLogin/GetQQLoginInfo');if(generation!==this.generation)return;
+  if(info.online!==true)throw new InputError('QQ_LOGIN_INITIALIZING',409);
+  const id=stableId(info.uin);
   const existing=this.channels.status();
   if(existing.config?.mode==='managed'&&existing.config.accountId!==id&&existing.config.enabled)this.channels.enable(false);
   if(this.configuredAccount!==id){
    this.clearContacts();
-   await this.client!.call('OB11Config/SetConfig',{config:JSON.stringify(onebotConfig(this.state,this.platform.native))});
+   this.view={...this.view,phase:'verifying',loginPhase:'message_service',qr:undefined,account:undefined,error:undefined};
+   if(this.appliedAccount!==id){
+    await this.client!.call('OB11Config/SetConfig',{config:JSON.stringify(onebotConfig(this.state,this.platform.native))});
+    if(generation!==this.generation)return;this.appliedAccount=id;
+   }
+   const [login,health]=await Promise.all([onebotRead(this.state.botPort,this.state.botToken,'get_login_info'),onebotRead(this.state.botPort,this.state.botToken,'get_status')]) as [{user_id:unknown},{online:boolean}];
    if(generation!==this.generation)return;
-   const login=await onebotRead(this.state.botPort,this.state.botToken,'get_login_info') as {user_id:unknown};if(stableId(login.user_id)!==id)throw new InputError('QQ_ACCOUNT_CHANGED',409);
-   if(generation!==this.generation)return;this.configuredAccount=id;
-   try{await this.readContacts(id,generation);}catch(error){if(error instanceof InputError&&error.message!=='QQ_CONTACTS_UNAVAILABLE')throw error;}
-
+   if(stableId(login.user_id)!==id)throw new InputError('QQ_ACCOUNT_CHANGED',409);
+   if(health.online!==true)throw new InputError('QQ_ONEBOT_UNAVAILABLE',409);
+   this.configuredAccount=id;
+   try{
+    await this.readContacts(id,generation);
+   }catch(error){
+    if(error instanceof InputError&&error.message==='CHANNEL_OFFLINE')throw new InputError('QQ_ONEBOT_UNAVAILABLE',409);
+    if(!(error instanceof InputError)||error.message!=='QQ_CONTACTS_UNAVAILABLE')throw error;
+   }
   }
   if(generation!==this.generation)return;
   const intent=this.resumeIntent,saved=this.channels.status();
@@ -150,7 +190,7 @@ export class ManagedQQ {
   if(intent&&intent.accountId===id&&intent.revision===saved.revision&&saved.config?.mode==='managed'&&saved.config.accountId===id){
    this.channels.save({...saved.config,enabled:true,revision:intent.revision,url:`ws://127.0.0.1:${this.state.botPort}`,token:this.state.botToken});
   }
-  this.view={...this.view,phase:'online',account:{id,name:String(info.nick??id).slice(0,100)},qr:undefined,error:undefined,loginPhase:undefined};
+  this.readinessDeadline=0;this.view={...this.view,phase:'online',account:{id,name:String(info.nick??id).slice(0,100)},qr:undefined,error:undefined,loginPhase:undefined};
  }
  configure(input:unknown){
   const body=object(input),current=this.channels.status();

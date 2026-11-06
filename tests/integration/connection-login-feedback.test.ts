@@ -70,6 +70,10 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     await noAlert();
     component.loginPhase = 'qrcode_scanned';
     await badge('等待手机确认').waitFor(); await noAlert();
+    Object.assign(component, { phase: 'verifying', loginPhase: 'message_service', qr: undefined });
+    await badge('正在连接消息服务').waitFor(); await noAlert();
+    expect(await page.getByRole('button', { name: '刷新二维码' }).count()).toBe(0);
+    expect(await page.getByRole('button', { name: '断开连接' }).isEnabled()).toBe(true);
     Object.assign(component, { phase: 'online', account: { id: '10001', name: '测试' }, qr: undefined, loginPhase: undefined });
     channel.health = { state: 'online' };
     await badge('已连接').waitFor(); await noAlert();
