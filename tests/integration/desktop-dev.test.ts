@@ -115,7 +115,7 @@ test('unexpected runtime termination closes desktop and fails the session', asyn
 
 test('expected-instance shutdown refuses a replacement before sending shutdown', async () => temporary(async dataDir => {
   const session = await startDevelopment({ ...options, dataDir });
-  const { stop } = await import('../../apps/cli/src/process.js');
+  const { stop } = await import('../../apps/cli/src/runtime/process.js');
   try {
     await expect(stop(paths(dataDir), 'a-different-instance')).rejects.toThrow('INSTANCE_CHANGED');
     expect(readConnection(paths(dataDir)).instanceId).toBe(session.connection.instanceId);

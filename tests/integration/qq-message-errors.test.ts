@@ -11,7 +11,7 @@ import {requestRuntime} from '../../apps/runtime/src/connection.js';
 import type {ChatMessage} from '../../apps/runtime/src/ai/types.js';
 import type {ChannelStatus,SendResult} from '../../apps/runtime/src/channels/types.js';
 import {onebotFixture} from '../fixtures/onebot.js';
-import {qqAuditText} from '../../apps/desktop/src/components/qq-feedback.js';
+import {qqAuditText} from '../../apps/desktop/src/features/connections/qq/qq-feedback.js';
 type DeliveryRecord=SendResult&{error?:string|null};
 const until=async<T>(read:()=>Promise<T>,done:(v:T)=>boolean)=>{let v=await read();for(let i=0;i<300&&!done(v);i++){await delay(50);v=await read();}expect(done(v),JSON.stringify(v)).toBe(true);return v;};
 const event=(id:string)=>({post_type:'message',message_type:'private',self_id:'10001',user_id:'20002',message_id:id,message:[{type:'text',data:{text:'你好'}}]});

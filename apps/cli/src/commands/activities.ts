@@ -1,0 +1,14 @@
+import {readInput as input} from '../io/input.js';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createRuntimeClient } from '../runtime/client.js';
+import type { DataPaths } from '../../../runtime/src/paths.js';
+export async function activityCommand(p:DataPaths,args:string[],output:(v:unknown)=>void) {
+ const [command, action = 'status', id] = args;
+ const { request: call } = createRuntimeClient(p);
+ let result: unknown;
+ if(command==='douyin'){
+  if(action==='status')result=await call('/v1/douyin');else if(action==='configure')result=await call('/v1/douyin','PUT',await input(24_000_100));else if(action==='browsers')result=await call('/v1/douyin/browsers');else if(action==='close')result=await call('/v1/douyin/close','POST');else if(['read','watch','write'].includes(action)){const b=await input(24_000_100);result=await call(`/v1/douyin/${action}`,'POST',{...b,requestId:b.requestId??randomUUID()});}else if(action==='upload'&&id)result=await call('/v1/douyin/attachments','POST',{data:readFileSync(id).toString('base64')});else if(['approvals','propose','decide','revoke'].includes(action))throw new Error('DOUYIN_APPROVAL_REMOVED: 请使用 douyin write');else throw new Error('INVALID_ARGUMENTS');
+ }else if(command==='activities'){if(action==='status')result=await call('/v1/activities');else if(action==='audit')result=await call('/v1/activities/audit');else if(['pause','resume'].includes(action))result=await call('/v1/activities/pause','POST',{paused:action==='pause'});else if(action==='cancel'&&id)result=await call(`/v1/activities/${encodeURIComponent(id)}/cancel`,'POST');else throw new Error('INVALID_ARGUMENTS');}
+ else{if(action==='status')result=await call('/v1/schedules');else if(action==='save')result=await call('/v1/schedules','POST',await input(24_000_100));else if(action==='run'&&id)result=await call(`/v1/schedules/${encodeURIComponent(id)}/run`,'POST');else if(action==='delete'&&id)result=await call(`/v1/schedules/${encodeURIComponent(id)}`,'DELETE');else throw new Error('INVALID_ARGUMENTS');}output(result);
+}

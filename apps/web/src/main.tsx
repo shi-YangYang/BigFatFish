@@ -3,13 +3,9 @@ import { Field, Input, Button } from "../../desktop/src/components/Controls";
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import App from "../../desktop/src/App";
-import {
-  webRequest,
-  errorText,
-  getWebSession,
-  subscribeWebSession,
-} from "../../desktop/src/api";
-import "../../desktop/src/style.css";
+import { webRequest, getWebSession, subscribeWebSession } from "../../desktop/src/api/web-session";
+import { errorText } from "../../desktop/src/api/errors";
+import "../../desktop/src/styles/style.css";
 import { FishAvatar, fishGirl } from "../../desktop/src/components/UI";
 const favicon = document.createElement("link");
 favicon.rel = "icon";

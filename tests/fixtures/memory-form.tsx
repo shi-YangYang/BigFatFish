@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Memories } from '../../apps/desktop/src/components/Memories';
+import { Memories } from '../../apps/desktop/src/features/fish/Memories';
 import type { Memory } from '../../apps/runtime/src/memory/types';
 
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});

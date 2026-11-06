@@ -1,122 +1,52 @@
 # 技术栈与工程边界
 
-## 已确定的产品方向
+BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。桌面、浏览器和 CLI 共用 Runtime 的业务接口。仓库用 npm 单根依赖清单和 lockfile 管理 TypeScript 源码，跨入口复用普通模块。服务边界及请求流程见 [架构](../docs/design/architecture.md)。
 
-依据 [产品基线](../BigFatFish_产品设计目标.md)：主 Runtime 为 Node.js + TypeScript，核心服务名 `bigfatfishd`；桌面采用 Tauri 2 + Rust、React + TypeScript；CLI 使用 TypeScript。SQLite 保存结构化数据，Markdown/JSON 保存可读记忆。Python 仅作为独立辅助服务；Playwright 用于浏览器自动化；Linux 部署目标为 Docker 与 systemd。
+## 运行与构建依赖
 
-DSH Harness 是首选引擎，由 `AgentEngine`/`DSHAdapter` 隔离。P0/P1已有实际本机与Linux路径，Node最低24.9；具体实现与外部验证状态以根 IMPLEMENTATION_STATUS.md 为准。
+| 部分 | 选型与约束 |
+| --- | --- |
+| Runtime、CLI | Node.js `>=24.9.0 <25`、TypeScript 5.9、Fastify 5、WebSocket、内置 `node:sqlite`。命令入口为 `bigfatfishd` 和 `bigfatfish`。 |
+| 引擎与模型 | `DSHAdapter` 实现 `AgentEngine`，使用固定的 DSH SDK 与模型适配包 `0.2.2-alpha.2`。Runtime 管理 OpenAI 兼容与 DeepSeek 聊天配置、模型发现和连接诊断。 |
+| 共享界面 | React 19、Vite 8、TypeScript。beUI 组件以源码引入，Tailwind 4 和 Motion 用于样式与交互，Desktop/Web 构建均携带 beUI 许可证。 |
+| 桌面宿主 | Tauri 2、Rust 1.90+，使用 autostart 与 updater 插件。原生宿主负责本机凭据、IPC、启动和维护。 |
+| 平台与外部依赖 | QQ 使用原版 NapCat 和 OneBot；B站复用 whale，抽帧使用 ffmpeg；抖音使用专用 Chromium、Playwright/CDP、独立 Python FastMCP 辅助服务。按平台启用和准备相应依赖。 |
+| 构建与检查 | npm scripts、TypeScript、Vitest、ESLint。发行准备与 Dockerfile 固定 Node 24.20.0，便携包携带目标平台的 Node 与生产依赖。 |
+
+具体版本以 [package.json](../package.json)、[package-lock.json](../package-lock.json) 和 [Rust 清单](../apps/desktop/src-tauri/Cargo.toml) 为准。第三方代码来源与许可证见 [上游记录](../docs/upstreams.md)。
 
 ## 目录与职责
 
 | 位置 | 职责 |
 | --- | --- |
-| `apps/runtime/src/` | 独立 Runtime 入口及内部业务模块；人格、记忆、模型、调度、权限、存储统一归属此层 |
-| `apps/cli/src/` | `bigfatfish` 命令行入口，调用 Runtime，不复制业务规则 |
-| `apps/desktop/src/` | React 界面，通过 Runtime 客户端访问核心 |
-| `apps/web/` | React 浏览器入口与 Web 设置，复用桌面业务组件；TLS 网关在 Runtime 的 web 模块 |
-| `apps/desktop/src-tauri/src/` | Rust 桌面外壳与本机进程连接；窗口关闭与停止 Runtime 分离 |
-| `plugins/` | 随项目维护的平台与能力插件源码，不是用户安装插件的数据目录 |
-| `services/` | 按需接入的 Python 等独立辅助服务 |
-| `infra/docker/`、`infra/systemd/` | 非 root Docker/Compose 与 systemd 用户服务；P6 已有隔离 Linux 实例运行证据，本地代码返工独立PASS |
-| `scripts/` | Runtime 资源复制、CLI smoke、独立发行包与桌面更新归档生成 |
-| `tests/integration/`、`tests/e2e/` | Vitest 跨模块集成与后续端到端测试；局部单元测试随模块放置 |
-| `docs/` | 上游研究、开发者详细文档和 docs/progress 连续记录；最新全阶段任务指定的产品原稿及 ROADMAP/CHANGELOG/ARCHITECTURE/CONTRIBUTING/SECURITY/IMPLEMENTATION_STATUS 位于根目录 |
-| `constitution/`、`specs/`、`.ai/` | 项目约束、规格与 Agent 协作治理，遵守根 AGENTS.md |
+| `apps/runtime/src/` | `server.ts`、`lifecycle.ts` 等负责本机 API、实例与生命周期；`ai/`、`memory/`、`tasks/` 负责引擎、养成和调度。QQ 在 `channels/`，B站与抖音在 `bilibili/`、`douyin/`；存储、维护、插件与 Web 网关有独立模块。 |
+| `apps/cli/src/` | `main.ts` 分派命令，`commands/` 处理子命令，`io/input.ts` 读取输入，`runtime/` 负责客户端请求和进程控制。 |
+| `apps/desktop/src/` | React 入口和双端业务界面。`features/` 按聊天、连接、我的鱼、设置分区；`components/` 放通用组件和 beUI，`api/` 封装请求及事件传输，`hooks/`、`styles/`、`assets/` 放共享钩子、样式及资源。 |
+| `apps/desktop/src-tauri/src/`、`apps/web/src/` | 前者是 Rust 宿主，后者提供浏览器登录及 Web 管理设置，复用桌面业务组件。HTTPS 网关位于 `apps/runtime/src/web/`。 |
+| `plugins/`、`services/douyin/` | 随项目维护的平台适配代码、普通源码 SDK 和抖音 Python 辅助服务。第三方插件示例在 `examples/hello-fish/`。 |
+| `infra/docker/`、`infra/systemd/`、`scripts/` | Linux 部署配置；构建资源复制、开发进程管理、独立发行及签名归档脚本。 |
+| `tests/integration/`、`tests/fixtures/` | Vitest 跨模块检查、协议与界面夹具。模块级测试随源码存放。 |
+| `docs/`、`.github/` | 使用与开发指南、设计资料、阶段记录；贡献指南、安全问题报告和 CI 工作流。 |
+| `constitution/`、`specs/`、`.ai/` | 长期项目约束、各项规格及验收、决策与协作规则。 |
 
-这些目录是按产品边界建立的源码位置；后续可在内部扩展，不能未经用户授权迁移。仅使用 `.gitkeep` 保存空目录，不把空目录声称为已工作的应用、插件或服务。P7 Web 新增入口源码，保持单根依赖清单与既有业务目录。
+## 开发、运行与部署
 
-## 工程惯例依据
+在仓库根目录执行以下命令。源码 CLI 使用编译后的入口；安装包的 CLI 使用随包 Node。
 
-- `apps/` 按 Runtime、CLI、Desktop 划分入口源码。用户明确选择普通源码模块封装，不建立独立公共包或多包 workspace；不为复用增加独立 package.json、版本管理和发布流程。
-- 桌面前端与 `src-tauri/` 的位置遵循 [Tauri 2 官方目录说明](https://v2.tauri.app/start/project-structure/)。
-- P0 采用 Node 24、npm 单根依赖清单与 package-lock，Fastify、node:sqlite，React/Vite/Tauri2，Vitest/ESLint。依赖实际版本在 registry 核实后锁定，详见 Decision 002。
+| 目的 | 命令 |
+| --- | --- |
+| 安装锁定依赖 | `npm ci` |
+| 构建 Runtime/CLI 及其资源 | `npm run build:node` |
+| 启动或查询后台 | `npm run cli -- start`、`npm run cli -- status`；以前台进程运行用 `npm run runtime` |
+| 桌面联调 | `npm run desktop:dev` 编译并托管本仓库的 Runtime、Vite 和 Tauri。退出开发窗口时回收开发进程，后端源码变更后需重新运行。 |
+| 构建桌面前端或 Web | `npm run build:desktop`、`npm run build:web`；`npm run build` 构建 Node 和两个前端。 |
+| 生成便携目录或原生安装包 | `npm run release:prepare`、`npm run desktop:build` |
+| 工程检查 | `npm run typecheck`、`npm run lint`、`npm test`；按变更风险选择相关检查，纯文档改动通常只核对 diff。 |
 
-## 模块封装与复用
+Linux 可运行便携包里的 `bin/bigfatfishd`，也可使用非 root Docker/Compose 或 systemd 用户服务。管理 API 仅监听回环；浏览器远程管理须单独配置并启动 HTTPS 网关。安装和备份步骤见 [安装与迁移](../docs/install-and-migrate.md)，插件协议和网关设置见 [开发者指南](../docs/developer.md)。
 
-后端以职责明确的普通源码模块组织，例如服务模块、工具模块和适配器；前端使用组件和 hooks。模块通过明确的导出接口调用，不为拆分而增加包管理层。
+## 数据与协作约束
 
-AgentEngine 抽象、DSHAdapter、插件管理和相关类型先在 apps/runtime/src 内按实际实现封装。跨入口确实需要共享的纯类型、工具或请求代码，再提取为普通共享源码模块，不预建空 shared 目录。P7插件SDK已在plugins/sdk以普通源码模块提供，不建立独立npm包。共享模块不承载绕过 Runtime 的数据库或平台控制入口。
+安装目录与用户数据分离。数据目录按 `--data-dir`、`BIGFATFISH_DATA_DIR`、操作系统默认目录依次选择，包含 `config/`、`data/`、`runtime/`、`logs/`。开发可显式选用 `.local/bigfatfish/`；自动化使用隔离临时目录。Runtime 管理 SQLite 事务、迁移、凭据和账号权限，前端与插件通过其公开能力访问数据。[数据路径实现](../apps/runtime/src/paths.ts)
 
-## 依赖方向与数据边界
-
-`Desktop / CLI / Web → Runtime API/IPC → Runtime 内部模块 → engine / plugins / storage`。
-
-入口不得直接访问 SQLite 或控制平台插件。平台 Adapter 转换统一消息；所有平台共享人格、记忆和调度。插件按权限获得能力，不把同进程加载称为安全沙箱。远程管理默认不开放公网，后续必须认证授权并使用 HTTPS/WSS。
-
-安装目录与用户数据目录分离。P0 已实现系统数据路径、可覆盖 data-dir、SQLite 版本迁移，以及 config/data/runtime/logs 分区，见 README。开发时可使用被忽略的 `.local/bigfatfish/`；测试使用独立临时目录并清理，不写入用户实际数据。
-
-## P0 实施约定与后续边界
-
-- 默认 loopback 管理 API，随机 bearer token 保存在本机权限受限文件；不开放未受保护的远程接口。
-- 使用 Node 24 内置 node:sqlite（本机已实际创建内存数据库并查询版本），迁移版本与失败处理必须测试。
-- CLI/Runtime 共用普通连接、路径等源码模块；Tauri 以原生宿主连接 Runtime，UI 不直接访问数据库。
-- 类型/Lint/单元/集成/运行验证为用户明确要求；本阶段涉及 schema、认证和构建，按 S3 检查。
-- DSH 通过官方 @deepseek-ai/dsh-sdk-client 与同版 @deepseek-ai/dsh 接入；P1 固定实际发布的 0.2.2-alpha.2，受控 profile 与桥接插件封装在 Adapter 内。细节见 docs/upstreams.md，master 接口不能替代发布包证据。
-- B站主要上游已由用户确认 Alterssss/dsh-bili-whale，另参考 pond/life；所有准确仓库及接口边界见 docs/upstreams.md。QQ、抖音真实账号验证单列，不能假装已经连接。
-
-## 当前命令与验证
-
-运行命令以根 package.json 和 README 为准，模型/人格/会话及记忆/生活用法见docs/ai-core.md，QQ用法见docs/qq.md，B站用法见docs/bilibili.md，抖音/活动/调度见docs/douyin.md。P1经真实DSH、CLI、桌面与Linux镜像验证；P2记忆与P3 schema4/channels/内置QQ插件及审批的本机路径和返工已独立PASS。P4新增schema5视频任务、Runtime bilibili模块及固定whale插件依赖闭包；qrcode1.5.4由根管理，ffmpeg为明确外部依赖，统一DSH接受有界图像，本机检查与独立代码验收通过。
-
-P5新增schema6活动/请求映射/计划、共用permissions审批、douyin浏览器/MCP与ai/media。根管理playwright-core1.58.2，Python辅助服务在services/douyin，固定依赖/完整锁定清单与独立venv步骤见使用文档；实际浏览器由Runtime拥有，Python严格CDP复用。ASR用统一配置的OpenAI兼容转写接口，P7补统一TTS消费者。核心本机链路、headless React和原生Mac操作已有证据；本地代码返工已独立PASS。HTTP重定向/Worker按实际target归属检查，未知WS/WSS由启动前本机拒绝代理拦截；专用浏览器HTTP/HTTPS直连、不继承系统代理。DM/分享/上传发布wire未确认而拒绝，部分实现。阶段结果见 [实际状态](../IMPLEMENTATION_STATUS.md) 和 [开发记录](../docs/progress/development.md)，未完成验证不得写成通过。
-
-P6 实施完成，本地代码返工独立PASS。`maintenance/` 统一一致快照、选择性逻辑归档、凭据加密、恢复与更新 journal；CLI 和桌面调用同一核心。固定锁在 runtime 分区，更新保留旧程序与数据；macOS 首次启动失败后使用显式人工回退。安装与迁移说明见 [docs/install-and-migrate.md](../docs/install-and-migrate.md)。
-
-发行包固定官方 Node 24.20.0，按目标系统校验并安装生产依赖；构建暂存 manifest 不构成源码分包。`npm run release:prepare` 生成 portable 资源，`npm run desktop:build` 准备资源后执行 Tauri 真实 bundle；`desktop:dev` 由独立开发 supervisor 自动编译当前 Node 代码并管理 Runtime/Vite/Tauri，不依赖发行资源准备。Rust 最低 1.90，autostart 2.7.0、updater 2.14.1；桌面采用官方 Minisign 与签名版本绑定，portable 使用 Ed25519 签名清单，均无默认测试信任源。根 tar 7.5.22 用于受限解包。
-
-Mac 已有 ad-hoc app/DMG 安装与实际升级/人工回退，Linux arm64 portable、Docker/Compose/systemd 已有运行证据；Windows 构建及实机、正式签名公证与发布、跨 schema 升级、实际注销/重启仍未验证。现有 schema 仍为 6，本地代码验收不等同完整跨平台交付。
-
-P7 本地代码及三项返工已通过新的独立验收，最终Mac app/DMG/portable资源一致。web 模块使用独立 TLS 网关/登录会话代理同一 Runtime；维护期间网关存活，调用原核心停服、维护和重启。`web configure/serve` 显式启用；网关锁阻止在线换密，停止后配置重启撤销旧会话。schema 保持 6，SDK 状态复用 plugin_config；逻辑备份去除插件安装路径、安装状态和授权，不迁移 Web 会话。
-
-SDK 源码在 `plugins/sdk/`，示例在 `examples/hello-fish/`，无独立 npm 包。build:node 生成随包平台目录、SDK 和示例，build:web 生成 dist/web，根 build 构建各入口，release:prepare 包含 Web。动态插件以受限 RPC 访问宿主能力，真实系统权限仍属于运行用户；平台适配沿用各自可信执行方式。详细协议、有限 schema、模型/媒体消费者及开发命令以 [开发者指南](../docs/developer.md) 为准。
-
-P7 Linux发行补充：Docker构建同时运行build:node/build:web；Linux/arm64镜像和独立归档的SDK/真实DSH工具/TLS入口已在非root隔离容器实跑并获新独立PASS，未重新覆盖裸机/x64或P6完整维护矩阵。该轮证据见Spec009 Plan与本机build/p7-evidence。
-
-后续Mac↔Linux arm64迁移发现并修复共用CLI stop提前成功：连接消失不足以证明停机，现等待实例锁释放并在锁内复核身份；维护操作仍独立取锁。新产物完成无绕行的直接备份/恢复、DSH续聊和记忆/凭据/恢复失权验证，经新的独立验收PASS。当前Mac portable/app/DMG及Linux归档/镜像均已同步，最终路径与哈希见Spec008 Plan和本机build/p6-stop-rework/evidence.json；之前产物哈希保留为历史，Windows/真实云账号/跨schema限制不变。
-
-Linux x64发行补充复用同一Dockerfile和release脚本，无生产源码或依赖修改；本机Docker amd64模拟环境已实际运行x64 Node/SQLite/Runtime/DSH/SDK/TLS，独立包脱离源码目录仅用随包Node通过，新独立验收PASS。产物build/p6-linux-x64及build/artifacts同名linux-x64归档，命令/哈希/环境与清理见Spec008 Plan和build/p6-linux-x64-evidence/evidence.json。Mac/arm64既有产物未覆盖，原生x64 VPS、Windows和真实云账号仍未验证；用户已要求真实服务先保留待验项。
-
-## 托管桌面开发（Spec022）
-
-`scripts/desktop-dev*.mjs` 统一开发源码准备、数据目录、同仓库旧后台接管与受管退出；独立 IPC worker 不改变安装版 daemon 入口。原生 `development.rs` 仅在 debug 且显式开发环境启用，使用本机 Node/当前 CLI；正式后台常驻语义不变。进程归属核实、expected-instance 停机、独立开发锁和 Windows Tauri Job Object 保护无关实例。后端源码改动重新运行命令；相关验证范围见 Spec022。
-
-`development.rs` 同时统一托管原生维护策略：备份导出/恢复、安装更新和应用重启在副作用前拒绝，CLI 适配器使用同一策略；只读检查保留。维护数据先退出开发会话再用独立 CLI，应用更新使用正常安装版，开发重启重新执行命令，避免 supervisor 回收正在维护的子进程。
-
-## beUI 前端组件（Spec013–014）
-
-用户明确指定beUI并要求所有适用组件迁移；按其官方源码分发方式将Button、表单、页签、抽屉、菜单、折叠、提示、状态、卡片、加载、导航与聊天原语放在apps/desktop/src/components/beui/，Controls.tsx、UI.tsx与Surfaces.tsx提供面向本产品的薄组合入口，Desktop/Web共用。固定上游starc007/ui-components revision6f153a06d2225ba07a0137f317ce19faf8da69ef，MIT和本地尺寸/交互适配说明随源保留，两个Vite构建都输出beui-LICENSE.txt。
-
-根devDependencies固定tailwindcss与@tailwindcss/vite 4.3.4、motion14.9.0、clsx2.1.1、tailwind-merge3.7.0；Spec014按官方源码依赖闭包新增lucide-react1.67.0与@floating-ui/dom1.8.0，不升级其他依赖。它们构建时进入前端bundle，不是Runtime新增运行依赖。Tailwind仅引入主题/utility，不启用Preflight，通过明确source路径扫描实际组件；清理被替代的旧控件CSS。尺寸采用px避免根字号14px造成rem缩小，DS蓝语义token通过beui-theme.css映射。
-
-Input保留真实原生事件及属性，Select/Checkbox使用显式值回调；业务状态留在原页面。PromptInput保留Enter换行、发送期间继续编辑与Chat草稿/请求归属。中文Tabs唯一标识、浮层焦点和无障碍行为在组件职责层适配。无独立通用Textarea的长文本编辑、隐藏file input、audio、品牌图与普通语义布局保留原生元素，不把它们称作beUI组件。无需数据迁移。最终覆盖与验收以Spec014为准。
-
-## 模型与实时体验（Spec019）
-
-用途统一为chat/asr/tts，聊天默认多模态且供记忆、日记和活动复用。旧高级参数兼容读取但不再覆盖生成。OpenAI经每轮受限转发移除SDK强塞的输出上限，DeepSeek沿用协议必需的适配器默认。Desktop认证NDJSON经原生IPC转交页面，Web通过认证WebSocket共享分批历史与实时事件，不暴露Bearer；临时错误使用共享beUI通知自动收起。固定DSH旧Session的maxTokens兼容及升级限制见Decision012。
-
-## 模型连接诊断与推理（Spec015）
-
-模型发现和短生成诊断归属Runtime ai普通模块，Desktop/Web仍通过认证API访问；诊断不保存配置或写聊天。ModelConfig增加可选reasoningEffort，保存在原config JSON，schema仍为6。固定DSH0.2.2-alpha.2通过profile的适配器默认值传递推理强度；OpenAI显式配置同时声明reasoningEfforts及标准协议映射，默认态保持原行为，DeepSeek沿用Messages。恢复会话不持久化这些适配器默认值，因此后续修改或切回默认能够重新解析。无新依赖或引擎替换，源码与实际wire验收见Spec015及Decision011。
-
-
-## 内置 QQ 组件管理（Spec023）
-
-`apps/runtime/src/channels/managed/` 管理固定原版 NapCat 的安装、WebUI 认证、二维码、只读联系人发现和生命周期；`QQConnection.tsx` 使用现有 beUI 组件提供快速连接/已有服务入口。内部地址、凭据与账号由 Runtime 绑定，主人/好友/群仍需明确配置。Spec025/Decision015 更新QQ回复与主动发送规则，Spec041 随后统一取消其余平台逐条审批。没有新增 npm 包或 schema migration。
-
-Mac/Linux 使用本机 Docker（固定 amd64/arm64 manifest digest、回环映射、实例标签与私有数据目录）；Windows x64 使用固定 SHA256 原版 Windows.Node 包、受限 ZIP 解包与 Job Object。QQ 数据在 `data/qq-component/`，不共享日常 QQ，不改系统 QQ 或安全设置。便携逻辑备份不包含此登录态/程序目录；恢复后的渠道保持停用。Windows 原生与真实账号仍待验，实际验证以 Spec023 Plan 为准。
-
-## QQ 对话与直接发送（Spec025）
-
-QQConfig保留唯一ownerId，新增friendIds与groupReplyMode；旧配置分别按空好友列表及all读取。Runtime统一目标允许范围，主人私聊与好友/群受众分开，好友仅使用共享记忆。QQ主动消息使用`POST /v1/channels/qq/send`直接发送，B站分享、CLI和新插件channel.send共用服务，保留最终撤权、媒体与交付状态检查。旧审批接口及channel.propose明确废弃，不重放历史项；旧插件提案权限不自动升级。Spec041 已删除 ApprovalStore 执行机制，抖音改用 TaskQueue 直接写操作，历史表仅作兼容保留，无 schema 变化。实际本轮检查与限制见Spec025 Plan。
-
-## 完整人设卡与聊天工具（Spec038）
-
-人格 JSON 增加可选完整卡正文与来源标识，Desktop/Web 共享两张来源预设，后台结构化任务不使用闲聊卡。卡原文和作者来源保留，平台差异在提示构建及回合工具中适配，不作为代码指令或权限来源。
-
-Runtime 按可信会话注入只读网页及范围记忆工具；网页搜索使用无需账号的 Bing RSS，网页正文限公开 HTTPS、有界并固定已校验的 DNS 地址。QQ 回复动作先暂存、完成后在当前目标逐项授权投递，图文分开；拍一拍由原版 NapCat `send_poke` 完成，内置插件沿原更新 API 分发，不新增插件管理权限。
-
-独立自动笔记为 schema 8 新增 `conversation_notes` 表/索引，以账号与私聊/群范围隔离，包含来源与引用，不覆盖主人确认记忆。memories 逻辑归档包含笔记；原 schema 6/7 归档仍可恢复。此处描述代码契约，真实数据应用及验证结果见 Spec038。
-
-## 平台直接操作（Spec041）
-
-Desktop/Web 全局审批、抖音预览与批准流程已删除。抖音 `POST /v1/douyin/write` 接受 tool/args/requestId，CLI `douyin write` 调用相同入口；点赞/评论直接创建活动任务。旧审批 API 返回 410，不重放历史待办。TaskQueue 保留幂等与取消，WriteGate 保留账号/配置/插件/精确内容/单次提交/收据验证，未知结果不自动重试。未验证的私信/分享/投稿在入队前拒绝；权限与联系人范围保持。
+工程变更按 [项目协作规范](../.ai/AGENTS.md) 和 [当前交接](../.ai/prompts/task-handoff.md) 处理。Git 提交需要用户就相应任务明确授权；旧阶段记录中的持续提交授权已撤销。

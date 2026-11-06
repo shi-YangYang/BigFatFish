@@ -6,7 +6,7 @@ import {
   ActionRow,
 } from "../../desktop/src/components/Controls";
 import { useState } from "react";
-import { webRequest } from "../../desktop/src/api";
+import { webRequest } from "../../desktop/src/api/web-session";
 export function WebSettings({ fail, showLogout = false }: { fail: (e: unknown) => void; showLogout?: boolean }) {
   const [password, setPassword] = useState(""),
     [credentials, setCredentials] = useState(false),

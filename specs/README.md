@@ -1,5 +1,7 @@
 # Spec 管理
 
+各条目记录对应阶段的需求和验收。查询现行行为时，可从[取消平台逐条审批](spec-041-remove-platform-approvals/spec.md)、[平台登录提示](spec-043-connection-login-feedback/spec.md)、[本地聊天历史](spec-044-local-chat-history/spec.md)和[源码目录](spec-045-project-layout/spec.md)进入。
+
 规格目录统一为 `spec-XXX-short-name/`。先从 [_template](_template) 创建草稿，明确目标、非目标、关键决策及可逐项验收标准；关键不确定性解决后才能实施。
 
 - `spec.md`：定义实现什么及完成标准。
@@ -11,7 +13,7 @@
 | Spec | 范围 | 结果入口 |
 | --- | --- | --- |
 | [001 仓库初始化](spec-001-repository-initialization/spec.md) | 目录、Git、忽略规则和基础文档；不代表完整 P0 | [验收](spec-001-repository-initialization/acceptance.md) |
-| [002 P0 工程基础](spec-002-p0-foundation/spec.md) | Runtime/CLI/SQLite/API、桌面壳、CI及实际运行 | 实施报告与独立验收持续更新 |
+| [002 P0 工程基础](spec-002-p0-foundation/spec.md) | Runtime/CLI/SQLite/API、桌面壳、CI及实际运行 | [返工复验与 Windows 验证缺项](spec-002-p0-foundation/acceptance.md) |
 | [003 P1 AI 鱼核心](spec-003-p1-ai-core/spec.md) | 真实DSH、模型、人格、会话与流式聊天 | [代码验收及外部缺口](spec-003-p1-ai-core/acceptance.md) |
 | [004 P2 记忆养成](spec-004-p2-memory-life/spec.md) | 有来源的长期记忆、日记、兴趣、经历、关系、心情与主页 | [返工复验PASS](spec-004-p2-memory-life/acceptance.md)，外部缺口单列 |
 | [005 P3 QQ](spec-005-p3-qq/spec.md) | OneBot私聊/群聊、主人权限、记忆可见范围、审批与插件管理基础 | [返工复验PASS](spec-005-p3-qq/acceptance.md)，QQ媒体已在P7补齐本机路径，真实账号缺口单列 |
@@ -76,7 +78,7 @@
 
 - [Spec 037：自然用图与 Desktop 易用性](spec-037-lively-desktop/spec.md)：[返工独立 PASS](spec-037-lively-desktop/acceptance-r1.md)；主动考虑贴切配图与近期避重复，列表优先、共享状态同步及全面原生页面审计。
 
-- [Spec 038：网站完整人设卡与工具适配](spec-038-source-persona-cards/spec.md)：[PASS](spec-038-source-persona-cards/acceptance-r1.md)；两张来源卡全文与 QQ/记忆/联网工具已启用，当前女儿版 v5，QQ 已在线且自动回复启用。
+- [Spec 038：网站完整人设卡与工具适配](spec-038-source-persona-cards/spec.md)：[PASS](spec-038-source-persona-cards/acceptance-r1.md)；两张来源卡及 QQ、记忆、联网工具已接入；当次启用记录保存在该规格的实施与交接资料中。
 - [Spec 039：移除设定页版本记录](spec-039-remove-persona-history/spec.md)：[PASS](spec-039-remove-persona-history/acceptance.md)；已移除版本历史界面及加载逻辑，保留当前设定编辑与保存。
 
 - [Spec 040：Desktop 全页面布局修复](spec-040-desktop-layout-audit/spec.md)：[返工独立PASS](spec-040-desktop-layout-audit/acceptance-r1.md)；70状态×4宽度及原生逐页检查，统一页面/卡片/表单/浮层布局，修复停帧可用性、焦点和控件尺寸；原始before证据损失另有说明。
@@ -84,3 +86,4 @@
 - [Spec 042：移除顶栏服务在线标签](spec-042-remove-online-tag/spec.md) · [验收通过](spec-042-remove-online-tag/acceptance.md)。
 - [Spec 043：登录等待与连接错误提示](spec-043-connection-login-feedback/spec.md) · [验收通过](spec-043-connection-login-feedback/acceptance-r1.md)。
 - [Spec 044：聊天页只显示本地对话](spec-044-local-chat-history/spec.md) · [验收通过](spec-044-local-chat-history/acceptance.md)。
+- [Spec 045：项目目录职责整理](spec-045-project-layout/spec.md) · [验收通过](spec-045-project-layout/acceptance.md)。

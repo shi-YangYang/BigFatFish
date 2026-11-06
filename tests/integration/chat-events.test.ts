@@ -8,7 +8,7 @@ import { paths, preparePaths } from '../../apps/runtime/src/paths.js';
 import { createServer } from '../../apps/runtime/src/server.js';
 import { registerChatEvents } from '../../apps/runtime/src/ai/events.js';
 import type { ChatService } from '../../apps/runtime/src/ai/chat.js';
-import { mergeChatMessage } from '../../apps/desktop/src/chat-messages.js';
+import { mergeChatMessage } from '../../apps/desktop/src/features/chat/chat-messages.js';
 
 it('streams history larger than one frame with ordered live messages and cleans subscriptions', async () => {
  const root = mkdtempSync(join(tmpdir(),'bff events ')), p = paths(root); preparePaths(p);

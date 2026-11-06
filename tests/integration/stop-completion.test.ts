@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { stop } from '../../apps/cli/src/process.js';
+import { stop } from '../../apps/cli/src/runtime/process.js';
 import { paths } from '../../apps/runtime/src/paths.js';
 import { acquireInstance } from '../../apps/runtime/src/instance.js';
 

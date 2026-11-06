@@ -1,12 +1,12 @@
 # 上游来源与适配依据
 
-核查日期：2026-11-02。用户已提供下列准确仓库；只读源码/发布包核查不等于真实账号、模型或平台运行验收。所有接入仍由 BigFatFish Runtime 统一人格、记忆、调度、权限和审计，不能启动另一套自治大脑。
+本文记录 2026-11-02 核查的上游版本、协议及选型依据。当前应用的配置、支持范围和操作步骤分别见[模型与聊天](ai-core.md)、[QQ](qq.md)、[B站](bilibili.md)和[抖音](douyin.md)。
 
 ## DSH Harness
 
 - 官方仓库：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)，已核源码 commit `ce7073d51254c26cd63b22a60835b8f948deb447`，MIT，源码根要求 Node >=24.9。
 - 实际 TypeScript SDK 为 `@deepseek-ai/dsh-sdk-client`，并非 dsh-sdk；已直接读取 npm `0.2.1-rc.5` 与 `0.2.2-alpha.2` 发布包。SDK 管理同版 Node CLI 子进程和 stdio JSON-RPC。
-- 当前 master 文档超前已发布包。P1 拟固定 `0.2.2-alpha.2` 并通过集成测试验证，记录预发布依赖风险；不能按 master 示例编造接口。
+- 核查时，master 文档包含发布包尚未提供的接口。项目在根 package.json 和锁文件中固定了 `0.2.2-alpha.2`。
 - 真实生命周期为 DeepSeekHarness.start/session/resumeSession/run/close。恢复持久会话使用 resumeSession；session(id) 仅产生句柄。
 - 两版 RunResult 都只有 sessionId/finalResponse/events/notifications，无 finishReason；结束原因从根会话 turn/end 的 data.reason.kind 获取。
 - alpha.2 有 approvalRequests/client.onRequest、onUserQuestion；rc.5 没有。审批 outcome 支持 allowed-once/rejected/cancelled；alpha.2 用户问题只支持 answers 数组，不支持 master 的 cancelled:true。
@@ -22,7 +22,7 @@
 
 sdk-minimal 默认包含持久 shell、文件和工作目录工具，sandbox-policy 为 danger-full-access，并启用 session-log-deepseek。受控 profile 必须显式关闭 persistent-bash、persistent-pwsh、tool-fs、tool-working-directory、session-log-deepseek、plugin-package-inventory-deepseek；sandbox-policy 设 read-only，不能将此描述成 OS 沙箱。
 
-Bridge 只注册 BigFatFish 允许的工具；tools.guard 单调拒绝未知名字，执行入口再次检查权限、审批及会话范围。sdk-minimal 不含 approval 服务，仅设置 approvalRequests 不会自动保护所有工具。禁止静默上传会话日志。
+Bridge 只注册 BigFatFish 允许的工具，执行入口检查权限和会话范围。上述 approvalRequests 是上游 SDK 接口。BigFatFish 的平台写操作遵循[账号和操作授权规则](../.ai/decisions/021-remove-platform-approvals.md)。
 
 ### 模型路由
 
@@ -30,7 +30,7 @@ alpha.2 的 deepseek-official 使用 Messages 协议，默认 `https://api.deeps
 
 SDK发布JS的resolveDshLaunch已复核：显式传env对象会完整替换父环境，再叠加SDK需要的启动环境和DSH_HOME；不传才继承process.env。因此应提供明确环境白名单、dshHome和processCwd，而不是把整个父环境复制过去。DSH_HOME是其专用状态目录，不能改写HOME来隔离其他上游。
 
-pi-ai对未声明模型的默认上下文/输出容量很大（1,000,000/128,000），属于猜测默认值，不能作为所选端点的真实能力；BigFatFish须显式设置可配置预算。SDK manifest还声明同版llm/sdk-protocol/session和Cordis peer依赖，安装时需锁定并核实兼容。
+被核查版本的 pi-ai 会为未声明模型填入上下文和输出容量（1,000,000/128,000），这两个数字不能证明端点的实际能力。当前产品的请求默认值、旧配置处理和协议差异见[聊天模型与流式事件决策](../.ai/decisions/012-chat-model-defaults-and-events.md)。SDK manifest 还声明了同版 llm/sdk-protocol/session 和 Cordis peer 依赖。
 
 证据：[npm SDK alpha.2](https://registry.npmjs.org/@deepseek-ai/dsh-sdk-client/0.2.2-alpha.2)、[协议发布包](https://registry.npmjs.org/@deepseek-ai/dsh-sdk-protocol/0.2.2-alpha.2)、[官方 profile](https://github.com/deepseek-ai/deepseek-harness/blob/ce7073d51254c26cd63b22a60835b8f948deb447/packages/bundle/sdk-minimal/cordis.patch.yml)。研究临时副本位于 /tmp/bff-dsh-alpha、/tmp/bff-dsh-npm；最终实现必须依赖锁定版本，不能依赖这些临时路径。
 
@@ -44,9 +44,9 @@ pi-ai对未声明模型的默认上下文/输出容量很大（1,000,000/128,000
 
 whale 依赖 qrcode 1.5.4，抽帧需 ffmpeg。可直接包装的只读 CLI 包括 search、comments --json、subtitles --out、video、watch-video、debrief --no-frames；只有部分提供结构化输出。无字幕可 exit 0，debrief 可部分失败，适配器必须检查实际产物/完整性而非只看退出码。缓存结果带 _cached/_stale 时保留时效，不记成刚完成的真实观看。
 
-其 QrAuth.start/poll/cancel 和 verifyAccount 可复用，但插件 HTTP 路由依赖 DSH 宿主；不是独立认证服务。读取凭据路径还散布于工具脚本，必须在实际适配时提供显式数据目录兼容改动，不能悄悄读取用户 ~/.bili-ai。不会通过改写 HOME 绕过路径隔离。上游完整插件默认有分享/私信和自主调度，不直接装载；--go 或上游额度规则不能替代 BigFatFish 审批。
+项目复用 whale 的 QrAuth 和账号校验，Runtime 提供登录入口，并为凭据和缓存指定数据目录。分享观看结果走 BigFatFish 的 QQ 发送路径，由 QQ 的授权范围决定发送对象。适配范围见[B站指南](bilibili.md)。
 
-pond/life 的 NOTICE 指向共同上游 c1overzz/dsh-bili-scroll。其 MCP 客户端采用 initialize → notifications/initialized → tools/call，不能假设存在 HTTP 服务。Python依赖包括 bilibili-api-python >=17.4.1,<18、aiohttp、mcp 1.x、qrcode。具体工具与用户主项目适配继续在 P4 固定源码核查后实现；登录/验证码需用户操作。
+pond/life 的 NOTICE 指向共同上游 c1overzz/dsh-bili-scroll。其 MCP 客户端采用 initialize → notifications/initialized → tools/call，不能假设存在 HTTP 服务。Python依赖包括 bilibili-api-python >=17.4.1,<18、aiohttp、mcp 1.x、qrcode。该工具清单属于上游参考，BigFatFish 实际接入的是上表中的 whale。
 
 ## 抖音
 
@@ -57,7 +57,7 @@ pond/life 的 NOTICE 指向共同上游 c1overzz/dsh-bili-scroll。其 MCP 客�
 
 kdcadmin 的 manifest repository 仍指向旧名称，来源记录必须使用实际核查 URL+commit。Python依赖 mcp>=1.9,<2、Playwright>=1.45、numpy、faster-whisper、httpx、Pillow；浏览器路径有 Windows 假设，需要单独适配并验证 Linux/macOS。
 
-读取工具包括 douyin_check_credential/feed/search/video/comments/watch/inbox。DOUYIN_MCP_TOOLS 必须显式白名单，空值会暴露上游 memory_*，不符合统一记忆边界。写工具需要 DOUYIN_ALLOW_WRITES=1，但该变量不是用户审批：BigFatFish 仍须在每次写操作验证批准、参数、额度和任务身份。
+读取工具包括 douyin_check_credential/feed/search/video/comments/watch/inbox。宿主通过 DOUYIN_MCP_TOOLS 指定允许的工具，上游空值会暴露 memory_*。写工具使用 DOUYIN_ALLOW_WRITES；实际互动还要经过 Runtime 的账号、任务、目标和请求内容校验，执行边界见[抖音指南](douyin.md)。
 
 DOUYIN_PROXY_URL/TOKEN 提供可鉴权的宿主回环代理；LockyBee 的 bootstrap 返回会话token，其他API校验 x-session-token/Host/Origin。两路必须由统一浏览器队列协调，不能争抢用户会话。登录和验证码由用户完成，不绕过风控。上游 --selftest 会真实打开浏览器搜索，不当成离线测试执行。
 
@@ -73,7 +73,7 @@ OneBot11请求使用 action/params/echo，响应必须检查 status/retcode，HT
 
 正向WebSocket由BFF连接NapCat，Bearer token认证；反向WebSocket由NapCat连接BFF，必须验证token与X-Self-ID。HTTP事件校验原始body的X-Signature HMAC-SHA1。登录状态需get_login_info核账号和get_status.online；当前good字段固定true，连接/心跳不等于登录。断线重连、事件去重及发送结果不明状态必须由BFF处理，超时不盲目重发。
 
-证据：[OneBot11标准](https://github.com/botuniverse/onebot-11/tree/d4456ee706f9ada9c2dfde56a2bcfc69752600e4)、[NapCat配置源码](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/packages/napcat-onebot/config/config.ts)、[NapCat许可证](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/LICENSE)。账号专用小号扫码、设备验证和实际消息收发尚未进行。
+证据：[OneBot11标准](https://github.com/botuniverse/onebot-11/tree/d4456ee706f9ada9c2dfde56a2bcfc69752600e4)、[NapCat配置源码](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/packages/napcat-onebot/config/config.ts)、[NapCat许可证](https://github.com/NapNeko/NapCatQQ/blob/98d781d19815d1625b24d717ce280ecf0a4f6d0c/LICENSE)。该次核查只检查协议。后续已确认的扫码登录、文字回复及媒体待验项见[QQ 指南](qq.md)。
 
 ## 桌面伴侣参考
 

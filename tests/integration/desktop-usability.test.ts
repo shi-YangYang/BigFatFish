@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
 import { chromium } from 'playwright-core';
-import type { ActivityOverview } from '../../apps/desktop/src/components/Douyin';
+import type { ActivityOverview } from '../../apps/desktop/src/api/activities';
 const executable = process.env.BFF_TEST_BROWSER ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls available without animation frames or schedules', async () => {
   const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false, fs: { allow: [resolve('.')] } } });

@@ -1,0 +1,27 @@
+export const actionNames: Record<string, string> = {
+  douyin_like: "点赞",
+  douyin_comment: "评论",
+  douyin_chat_send: "私信",
+  douyin_share_video: "分享视频",
+  douyin_publish: "投稿",
+  douyin_search: "搜索",
+  douyin_feed: "推荐",
+  douyin_video: "详情",
+  douyin_comments: "读取评论",
+  douyin_check_credential: "验证账号",
+  douyin_login_qr: "登录",
+  douyin_login_poll: "检查登录",
+};
+export const activityState: Record<string, string> = {
+  queued: "排队中",
+  running: "进行中",
+  understanding: "正在理解",
+  completed: "已完成",
+  partial: "部分完成",
+  failed: "失败",
+  cancelled: "已取消",
+  interrupted: "已中断",
+  unknown: "结果未知，请核对平台",
+  blocked: "需要处理",
+  revoked: "已撤销",
+};

@@ -9,8 +9,8 @@ import { paths } from '../../apps/runtime/src/paths.js';
 import { requestRuntime } from '../../apps/runtime/src/connection.js';
 import type { ActivityTask } from '../../apps/runtime/src/tasks/queue.js';
 import * as mcp from '../../apps/runtime/src/douyin/mcp.js';
-import { activityCommand } from '../../apps/cli/src/activities.js';
-import * as cliInput from '../../apps/cli/src/input.js';
+import { activityCommand } from '../../apps/cli/src/commands/activities.js';
+import * as cliInput from '../../apps/cli/src/io/input.js';
 
 it('direct writes keep exact wire checks, idempotency, cancellation and account/plugin boundaries without approvals', async () => {
   const root=mkdtempSync(join(tmpdir(),'bff-direct-')),p=paths(root),id='1234567890123456789';

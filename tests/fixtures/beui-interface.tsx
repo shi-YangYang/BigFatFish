@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { Input, Checkbox, Select, Field, Button } from "../../apps/desktop/src/components/Controls";
 import { Drawer, Tabs } from "../../apps/desktop/src/components/UI";
 import { Disclosure, Menu } from "../../apps/desktop/src/components/Surfaces";
-import "../../apps/desktop/src/style.css";
+import "../../apps/desktop/src/styles/style.css";
 function Fixture() {
   const [number, setNumber] = useState("2"), [password, setPassword] = useState(""), [date, setDate] = useState(""), [choice, setChoice] = useState(""), [checked, setChecked] = useState(false), [tab, setTab] = useState("概览"), [drawer, setDrawer] = useState(false), [result, setResult] = useState(""), [realEvent, setRealEvent] = useState(false);
   const select = <Field>选项<Select value={choice} onValueChange={setChoice} required><option value="">默认值</option><option value="disabled" disabled>不可选</option><option value="one">第一项</option><option value="two">第二项</option></Select></Field>;

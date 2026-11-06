@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { errorText } from '../api';
+import { errorText } from "../api/errors";
 import { Alert } from './Surfaces';
 import { Button } from './Controls';
 type Notice = { id: number; text: string };

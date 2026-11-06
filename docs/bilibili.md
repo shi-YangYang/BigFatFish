@@ -1,14 +1,18 @@
 # B站
 
-在「连接 → B站」点击「连接 B站」，应用会启用连接并验证已保存凭据；需要登录时直接显示二维码，扫码后自动核验，无需另点启用或验证。二维码过期或连接失败后可重试，连接期间可取消。「断开连接」停用并保留凭据，「设置 → 退出登录」清除凭据。
+在「连接」找到 B站卡片，点「管理连接 → 连接 B站」。应用先核验已保存的凭据，需要登录时显示二维码。看到「等待手机确认」时在手机 B站完成确认，应用会自动核验账号。过期时点「重新获取二维码」，连接失败时卡片显示原因，可点「重试连接」。状态暂时读不到时点「重试」。连接期间可点「取消连接」。「断开连接」停用并保留凭据，B站页面「设置」中的「退出登录」会清除凭据。
 
-页面按「记录 / 设置」组织，默认显示操作记录。连接页不再提供手动搜索或观看入口，后台、活动计划及 CLI 观看仍保留。操作记录展示动作、视频标题或 BV 号、状态、时间和必要失败原因，在卡片内滚动；已理解的视频仍可选择 QQ 对象并分享。可选择「暂不登录」访问平台允许匿名读取的内容；AI 字幕和部分视频需要登录。手工凭据在设置页「验证并连接」。扫码、验证与导入均由用户明确操作，不读取其他软件登录态。连接轮询属于 Runtime，离开页面后继续，取消、配置改变和停服会使旧操作失效。
+页面默认打开「记录」。每条观看记录显示视频标题或 BV 号、状态、时间及失败原因，可在卡片内滚动。进行中的任务可以点「取消任务」。要手动搜索、读取视频或评论、开始观看，请用下方 CLI；定时与自主观看在「我的鱼 → 活动计划」管理。
+
+选择「暂不登录」可访问平台允许匿名读取的内容；AI 字幕和部分视频需要登录。也可点「导入凭据」，在「设置」填写 SESSDATA 和 bili_jct 后点「验证并连接」。连接轮询由 Runtime 负责，离开页面后继续；取消连接、更改配置或停服会使旧操作失效。
 
 观看复用 `Alterssss/dsh-bili-whale` 的实际 CLI：先获取官方字幕，再使用 ffmpeg 下载并抽取九帧，交给默认chat聊天模型理解。聊天默认接收图片，不再单独配置视觉用途；模型或服务不支持时明确失败，不能将未理解的画面记为已理解。九帧是采样，不能代表完整逐帧观看。元信息缓存状态、字幕截断和缺失能力均保留在任务数据中，可通过 CLI 查询详情。
 
 安装可执行的 ffmpeg 并加入启动 Runtime 时的 PATH，重启 Runtime 后生效；项目不捆绑 ffmpeg 二进制。缺少 ffmpeg 不影响本地聊天、QQ 或可用字幕阅读。模型凭据在「设置 → 模型」配置。仅有元信息、上游退出码为零或缺少产物都不算完成观看。任务有取消、重启中断和错误状态；同 BV 已完成或部分完成的任务直接返回既有记录，不自动重复观看。失败/中断后可使用新的请求 ID 重试。
 
-观看结果记录官方字幕、采样信息、来源 URL、时间和独立模型总结；候选兴趣需要在「我的鱼 → 记忆」确认才进入长期兴趣。活动可在「我的鱼 → 经历」时间线查看，并作为当天统一日记的来源。操作记录中的「分享到 QQ」将已理解视频直接发送到允许的 QQ 对象，正文包含原始标题、准确 URL 与总结；需先开启 QQ 主动消息，页面区分已发送、未发送成功和结果未知；未知时需先到 QQ 核实，避免重复发送。QQ 未配置不影响 B站读取。本站内评论、点赞、私信和上游自动调度均未启用。
+观看结果记录官方字幕、采样信息、来源 URL、时间和独立模型总结。候选兴趣需要在「我的鱼 → 记忆」确认。活动可在「我的鱼 → 经历」时间线查看，并作为当天日记的来源。
+
+已完成或部分完成且有总结的记录可以「分享到 QQ」。先在 QQ 的回复设置开启「允许主动消息」，再在 B站「记录」中选择「主人私聊」或「已授权群」，填写接收 QQ 或群号，点对应记录的「分享到 QQ」。Runtime 按实际 QQ 联系人授权直接发送标题、原始 URL 与总结。页面区分已发送、未发送成功和结果未知；未知时先到 QQ 核实，以免重复发送。B站本身只读；读取和观看不依赖 QQ。
 
 ## CLI
 
@@ -24,6 +28,7 @@ npm run cli -- bilibili import --json < .local/bilibili-credentials.json
 npm run cli -- bilibili verify --json
 npm run cli -- bilibili logout --json
 npm run cli -- bilibili search --json < .local/search.json
+npm run cli -- bilibili read --json < .local/read.json
 npm run cli -- bilibili watch --json < .local/watch.json
 npm run cli -- bilibili tasks --json
 npm run cli -- bilibili task TASK_ID --json
@@ -51,6 +56,6 @@ npm run cli -- bilibili share TASK_ID --json < .local/share.json
 BFF_TEST_FFMPEG=/absolute/path/to/ffmpeg npx vitest run apps/runtime/src/bilibili tests/integration/bilibili.test.ts
 ```
 
-未指定测试 ffmpeg 时，实际视频抽样的两项测试跳过；认证检查仍运行。真实 B站扫码、真实 QQ 发送、Windows 和云模型凭据验证须单列，当前未执行。
+未指定测试 ffmpeg 时，实际视频抽样的两项测试跳过。上述验证覆盖本机夹具；真实 B站账号扫码、观看后分享到 QQ、Windows 和云模型效果仍待验证。用户已确认的 QQ 扫码及文字回复记录见 [QQ 渠道](qq.md#实际验证)。
 
 连接编排 API：`POST /v1/bilibili/connect` 接受 `{revision,credentials?}`，其中可选 credentials 与旧 import 格式一致；`POST /v1/bilibili/disconnect` 停用并取消连接。`GET /v1/bilibili` 增加 connection 状态（connecting/login/online/expired/error/idle）；收到连接响应仅表示开始，成功以 verified 为准。旧登录/配置/CLI API 保留。

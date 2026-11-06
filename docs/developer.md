@@ -1,23 +1,22 @@
 # 开发、Web 管理与插件协议 v1
 
-BigFatFish 使用一个根 npm 清单。`apps/runtime/src` 是唯一业务核心；Desktop、CLI 和 Web 只访问该核心。SDK 是普通源码及换行 JSON 协议，不是需要另行发布的 npm workspace。贡献流程见根 CONTRIBUTING，行为准则见 [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)。
+BigFatFish 使用一个根 npm 清单。`apps/runtime/src` 是唯一业务核心；Desktop、CLI 和 Web 只访问该核心。SDK 是普通源码及换行 JSON 协议，不是需要另行发布的 npm workspace。参与项目请阅读[贡献指南](../.github/CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。
 
 ## 本地开发与安装产物
 
 ```sh
 npm ci
-npm run typecheck
-npm run lint
 npm run build
 node dist/cli/src/main.js start --data-dir /absolute/path/fish --json
 node dist/cli/src/main.js plugins list --data-dir /absolute/path/fish --json
+node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 ```
 
 `build` 生成 Node 核心、桌面前端和 `dist/web`。`build:node` 同时生成 `dist/runtime/plugin-catalog` 的 QQ/B站/抖音安装产物、`dist/plugin-sdk` 和 `dist/plugin-examples`。`release:prepare` 将这些资源与固定 Node/生产依赖一起放入独立安装包。安装后的命令是 `bin/bigfatfish`，无需源码目录、全局 Node 或开发工具。桌面打包及签名边界见 [安装与迁移](install-and-migrate.md)。
 
 ### 托管桌面开发
 
-`npm run desktop:dev` 先编译 Node 源码和资源，再启动受管 Runtime、Vite 与 Tauri；无需 `release:prepare`。默认读取已保存的桌面数据目录；`BIGFATFISH_DATA_DIR` 显式覆盖后，supervisor、原生 API 和开发 CLI 都使用同一路径。已有配置和记录原地保留。仅精确识别为本仓库 `dist`、旧 debug Runtime 或 `build/portable` 入口的后台可以优雅接管；其他入口需先从对应应用正常退出。
+`npm run desktop:dev` 先编译 Node 源码和资源，再启动受管 Runtime、Vite 与 Tauri；无需 `release:prepare`。默认读取已保存的桌面数据目录，首次运行使用系统默认目录。`BIGFATFISH_DATA_DIR` 显式覆盖后，supervisor、原生 API 和开发 CLI 都使用同一路径。已有配置和记录原地保留。仅精确识别为本仓库 `dist`、旧 debug Runtime 或 `build/portable` 入口的后台可以优雅接管；其他入口需先从对应应用正常退出。
 
 关闭窗口、退出菜单和 Ctrl+C 结束本次开发会话，启动失败也会清理已启动资源。同一数据目录不能并行启动两套开发会话。前端与 Rust 维持热重载；Node 后端改动后重新运行命令。Tauri 参数仍可传入，例如 `npm run desktop:dev -- --no-watch`；托管模式不支持 `--release`，发行请用 `desktop:build`。
 
@@ -37,7 +36,7 @@ bigfatfish web configure --data-dir /absolute/path/fish < /private/path/web-sett
 bigfatfish web serve --data-dir /absolute/path/fish
 ```
 
-输入结构：`{"origin":"https://fish.example:8443","host":"127.0.0.1","cert":"/absolute/path/fullchain.pem","key":"/absolute/path/privkey.pem","password":"至少16字符的独立口令"}`。远程直连时由操作者明确配置监听地址，如 `0.0.0.0`，并配置防火墙；不可用 HTTP 降级。证书和私钥由本机文件提供，不自动申请域名或收费资源。
+输入结构：`{"origin":"https://fish.example:8443","host":"127.0.0.1","cert":"/absolute/path/fullchain.pem","key":"/absolute/path/privkey.pem","password":"<替换为至少16个字符的独立管理口令>"}`。远程直连时由操作者明确配置监听地址，如 `0.0.0.0`，并配置防火墙；不可用 HTTP 降级。证书和私钥由本机文件提供，不自动申请域名或收费资源。
 
 网关是单独的前台进程，可由服务管理器运行；退出桌面/Runtime 不代表关闭网关。网关只在服务器内部读本地连接凭据，转发同一 Runtime API，浏览器不会得到本机 bearer。登录使用 scrypt 哈希、Secure/HttpOnly/SameSite=Strict cookie、1小时会话、CSRF令牌和严格 Origin/Host；每个来源地址1分钟最多5次登录尝试。过期/退出撤销 WebSocket；浏览器收到明确的会话失效响应后返回登录，重新登录可继续管理。普通断线或业务权限不足保留登录状态。代理头默认拒绝，反向代理必须保留所配置的原始 Host/Origin，且后端连接仍使用 TLS，不允许把未经验证的 X-Forwarded-* 当身份依据。
 
@@ -45,29 +44,32 @@ Web 配置位于受保护的 `runtime/web-config.json`，不进入逻辑备份�
 
 Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人格、经历、记忆、模型、平台、任务、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
 
-备份与恢复由仍在线的网关先排空 Runtime、调用同一离线维护核心及固定实例锁，再启动 Runtime。只有恢复/备份及启动均结束才返回 completed；浏览器上传/下载字节，不指定服务器任意文件路径。恢复替换当前鱼，原始目录在 rollback 目录保留；插件安装代码、旧授权和会话不随逻辑备份恢复。恢复后重新安装/授权。schema 保持6，P6归档可直接导入，未知版本仍拒绝。
+备份与恢复由仍在线的网关先排空 Runtime、调用同一离线维护核心及固定实例锁，再启动 Runtime。只有恢复/备份及启动均结束才返回 completed；浏览器上传/下载字节，不指定服务器任意文件路径。恢复替换当前鱼，原始目录保留在 rollback 目录中。聊天会话随所选备份范围迁移，Web 登录会话和插件程序不迁移，恢复后的第三方插件需要重新安装和授权。当前逻辑归档格式为 v1，新导出使用 schema 8，读取接受 schema 6、7、8。具体范围见[安装与迁移](install-and-migrate.md#备份恢复与凭据)。
 
-更新使用本机已经明确配置的 P6 签名信任源；Web 不提供任意路径执行。检查、安装、回退调用相同更新核心。portable 安装支持范围及 Windows 限制沿用 P6；安装后 Runtime 会重启，网关进程本身须由操作者重启以载入新代码。没有已配置正式发行源时返回明确错误，测试密钥不是默认信任源。
+更新使用本机已经明确配置的 P6 签名信任源；Web 不提供任意路径执行。检查、安装、回退调用相同更新核心。portable 安装支持范围及 Windows 限制沿用 P6；安装后 Runtime 会重启，网关进程本身须由操作者重启以载入新代码。尚未配置信任源时，检查结果为 `unconfigured`。
 
 ## API 与事件
 
-本机客户端读取受限 `runtime/connection.json`，连接 `http://127.0.0.1:PORT` 并带 bearer；不接受浏览器 Origin。Web 从同源 `/api/v1/*` 访问；登录 `/auth/login`，读取会话 `/auth/session`，退出 `/auth/logout`。写入请求同时要求同源 Origin 和 `X-BFF-CSRF`。模型 API Key 仅写入，查询只返回 hasKey。
+本机客户端读取受限 `runtime/connection.json`，连接 `http://127.0.0.1:PORT` 并带 bearer；不接受浏览器 Origin。Web 从同源 `/api/v1/*` 访问；登录 `/auth/login`，读取会话 `/auth/session`，退出 `/auth/logout`。登录需要精确匹配 Origin。登录后的写请求还须携带会话的 `X-BFF-CSRF`。模型 API Key 仅写入，查询只返回 hasKey。
 
 | API | 用途 |
 | --- | --- |
 | `/v1/status`、`/v1/logs` | 实际运行状态、脱敏日志 |
 | `/v1/models`、`/v1/model-routes` | 模型配置及 chat/asr/tts 路由；旧细分用途兼容归一到聊天 |
 | `POST /v1/models/discover`、`POST /v1/models/test` | 对当前模型配置草稿发现模型或执行一次有界生成诊断，不保存配置或会话 |
-| `/v1/persona`、`/v1/persona/history` | 版本化人格 |
-| `/v1/conversations`、`/:id/messages`、`/:id/tools` | 会话、消息与实际工具活动 |
+| `/v1/persona`、`/v1/persona/history` | 当前人格与版本历史；「我的鱼 → 设定」编辑当前版本，API 保留历史查询 |
+| `GET /v1/conversations/local` | Desktop/Web 聊天历史，只列最近 500 个本地主人会话 |
+| `GET /v1/conversations`、`/v1/conversations/:id/messages`、`/v1/conversations/:id/tools` | 本地与平台合计最近 500 个会话，以及按 ID 查询的消息、工具记录；CLI 的 `sessions list` 使用完整列表 |
 | `/v1/messages/:id/cancel` | 取消实际模型回合 |
 | `/v1/memories`、`/v1/memory-tasks`、`/v1/life` | 长期记忆、整理任务和养成；具体子路由见 ai-core.md |
 | `/v1/channels/qq`、`/v1/channels/qq/send` | 账户/唯一主人/好友/群配置及直接发送 |
-| `/v1/bilibili`、`/v1/douyin`、`/v1/activities`、`/v1/schedules` | 平台活动及共用队列 |
+| `/v1/bilibili`、`/v1/douyin`、`/v1/activities`、`/v1/schedules` | 平台配置、活动队列及计划；抖音点赞和评论走 `POST /v1/douyin/write` |
 | `/v1/plugins` | 安装目录、生命周期和工具 |
 | `/v1/media/transcribe`、`/v1/media/synthesize` | 有界音频消费者 |
 
-实时订阅：本机 `/v1/events?conversationId=ID` WebSocket 与 `/v1/events/stream?conversationId=ID` NDJSON 使用 bearer；Desktop 由原生宿主将 NDJSON 转为 Tauri Channel，Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串或交给前端。连接先依序发送 snapshot-start、逐条 snapshot-message、snapshot-end，再交付排队的增量并发 ready；ready 不是生成完成。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。断线有限退避重连时补齐快照，发送使用 requestId 防重复。前端会话切换、终态与草稿版本保护不能省略。
+连接页按平台展示操作记录。QQ 的直接发送也可使用 CLI `channels send`，抖音写入可使用 `douyin write`。两者均检查当前授权。旧 QQ/抖音审批 HTTP 入口返回 410，历史待办不会执行。
+
+实时订阅：本机 `/v1/events?conversationId=ID` WebSocket 与 `/v1/events/stream?conversationId=ID` NDJSON 使用 bearer；Desktop 由原生宿主将 NDJSON 转为 Tauri Channel，Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串或交给前端。连接先依序发送 snapshot-start、逐条 snapshot-message、snapshot-end，再交付快照期间排队的增量事件，随后发送 ready；ready 不是生成完成。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。断线有限退避重连时补齐快照，发送使用 requestId 防重复。前端会话切换、终态与草稿版本保护不能省略。
 
 模型诊断输入包含`provider/baseURL`，可附`id/apiKey/timeoutMs`；测试另需`model`，可附`maxTokens/reasoningEffort`。省略apiKey时仅允许对同提供商、同规范化地址复用id对应密钥，显式空字符串表示不使用密钥。发现返回`{models:[{id,name}],elapsedMs}`，测试返回`{ok:true,elapsedMs}`；错误为稳定错误码，不返回上游正文。推理字段的值、默认与已有配置约束见[模型说明](ai-core.md)。
 
@@ -86,7 +88,7 @@ printf '%s' '{"name":"greet","args":{"name":"主人"}}' | bigfatfish plugins cal
 bigfatfish plugins disable hello-fish --data-dir /absolute/path/fish
 ```
 
-安装只校验并保存，不运行安装脚本、不启用代码。`inspect` 展示来源、作者、许可、兼容和权限；安装不代表该来源已由发行者签名认证，用户必须信任代码。授权必须列出全部且仅有清单权限。重新启用、调用、禁用均调用真实进程。主人聊天中的 DSH 会获得已启用工具；QQ主人私聊仍是外部渠道主体，不获得本机管理工具。
+Desktop/Web 也可在「设置 → 扩展」选择插件文件、查看权限并安装，再点「信任并授权启用」。首次安装只校验并保存，不运行安装脚本、不启用代码。`inspect` 展示来源、作者、许可、兼容和权限；安装不代表该来源已由发行者签名认证，用户必须信任代码。授权必须列出全部且仅有清单权限。重新启用、调用、禁用均调用真实进程。主人聊天中的 DSH 会获得已启用工具；QQ主人私聊仍是外部渠道主体，不获得本机管理工具。
 
 升级时修改外部目录 manifest.version 和代码，重新打包，先 inspect 再 `plugins update FILE`。候选写入新唯一目录，旧进程排空后启用；初始化/健康失败恢复旧版本及其配置/存储快照。新增权限导致停用且清空授权，需再次明确授权。`plugins remove ID` 卸载代码并保留作用域存储；重新安装相同ID可继续使用数据。更新、卸载都不清除鱼的人格、历史和长期记忆。
 
@@ -102,7 +104,7 @@ QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版�
 
 `host.mjs` 提供 `servePlugin({initialize,health,dispose,event,tools})`。标准输入/输出专用于一行一个JSON；调试信息写stderr。请求 `{id,method,args}`，结果 `{id,result}` 或 `{id,error}`。宿主调用 initialize/health/tool/event/dispose；工具参数在 `args.args`，工具名在 `args.name`。host调用 `{id,callId,host:true,method,args}` 必须关联仍有效的宿主调用，不能在模块顶层或调用结束后偷偷调用。
 
-单帧最多256KB，双向最多8个并发，调用10秒超时。取消、超时、禁用或崩溃结束真实进程并终止拥有的宿主网络请求；代次变化阻断旧结果。禁用、更新或卸载开始撤权时先同步中止所有 RPC 拥有的宿主操作（含初始化与事件），再有界等待 dispose 和实际退出；清理期间不再接受宿主能力请求。普通SDK插件运行在同一个操作系统用户下，可以自行访问该用户的文件/网络，也可能绕过RPC访问系统；这些限制只约束提供的宿主能力，不是OS安全沙箱。恶意代码须使用额外独立OS用户/容器隔离，当前产品不宣称已提供该隔离。
+单帧最多 256 KiB，每个方向最多 8 个并发调用。默认超时 10 秒，获得 `channel.send` 的插件执行工具或处理事件时为 45 秒。取消、超时、禁用或崩溃结束真实进程并终止拥有的宿主网络请求；代次变化阻断旧结果。禁用、更新或卸载开始撤权时先同步中止所有 RPC 拥有的宿主操作（含初始化与事件），再有界等待 dispose 和实际退出；清理期间不再接受宿主能力请求。普通SDK插件运行在同一个操作系统用户下，可以自行访问该用户的文件/网络，也可能绕过RPC访问系统；这些限制只约束提供的宿主能力，不是OS安全沙箱。恶意代码须使用额外独立OS用户/容器隔离，当前产品不宣称已提供该隔离。
 
 | 权限 / host方法 | 实际作用 |
 | --- | --- |
@@ -111,7 +113,7 @@ QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版�
 | storage.write / storage.set | 写作用域JSON，单值32KB、总量128KB；不接受文件路径 |
 | events.emit / events.emit | 写带插件ID的事件审计，无任意系统事件伪造 |
 | events.subscribe | 接收Runtime消息事件；授权前须理解它包含会话内容 |
-| memory.search | 使用统一MemoryStore查询，不返回模型密钥 |
+| memory.search | 查询统一记忆库，可读私人记忆，授权时应考虑其可见范围 |
 | memory.propose | 生成有来源的候选记忆，不自动确认 |
 | personality.read | 读取当前版本化人格；修改仍由主人界面执行 |
 | channel.send | 向QQ允许目标直接发送，遵守账户/开关/目标/取消检查；需独立授权 |
@@ -119,19 +121,19 @@ QQ、B站、抖音随安装包提供真实目录产物并进入同一安装/版�
 | media.transcribe / media.synthesize | 调用统一ASR/TTS路由，继承调用取消 |
 | channel.qq / activity.bilibili / activity.douyin | 对应受信任随包平台组件的加载许可，不等于账号发送授权 |
 
-扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度与权限范围；Channel的受信任平台契约位于 channels/types.ts，第三方RPC渠道需获channel.send权限才可向QQ直接发送，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
+扩展类型是能力分类，不能仅填写名字就获得宿主权限。Tool/Integration使用声明工具和事件；Memory使用search/propose；Personality读取当前人格并通过工具返回建议，由用户确认修改；Service使用受控媒体调用或自己的明确外部辅助服务；Activity由工具返回活动结果/提案，不能绕过现有调度与权限范围；Channel 的受信任平台契约位于 `apps/runtime/src/channels/types.ts`，第三方RPC渠道需获channel.send权限才可向QQ直接发送，不能把自己声明为主人；Model通过明确的OpenAI兼容HTTP服务接入现有配置/路由，v1不提供任意替换AgentEngine或主模型的RPC方法。扩展不另建人格/记忆数据库，不擅自把会话当长期记忆。
 
 MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥有的CDP实例，工具白名单、实际请求校验和最终提交门不能省略。固定依赖安装步骤见 [抖音](douyin.md)，平台来源与许可见 [上游记录](upstreams.md)。
 
 ## QQ 媒体与实际协议
 
-入站仅处理已授权账号/目标/消息结构中的不透明媒体标识，先核对当前账号并重新检查授权。图片通过NapCat get_image，只消费其base64字段；不读取NapCat返回的本机file路径或URL。托管组件在初始配置和登录配置中统一开启enableLocalFile2Url；独立NapCat也需开启，否则只返回图片信息。读取失败会区分已收到媒体和未读成功，不向模型透传原始错误、URL或路径。语音通过get_record(out_format=wav)，可能需要NapCat主机安装ffmpeg。一次最多处理2个媒体，每个最多2MB，接收器每帧最多3MB，取消/停用传播到模型和实际连接。
+入站仅处理已授权账号/目标/消息结构中的不透明媒体标识，先核对当前账号并重新检查授权。模型可用 `get_message_images` 查看本条消息中的图片。Runtime 通过 NapCat `get_image` 获取图像，只消费其 base64 字段；不读取NapCat返回的本机file路径或URL。托管组件在初始配置和登录配置中统一开启enableLocalFile2Url；独立NapCat也需开启，否则只返回图片信息。读取失败会区分已收到媒体和未读成功，不向模型透传原始错误、URL或路径。语音通过get_record(out_format=wav)，可能需要NapCat主机安装ffmpeg。每条消息最多提供 2 张图片供模型查看，并最多转写 2 段语音，单项限制为 2 MB，接收器每帧最多3MB，取消/停用传播到模型和实际连接。
 
-发文件只允许有界base64与干净的TXT/PDF/PNG/JPG/WAV文件名。文件是单独一条发送消息，不混入文本再发送一次。`upload_private_file` / `upload_group_file` 本身就是发送，真实调用紧跟最终同步授权门；返回有效file_id才记为确认，结果未知不自动重发。图片/语音仍走OneBot标准消息段；自动聊天回复直接发送文本，不引用原消息，可按语境附带一张表情。真实QQ账号尚未验证，协议夹具成功不代表平台账号可用。
+发文件只允许有界base64与干净的TXT/PDF/PNG/JPG/WAV文件名。文件是单独一条发送消息，不混入文本再发送一次。`upload_private_file` / `upload_group_file` 本身就是发送，真实调用紧跟最终同步授权门；返回有效file_id才记为确认，结果未知不自动重发。图片/语音仍走OneBot标准消息段；自动回复在模型回合结束后向当前获准目标投递，文本和表情单独发送。模型也可静默结束，或在插件支持时拍一拍当前发言人。用户已扫码登录并确认收到文字回复；图片识别、语音、文件和拍一拍的证据仍限于代码或隔离检查，真实账号效果待验。见[QQ 使用与验证记录](qq.md)。
 
 ## 验证与诊断
 
-定向用例：`tests/integration/web.test.ts` 使用实际TLS与隔离Chrome；`plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
+定向用例：`tests/integration/web.test.ts` 使用实际TLS与隔离Chrome；`tests/integration/plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`apps/runtime/src/plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`tests/integration/p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
 
 常见问题：WEB_LOGIN_REQUIRED重新登录；WEB_ORIGIN_DENIED核对实际origin/Host及代理头；WEB_STOP_REQUIRED先停网关再换口令；PLUGIN_PERMISSION_REQUIRED查看权限清单并明确授权；PLUGIN_DISABLED查看停用/恢复后状态；PLUGIN_STOPPED检查崩溃、超时或取消；PLUGIN_DEPENDENCY_UNSUPPORTED不能自动装未知依赖；MEDIA_BYTES_UNAVAILABLE在NapCat检查所需返回字节配置。不要用关掉权限、忽略签名或扩大网络访问来消除报错。
 

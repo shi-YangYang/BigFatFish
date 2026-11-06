@@ -1,6 +1,6 @@
 # 实施与交付流程
 
-根 [AGENTS.md](../../AGENTS.md) 为完整规则，本文件只提供执行入口。
+[项目协作规范](../AGENTS.md) 为完整规则，本文件只提供执行入口。
 
 1. 依次读取 AGENTS、mission、tech-stack 和 .ai/rules 全部有效规则，再读当前 Spec、Plan、Decision 与 task-handoff。
 2. 协调 Agent 检查 Git，确认 dev 或用户指定分支及修改归属；关键决策足以实施后再分配任务。

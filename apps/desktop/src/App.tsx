@@ -4,10 +4,12 @@ import { BounceSidebar } from "./components/beui/bounce-sidebar";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { api, isWeb } from "./api";
-import { Chat } from "./components/Chat";
-import { Setup } from "./components/Setup";
-import { MyFish, Connections, Settings } from "./components/Workspaces";
+import { api, isWeb } from "./api/client";
+import { Chat } from "./features/chat/Chat";
+import { Setup } from "./features/settings/Setup";
+import { MyFish } from "./features/fish/MyFish";
+import { Connections } from "./features/connections/Connections";
+import { Settings } from "./features/settings/Settings";
 import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
 export default function App() {

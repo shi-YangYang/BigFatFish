@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Chat } from '../../apps/desktop/src/components/Chat';
-import { Memories } from '../../apps/desktop/src/components/Memories';
+import { Chat } from '../../apps/desktop/src/features/chat/Chat';
+import { Memories } from '../../apps/desktop/src/features/fish/Memories';
 import { BounceSidebar } from '../../apps/desktop/src/components/beui/bounce-sidebar';
 import { Badge, Menu } from '../../apps/desktop/src/components/Surfaces';
 import { Button, Checkbox } from '../../apps/desktop/src/components/Controls';
-import { Activities } from '../../apps/desktop/src/components/Douyin';
+import { Activities } from '../../apps/desktop/src/features/fish/Activities';
 import { Tabs } from '../../apps/desktop/src/components/UI';
-import '../../apps/desktop/src/style.css';
+import '../../apps/desktop/src/styles/style.css';
 function Fixture() {
   const [tab, setTab] = useState('聊天'), [error, setError] = useState('');
   const fail = useCallback((error: unknown) => setError(String(error)), []);

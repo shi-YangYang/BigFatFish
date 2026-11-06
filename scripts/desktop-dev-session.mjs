@@ -123,7 +123,7 @@ export async function startDevelopment({ root, dataDir = resolveDevDataDir(), ar
     check();
     ({ paths } = await import(pathToFileURL(join(root, 'dist/runtime/src/paths.js')).href));
     ({ readConnection, getStatus } = await import(pathToFileURL(join(root, 'dist/runtime/src/connection.js')).href));
-    ({ stop: stopInstance } = await import(pathToFileURL(join(root, 'dist/cli/src/process.js')).href));
+    ({ stop: stopInstance } = await import(pathToFileURL(join(root, 'dist/cli/src/runtime/process.js')).href));
     const p = paths(dataDir);
     if (existsSync(p.connection)) {
       const previous = readConnection(p);
