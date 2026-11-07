@@ -32,6 +32,7 @@ import {
   type DataPaths,
 } from "../paths.js";
 import { acquireInstance } from "../instance.js";
+import { rebuildScenarios } from "../memory/scenario-store.js";
 import { rebuildPersonProfiles } from "../memory/person-profile.js";
 import { openDatabase, SCHEMA_VERSION } from "../storage/database.js";
 import { privateCopy } from "../memory/files.js";
@@ -48,7 +49,7 @@ export const groups = {
     "channel_sessions",
     "channel_deliveries",
   ],
-  memories: ["memories", "memory_links", "interests", "relationships", "conversation_notes"],
+  memories: ["memories", "memory_links", "interests", "relationships", "conversation_notes", "memory_scene_context"],
   life: [
     "activity_records",
     "experiences",
@@ -160,7 +161,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || ![6, 7, 8, 9, 10, SCHEMA_VERSION].includes(payload.schema))
+  if (payload.version !== 1 || ![6, 7, 8, 9, 10, 11, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -345,6 +346,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
       }
       if (payload.schema < 9) classifyLegacyMemories(db);
       rebuildPersonProfiles(db);
+      rebuildScenarios(db);
       await new StickerLibrary(db).validateStored();
       new ConversationNotes(db).validateStored();
       // Canonical message history will seed a fresh DSH session, excluding old hidden context and host paths.

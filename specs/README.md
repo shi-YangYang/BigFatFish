@@ -92,3 +92,4 @@
 - [Spec 048：自动记忆与人物归属](spec-048-automatic-personal-memory/spec.md) · [验收通过](spec-048-automatic-personal-memory/acceptance-r1.md)。
 - [Spec 049：回复后的记忆整理](spec-049-background-memory/spec.md) · [独立复验通过](spec-049-background-memory/acceptance-r1.md)。
 - [Spec 050：能追溯到原话的人物资料](spec-050-memory-layers/spec.md) · [真实模型验证](spec-050-memory-layers/live.md) · [独立复验通过](spec-050-memory-layers/acceptance-r1.md)。
+- [Spec 051：四层长期记忆](spec-051-scenario-memory/spec.md) · [真实模型测试](spec-051-scenario-memory/live.md) · [独立复验通过](spec-051-scenario-memory/acceptance-r1.md)。

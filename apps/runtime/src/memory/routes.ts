@@ -16,6 +16,7 @@ export function registerLife(app: FastifyInstance, life: LifeService) {
     else await life.embedder.disable();
     return recallStatus();
   });
+  app.post('/v1/memory-scenes/search',async req=>life.memories.scenes(req.body));
   app.post('/v1/memory-profile/search',async req=>life.memories.profileEntries(req.body));
   app.get('/v1/memories',async()=>life.memories.list());
   app.post('/v1/memories/search',async req=>life.memories.list(req.body));

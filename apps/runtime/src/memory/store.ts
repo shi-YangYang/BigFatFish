@@ -1,3 +1,4 @@
+import { readScenarios, syncScenarioFact } from './scenario-store.js';
 import { profileDay, syncPersonProfile } from './person-profile.js';
 import { inferAttribution, memoryAccess, validAttribution } from './attribution.js';
 import type { MemoryAttribution, MemoryAudience, ProfileEntry } from './types.js';
@@ -97,6 +98,7 @@ export class MemoryStore {
   }
   private syncCollections(id: string) {
     syncPersonProfile(this.db,id);
+    syncScenarioFact(this.db,id);
     this.db.prepare('DELETE FROM interests WHERE memory_id=?').run(id); this.db.prepare('DELETE FROM relationships WHERE memory_id=?').run(id);
     const m = this.get(id);
     if (m.status === 'confirmed' && (m.kind === 'interest' || m.kind === 'relationship')) this.db.prepare(`INSERT INTO ${m.kind === 'interest' ? 'interests' : 'relationships'}(memory_id) VALUES(?)`).run(id);
@@ -132,6 +134,7 @@ export class MemoryStore {
       const b = object(input), old = this.get(id);
       if (b.version !== old.version) throw new InputError('MEMORY_VERSION_CONFLICT',409);
       this.protectReview(old);
+      syncScenarioFact(this.db,id,true);
       this.db.prepare('DELETE FROM memories WHERE id=?').run(id);
     });
     this.changed(); return { deleted: true, originalMessagesPreserved: true };
@@ -145,9 +148,11 @@ export class MemoryStore {
       this.protectReview(target); this.protectReview(other);
       this.db.prepare(`INSERT OR IGNORE INTO memory_links(memory_id,source_type,source_id,quote,asserted_at,speaker_verified)
         SELECT ?,source_type,source_id,quote,asserted_at,speaker_verified FROM memory_links WHERE memory_id=?`).run(id,otherId);
+      syncScenarioFact(this.db,otherId,true);
       this.db.prepare('DELETE FROM memories WHERE id=?').run(otherId);
       this.db.prepare('UPDATE memories SET version=version+1,updated_at=? WHERE id=?').run(new Date().toISOString(),id);
       syncPersonProfile(this.db,id);
+      syncScenarioFact(this.db,id);
       return this.get(id);
     });this.changed();return result;
   }
@@ -178,6 +183,10 @@ export class MemoryStore {
     }
     return selected;
   }
+  scenes(input: unknown = {}, audience?: MemoryAudience, semanticIds?: string[]) {
+    return readScenarios(this.db,input,audience,semanticIds);
+  }
+
   profileEntries(input: unknown = {}, audience?: MemoryAudience): ProfileEntry[] {
     const b = object(input), role = string(b.role ?? '',20,true);
     if (role && !attributionRoles.some(r => r===role)) throw new InputError('INVALID_REQUEST');

@@ -1093,7 +1093,9 @@ audio {
   .qq-account-online .qq-connect-actions { grid-column: 1; grid-row: auto; }
 }
 
-.memory-layer-switch { display: flex; gap: 4px; }
+.memory-layer-switch { display: flex; flex-wrap: wrap; gap: 4px; }
+.scene-facts { padding: 0; margin: 0; list-style: none; }
+.scene-facts small { display: block; }
 .memory-layer-switch [aria-pressed="true"] { color: var(--brand); background: var(--soft); }
 .profile-fields { display: grid; }
 .profile-fields .profile-field {

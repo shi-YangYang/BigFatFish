@@ -340,20 +340,21 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
   );
 }
 
-export function Sources({
-  sources,
-  fail,
-}: {
-  sources: Source[];
-  fail: (e: unknown) => void;
-}) {
+type SourceListProps = { sources: Source[]; fail: (error: unknown) => void };
+
+export function Sources(props: SourceListProps) {
+  return <Disclosure title={<>查看来源（{props.sources.length}）</>}>
+    <SourceList {...props} />
+  </Disclosure>;
+}
+
+export function SourceList({sources, fail}: SourceListProps) {
   const [original, setOriginal] = useState<{
     content: string;
     conversationId?: string;
     occurredAt: string;
   }>();
   return (
-    <Disclosure  title={<>查看来源（{sources.length}）</>}>
       <ContentScroll label="来源记录">
       {sources.map((s) => (
         <p key={s.type + s.id}>
@@ -395,6 +396,5 @@ export function Sources({
         </Card>
       )}
       </ContentScroll>
-    </Disclosure>
   );
 }

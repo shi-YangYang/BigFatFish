@@ -27,7 +27,7 @@ SQLite 是人格、配置、会话、消息、记忆、活动、插件状态与�
 - **长期记忆**按真实发言人及原场合存储。回合完成后将来源加入 SQLite 队列，后台按顺序处理。明确单句走本机规则，复杂表述由聊天模型结合有限前文、原话和当前可见的旧记录整理。主人私聊可读取主人本人在群里的记忆；好友私聊与不同群分别隔离。手动回顾旧对话产生的候选可在管理页确认。关键词与可选的本机向量召回共用同一权限条件。公开回复投递前复核已披露记录，日记按实际活动生成。[记忆存储](../../apps/runtime/src/memory/store.ts)
 - **会话自动笔记**保存在独立的 `conversation_notes` 表。追加内容与引用须来自当前消息原文；查询和删除按可信范围执行。本地按会话隔离，QQ 按账号及私聊或群目标隔离。笔记不会覆盖主人确认记忆，逻辑备份可按 memories 范围携带笔记。[笔记工具](../../apps/runtime/src/memory/notes.ts)
 
-当前 `SCHEMA_VERSION = 11`，启动时在事务中应用 SQLite 迁移并写入 `PRAGMA user_version`。第 7 版增加 QQ 表情，第 8 版增加会话自动笔记，第 9 版记录个人角色、身份和范围，第 10 版记录待整理的新回合，第 11 版增加关联已确认记忆的人物资料字段。原话保存在消息中，重要事实保存在记忆表中，资料可以从这些事实重建。逻辑归档写入当前数据库版本，可恢复 schema 6 至 11 的归档。便携发行的 `release.json` 和签名更新清单仍写 `schema: 6`，更新清单同时写 `minSchema: 6`。查询运行库版本可用 `GET /v1/status` 的 `schemaVersion`。[迁移](../../apps/runtime/src/storage/database.ts) · [逻辑归档](../../apps/runtime/src/maintenance/archive.ts) · [发行准备](../../scripts/prepare-release.mjs) · [更新清单](../../scripts/release-archive.mjs)
+当前 `SCHEMA_VERSION = 12`，启动时在事务中应用 SQLite 迁移并写入 `PRAGMA user_version`。第 7 版增加 QQ 表情，第 8 版增加会话自动笔记，第 9 版记录个人角色、身份和范围，第 10 版记录待整理的新回合，第 11 版增加关联已确认记忆的人物资料字段，第 12 版保存场景摘要及其关联事实。原话保存在消息中，场景和人物资料均能追溯到重要事实。逻辑归档写入当前数据库版本，可恢复 schema 6 至 12 的归档。便携发行的 `release.json` 和签名更新清单仍写 `schema: 6`，更新清单同时写 `minSchema: 6`。查询运行库版本可用 `GET /v1/status` 的 `schemaVersion`。[迁移](../../apps/runtime/src/storage/database.ts) · [逻辑归档](../../apps/runtime/src/maintenance/archive.ts) · [发行准备](../../scripts/prepare-release.mjs) · [更新清单](../../scripts/release-archive.mjs)
 
 ## 平台如何执行操作
 

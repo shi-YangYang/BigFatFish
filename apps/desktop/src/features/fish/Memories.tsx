@@ -1,4 +1,5 @@
 import { memoryOrigin, memoryRoles } from "./memory-origin";
+import { MemoryScenes } from "./MemoryScenes";
 import { PersonProfiles } from "./PersonProfiles";
 import { SemanticRecall } from "./SemanticRecall";
 import { loadConversations } from "../../api/chat";
@@ -21,6 +22,7 @@ import type {
   Memory,
   MemoryKind,
   MemoryTask,
+  MemoryScene,
   ProfileEntry,
 } from "../../../../runtime/src/memory/types";
 import type { Conversation } from "../../../../runtime/src/ai/types";
@@ -45,7 +47,8 @@ const empty = {
 };
 export function Memories({ fail }: { fail: (e: unknown) => void }) {
   const [memories, setMemories] = useState<Memory[]>([]),
-    [layer, setLayer] = useState<"重要记忆" | "人物资料">("重要记忆"),
+    [layer, setLayer] = useState<"重要记忆" | "场景记忆" | "人物资料">("重要记忆"),
+    [scenes, setScenes] = useState<MemoryScene[]>([]),
     [profiles, setProfiles] = useState<ProfileEntry[]>([]),
     [sessions, setSessions] = useState<Conversation[]>([]),
     [tasks, setTasks] = useState<MemoryTask[]>([]),
@@ -64,6 +67,11 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     [exportPath, setExportPath] = useState("");
   const load = useCallback(
     async (isCurrent: () => boolean = () => true) => {
+      if (layer === "场景记忆") {
+        const rows = await api<MemoryScene[]>("/v1/memory-scenes/search", "POST", { query, role, offset, limit: 100 });
+        if (isCurrent()) setScenes(rows);
+        return;
+      }
       if (layer === "人物资料") {
         const rows = await api<ProfileEntry[]>("/v1/memory-profile/search", "POST", { query, role, offset, limit: 100 });
         if (isCurrent()) setProfiles(rows);
@@ -126,6 +134,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     });
     setExportPath(result.path);
   };
+  const pageCount = (layer === "场景记忆" ? scenes : layer === "人物资料" ? profiles : memories).length;
   const mergeable = memories.filter(m => selected.includes(m.id));
   const canMerge = mergeable.length === 2 && mergeable.every(m => m.kind === mergeable[0].kind &&
     m.role === mergeable[0].role && m.personKey === mergeable[0].personKey && m.scopeKey === mergeable[0].scopeKey);
@@ -139,7 +148,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </ActionRow>}
       </div>
       <div className="memory-layer-switch" role="group" aria-label="记忆视图">
-        {(["重要记忆", "人物资料"] as const).map(name => (
+        {(["重要记忆", "场景记忆", "人物资料"] as const).map(name => (
           <Button key={name} variant="ghost" size="compact" disabled={busy} aria-pressed={layer === name}
             onClick={() => {
               if (layer === name) return;
@@ -306,7 +315,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           归属
           <Select disabled={busy} value={role} onValueChange={value => { setOffset(0); setRole(value); }}>
             <option value="">全部</option>
-            {Object.entries(memoryRoles).filter(([key]) => layer === "重要记忆" || key === "owner" || key === "other").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            {Object.entries(memoryRoles).filter(([key]) => layer !== "人物资料" || key === "owner" || key === "other").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </Select>
         </Field>
         {layer === "重要记忆" && <><Field>
@@ -346,7 +355,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           </Select>
         </Field></>}
       </FormGrid>
-      {layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
+      {layer === "场景记忆" ? <MemoryScenes entries={scenes} fail={fail} /> : layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
       {selected.length > 0 && <ActionRow>
         <span>已选 {selected.length} 条</span>
         <Button
@@ -514,7 +523,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
       ))}
       </ContentScroll>
       </>}
-      {(offset > 0 || (layer === "人物资料" ? profiles : memories).length >= 100) && <ActionRow>
+      {(offset > 0 || pageCount >= 100) && <ActionRow>
         <Button
           type="button"
           disabled={busy || offset === 0}
@@ -524,7 +533,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Button>
         <Button
           type="button"
-          disabled={busy || (layer === "人物资料" ? profiles : memories).length < 100}
+          disabled={busy || pageCount < 100}
           onClick={() => setOffset(offset + 100)}
         >
           下一页

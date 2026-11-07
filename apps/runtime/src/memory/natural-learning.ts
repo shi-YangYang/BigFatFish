@@ -110,11 +110,18 @@ export function selectStatement(raw: string, speaker: Speaker, at: string): Stat
   const commitment = /(?:决定|约好|约了|定好|订好|预约|预订|报名|约我|定在|定于)|(?:要|得|会)(?:去|回|参加)|(?:去|回|参加).{0,10}(?:复诊|面试|考试|旅行|开会)|(?:[天日末一二三四五六点]|上午|中午|下午|晚上)(?:复诊|体检|面试|考试|出差)|(?:集合|聚餐|开会)$/u.test(text);
   const mine = /^(?:我(?:已经|确定|决定|定了|订了|预约|约了|打算|计划|会|得|要去|要回|的(?:复诊|体检|手术|面试|考试|出差|行程)|下周|这周|本周|周[一二三四五六天日末]|星期|明天|后天|今天|下个?月|[0-9]{1,2}[月号日])|(?:下周|这周|明天|周[一二三四五六日天末]|星期).{0,8}(?:我要|我会|我得|要去|得去))|(?:约|预约)(?:了)?我/u.test(text);
   if (tentativePlan.test(text)) return null;
-  if (time.test(text) && (commitment || correction) && (mine || (inGroup && groupPlan))) {
-    const episode = /复诊|体检|手术|面试|考试|开会|聚餐|集合|搬家|出差|旅行/u.exec(text)?.[0];
+  const episode = /复诊|体检|手术|面试|考试|开会|聚餐|集合|搬家|出差|旅行/u.exec(text)?.[0];
+  const namedEvent = /^我的(.+?)(?:的)?(?:日期|时间|安排|预约)?(?:改[到为成]|改期|推迟到|提前到)/u.exec(text);
+  const ownReschedule = !!namedEvent && namedEvent[1] === episode;
+  if (time.test(text) && (commitment || correction) && (mine || ownReschedule || (inGroup && groupPlan))) {
     const date = dateOf(at);
     return entry('experience', episode ?? text.slice(0,45), (date ? '（'+date+'的留言）' : '') + quote, correction);
   }
+  // A completed reservation has an identifiable object even when no date was mentioned.
+  // Keep individual bookings distinct from the schedule of the whole trip or event.
+  const booking = /^我(?:已经|刚刚|刚)?(?:(?:给|为)(?:这|那|本)(?:个|次|场|趟|项|届)[\p{L}\p{N}· -]{1,28}?)?(?:预订好|订好)了([\p{L}\p{N}· -]{1,40})$/u.exec(text);
+  if (booking && !/没|不|取消|退订|退款|以为|听说|本来|似乎/u.test(text))
+    return entry('experience',booking[1]!,quote);
   if (/^(?:我(?:今天|昨天|刚刚|终于|已经|成功|顺利)*|练了.{1,8}[，,](?:今天)?终于)(?:拿到|考过|通过|毕业|入职|领证|搬进)/u.test(text))
     return entry('experience', text.slice(0,45), (dateOf(at) ? '（'+dateOf(at)+'的留言）' : '')+quote);
 

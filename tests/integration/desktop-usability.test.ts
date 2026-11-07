@@ -248,3 +248,51 @@ it.skipIf(!existsSync(executable))('updates selected navigation and status feedb
     expect(errors).toEqual([]);
   } finally { await browser.close(); await server.close(); }
 }, 30000);
+
+it.skipIf(!existsSync(executable))('opens a scene from the memory list and a profile, then traces a fact to its original message', async () => {
+  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: {
+    host:'127.0.0.1',port:0,strictPort:false,fs:{allow:[resolve('.')]},
+  } });
+  await server.listen();
+  const browser = await chromium.launch({executablePath:executable,headless:true});
+  try {
+    const page = await browser.newPage({ viewport:{width:700,height:760} });
+    const actor = {role:'owner',scopeKey:'owner',personKey:'owner'};
+    const fact = {...actor,id:'fact1',version:3,subject:'补给',content:'露营时喜欢带乌龙茶'};
+    const place = {...actor,id:'fact2',version:1,subject:'地点',content:'决定去南山露营'};
+    const scene = {...actor,id:'camp',title:'南山露营',summary:'在南山露营，饮品选乌龙茶。',members:[fact,place]};
+    const sources = [{type:'message',id:'input1',quote:'我露营时喜欢喝乌龙茶。'}];
+    const related: string[] = [];
+    await page.route('**/api/v1/**', async route => {
+      const path = new URL(route.request().url()).pathname.slice(4);
+      if (path === '/v1/memory-scenes/search') {
+        const body = route.request().postDataJSON();
+        if (body.memoryId) related.push(body.memoryId);
+        return route.fulfill({json:body.memoryId && body.memoryId !== fact.id ? [] : [scene]});
+      }
+      const data: Record<string,unknown> = {
+        '/v1/model-routes':{chat:'fixture'}, '/v1/memory-recall':{state:'off'}, '/v1/life/updates':{revision:'1'},
+        '/v1/memory-profile/search':[{...actor,key:'tea',label:'偏好',value:'乌龙茶',memoryId:fact.id,
+          version:3,asOf:'2026-11-07',source:sources[0]}],
+        '/v1/memories/fact1':{...fact,sources}, '/v1/life/source':{content:'那我来带茶吧。我露营时喜欢喝乌龙茶。',occurredAt:'2026-11-07',conversationId:'local'},
+      };
+      return route.fulfill({json:data[path] ?? []});
+    });
+    await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as {port:number}).port}/@fs/${resolve('tests/fixtures/desktop-usability.html')}`);
+    await page.getByRole('tab',{name:'记忆',exact:true}).click();
+    await page.getByRole('button',{name:'场景记忆',exact:true}).click();
+    await page.getByRole('button',{name:'查看相关记忆（2）'}).click();
+    const drawer = page.getByRole('dialog');
+    await drawer.getByRole('button',{name:'查看来源',exact:true}).first().click();
+    await drawer.getByRole('button',{name:'打开原文'}).click();
+    await drawer.getByText('那我来带茶吧。我露营时喜欢喝乌龙茶。',{exact:true}).waitFor();
+    await drawer.getByRole('button',{name:'关闭',exact:true}).click();
+    await page.getByRole('button',{name:'人物资料',exact:true}).click();
+    await page.getByRole('button',{name:'查看偏好，乌龙茶'}).click();
+    await drawer.getByRole('button',{name:'南山露营'}).click();
+    await drawer.getByRole('heading',{name:'相关记忆（2）'}).waitFor();
+    await drawer.getByRole('button',{name:'返回人物资料'}).click();
+    await drawer.getByRole('heading',{name:'来源记忆'}).waitFor();
+    expect(related).toContain(fact.id);
+  } finally {await browser.close(); await server.close();}
+});

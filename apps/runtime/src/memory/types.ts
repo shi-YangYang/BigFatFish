@@ -17,3 +17,10 @@ export interface ProfileEntry extends MemoryAttribution {
   key: string; label: string; value: string; asOf: string; memoryId: string; version: number;
   source: Pick<Source,'type'|'id'>;
 }
+
+export interface SceneFact extends MemoryAttribution {
+  id: string; version: number; subject: string; content: string;
+}
+export interface MemoryScene extends MemoryAttribution {
+  id: string; title: string; summary: string; updatedAt: string; members: SceneFact[];
+}

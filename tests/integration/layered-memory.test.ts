@@ -110,6 +110,44 @@ it('uses trusted sender identity across desktop and OneBot, keeps group notes at
     expect(video.prompt).toContain('本次字幕');
     expect(video.prompt).not.toContain('南太平洋鲸群');
 
+    // Only the first fact matches this query in L1. L2 also discloses the second fact.
+    // Removing it between generation and QQ delivery must stop that pending reply.
+    const groupScope = 'qq:10001:group:41001';
+    const addSceneFact = (person: string, subject: string, text: string) => chat.life.memories.transaction(() =>
+      chat.life.memories.insert({kind:'experience',subject,content:text,importance:4,
+        sources:[{type:'user',id:crypto.randomUUID(),quote:text}]},'confirmed',
+        {role:person==='owner'?'owner':'other',personKey:person,scopeKey:groupScope}));
+    // This paraphrase has no words in common with the stored scene. Only one L1
+    // fact matched semantically, but every complete, attributed L2 detail is available.
+    const details = ['营地','物资','交通','装备','票务','摄影'].map(facet =>
+      facet+'的草案已经过几轮核对，'+'我先前一直倾向采用第一种方案，'.repeat(9)+'最后决定不用第一种方案');
+    const related = details.map(detail => addSceneFact('owner','清单','苍鹭计划的'+detail+'。'));
+    const semanticHit = vi.spyOn(chat.life.semantic,'memoryIds').mockReturnValueOnce([related[0]!.id]);
+    try {
+      const recalled = await qq('30003','41001','那桩事进展如何');
+      const scenes = JSON.parse(recalled.context!.match(/<memory_scenarios>(.+?)<\/memory_scenarios>/)![1]!);
+      expect(scenes).toContainEqual(expect.objectContaining({title:'苍鹭计划',reportedBy:'主人',speakerFacts:[]}));
+      const summary = scenes.find((scene:{title:string})=>scene.title==='苍鹭计划').summary;
+      expect(summary.length).toBeGreaterThan(800);
+      for (const detail of details) expect(summary).toContain(detail);
+    } finally {semanticHit.mockRestore();}
+
+    const checkIn = '星桥计划的签到点原先选在西馆，'+'我们几次到西馆确认场地，'.repeat(10)+'最终改到北馆。';
+    addSceneFact('owner','签到点',checkIn);
+    const paper = addSceneFact('qq:10001:30003','材料','星桥计划的材料是实验纸。');
+    const audience = {scopeKey:groupScope,personKey:'owner'};
+    expect(chat.life.memories.retrieve('签到点',4000,8,audience).map(m=>m.id)).not.toContain(paper.id);
+    const sendGate = bot.pauseNextLogin(), blocked = qq('20002','41001','签到点','blocked');
+    await sendGate.reached;
+    try {
+      const current = inputs.at(-1)!.context!;
+      const scenarios = JSON.parse(current.match(/<memory_scenarios>(.+?)<\/memory_scenarios>/)![1]!);
+      expect(scenarios).toContainEqual(expect.objectContaining({title:'星桥计划',summary:expect.stringContaining('实验纸'),
+        speakerFacts:[checkIn]}));
+      expect(JSON.stringify(scenarios)).not.toContain('30003');
+      chat.life.memories.delete(paper.id,{version:paper.version});
+    } finally {sendGate.release(); await blocked;}
+
     // Learning is auxiliary: a database error must not turn an already-generated QQ reply into a send failure.
     db.exec("CREATE TRIGGER test_write_error BEFORE INSERT ON memories BEGIN SELECT RAISE(ABORT,'fixture'); END;");
     await qq('20002',null,'以后叫我阿澈');

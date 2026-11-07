@@ -1,7 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 import { classifyLegacyMemories } from '../memory/attribution.js';
 import { rebuildPersonProfiles } from '../memory/person-profile.js';
-export const SCHEMA_VERSION = 11;
+import { rebuildScenarios } from '../memory/scenario-store.js';
+export const SCHEMA_VERSION = 12;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -67,6 +68,13 @@ export const migrations = [
      field_key TEXT NOT NULL, label TEXT NOT NULL, value TEXT NOT NULL, observed_at TEXT NOT NULL,
      source_type TEXT NOT NULL, source_id TEXT NOT NULL, PRIMARY KEY(memory_id,field_key)
    ) WITHOUT ROWID;`,
+  `CREATE TABLE memory_scenes(id TEXT PRIMARY KEY,scope_key TEXT NOT NULL,topic TEXT NOT NULL,summary TEXT NOT NULL,
+     evidence TEXT NOT NULL,actor_role TEXT NOT NULL,person_key TEXT NOT NULL,updated_at TEXT NOT NULL);
+   CREATE TABLE memory_scene_terms(memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+     scope_key TEXT NOT NULL,topic TEXT NOT NULL,strength INTEGER NOT NULL,observed_at TEXT NOT NULL,PRIMARY KEY(memory_id,topic)) WITHOUT ROWID;
+   CREATE INDEX memory_scene_topic ON memory_scene_terms(scope_key,topic,observed_at DESC,memory_id);
+   CREATE TABLE memory_scene_context(memory_id TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
+     basis_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,topic TEXT NOT NULL);`,
 ];
 export function transaction<T>(db: DatabaseSync, run: () => T): T {
   db.exec('BEGIN IMMEDIATE');
@@ -84,6 +92,7 @@ export function migrate(db: DatabaseSync, steps = migrations) {
       db.exec(steps[index]!);
       if (index === 8) classifyLegacyMemories(db);
       if (index === 10) rebuildPersonProfiles(db);
+      if (index === 11) rebuildScenarios(db);
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(index + 1, new Date().toISOString());
       db.exec(`PRAGMA user_version = ${index + 1}`);
     }

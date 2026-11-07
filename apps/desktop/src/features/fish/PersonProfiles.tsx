@@ -1,12 +1,12 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { Memory, ProfileEntry } from "../../../../runtime/src/memory/types";
+import { useCallback, useRef, useState } from "react";
+import type { Memory, MemoryScene, ProfileEntry } from "../../../../runtime/src/memory/types";
 import { api } from "../../api/client";
-import { errorText } from "../../api/errors";
 import { ActionRow, Button, Field, Textarea } from "../../components/Controls";
 import { Alert, Card, ContentScroll, Loading } from "../../components/Surfaces";
 import { Drawer } from "../../components/UI";
-import { Sources } from "./Life";
+import { Sources, useLifeRefresh } from "./Life";
+import { SceneDetail } from "./MemoryScenes";
 
 function origin(entry: ProfileEntry) {
   const [, , room, id] = entry.scopeKey.split(":");
@@ -22,18 +22,22 @@ function ProfileDetail({ entry, close, refresh, fail }: {
   fail: (error: unknown) => void;
 }) {
   const [memory, setMemory] = useState<Memory>();
-  const [error, setError] = useState("");
+  const [related, setRelated] = useState<MemoryScene[]>([]);
+  const [sceneId, setSceneId] = useState("");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const route = `/v1/memories/${entry.memoryId}`;
-  useEffect(() => {
-    let active = true;
-    api<Memory>(route).then(record => { if (active) setMemory(record); })
-      .catch(e => { if (active) setError(errorText(e)); });
-    return () => { active = false; };
-  }, [route]);
+  const loadDetail = useCallback(async (isCurrent = () => true) => {
+    const [record, scenes] = await Promise.all([
+      api<Memory>(route),
+      api<MemoryScene[]>("/v1/memory-scenes/search", "POST", { memoryId: entry.memoryId }),
+    ]);
+    if (isCurrent()) { setMemory(record); setRelated(scenes); }
+  }, [route, entry.memoryId]);
+  const error = useLifeRefresh(loadDetail);
+  const scene = related.find(item => item.id === sceneId);
 
   async function change(remove: boolean) {
     if (!memory || pending.current) return;
@@ -49,6 +53,7 @@ function ProfileDetail({ entry, close, refresh, fail }: {
     finally { pending.current = false; setBusy(false); }
   }
 
+  if (scene) return <SceneDetail scene={scene} back={() => setSceneId("")} close={close} fail={fail} />;
   return <Drawer title={entry.label} close={() => { if (!pending.current) close(); }}>
     <p className="muted">{origin(entry)}{entry.asOf && ` · ${entry.asOf} 记录`}</p>
     {error ? <Alert role="alert">{error}</Alert> : !memory ? <Loading /> : <>
@@ -67,6 +72,9 @@ function ProfileDetail({ entry, close, refresh, fail }: {
           <Button disabled={busy} onClick={() => void change(true)}>删除记忆</Button>
         </ActionRow>
       </>}
+      {related.length > 0 && <><h3>关联场景</h3><ActionRow>
+        {related.map(item => <Button key={item.id} size="compact" onClick={() => setSceneId(item.id)}>{item.title}</Button>)}
+      </ActionRow></>}
       <Sources sources={memory.sources.slice().sort((a, b) => Number(b.type === entry.source.type && b.id === entry.source.id) - Number(a.type === entry.source.type && a.id === entry.source.id))} fail={fail} />
     </>}
   </Drawer>;

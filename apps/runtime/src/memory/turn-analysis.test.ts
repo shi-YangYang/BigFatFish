@@ -270,3 +270,19 @@ it('excludes a request to ask about a relative while preserving an independent a
   expect(f.store.list().map(m=>m.content)).toEqual(['主人喜欢茉莉花茶']);
   expect(f.run).not.toHaveBeenCalled();
 });
+
+it('remembers independently booked items and corrects the date of one grounded trip', async () => {
+  const {turn,save,store,run,conversation} = fixture(() => ({items:[]}));
+  await save(turn('我已经订好了海岛露营的白沙湾营地。'));
+  const next = conversation();
+  const send = (text: string) => save(turn(text,'收到',next));
+  await send('我给这次海岛露营订好了双人帐篷。');
+  await send('我下周六要去海岛露营旅行。');
+  await send('我的旅行改到周日了。我喜欢茉莉花茶。');
+  const facts = store.list({status:'confirmed'});
+  expect(facts.map(m => m.subject).sort()).toEqual(['海岛露营的白沙湾营地','双人帐篷','旅行','主人对茉莉花茶的喜好'].sort());
+  const trip = facts.find(m => m.subject === '旅行')!;
+  expect(trip.content).toContain('改到周日');
+  expect(trip.sources.map(s => s.quote)).toEqual(expect.arrayContaining(['我下周六要去海岛露营旅行。','我的旅行改到周日了。']));
+  expect(run).not.toHaveBeenCalled();
+});
