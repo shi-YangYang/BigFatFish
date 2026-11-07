@@ -4,7 +4,11 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec052 Desktop 清晰度与易用性已完成
+## 当前任务：Spec053 QQ 表情来源分区已完成
+
+网络表情开关及来源与本地表情网格已拆为独立区域，上传入口改为「添加表情」；已核对当前网络搜索时机。S0 diff 检查及[独立验收 PASS](../../specs/spec-053-sticker-sources/acceptance.md)，[规格](../../specs/spec-053-sticker-sources/spec.md)已完成，实施结果见[计划](../../specs/spec-053-sticker-sources/plan.md)。未改变模型/接口，未操作真实数据，未运行测试或 UI 操作。基线 dev / `82155eb`，用户随后明确要求 local commit；按授权完成本地提交，确切哈希以 git log 为准，未推送。
+
+## 上一阶段：Spec052 Desktop 清晰度与易用性已完成
 
 用户要求面向小白的 Desktop，直接操作逐页检查，修复满屏淡蓝、焦点重复描边、详细人设字段和跳动的编辑流程。本次从干净 dev / `bda0bed` 开始，共享视觉与设置、模型、记忆及连接编辑流程已收紧。macOS 原生逐页复查、相关前端检查和连接设置返工后的[独立复验 PASS](../../specs/spec-052-desktop-clarity/acceptance-r1.md)，无阻塞项。[规格](../../specs/spec-052-desktop-clarity/spec.md)与[巡查记录](../../specs/spec-052-desktop-clarity/plan.md)记录实际证据和范围限制。在线平台状态用隔离数据补充，未向真实账号发送消息，未验证 Windows。
 

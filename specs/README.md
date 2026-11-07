@@ -94,3 +94,4 @@
 - [Spec 050：能追溯到原话的人物资料](spec-050-memory-layers/spec.md) · [真实模型验证](spec-050-memory-layers/live.md) · [独立复验通过](spec-050-memory-layers/acceptance-r1.md)。
 - [Spec 051：四层长期记忆](spec-051-scenario-memory/spec.md) · [真实模型测试](spec-051-scenario-memory/live.md) · [独立复验通过](spec-051-scenario-memory/acceptance-r1.md)。
 - [Spec 052：Desktop 清晰度与易用性](spec-052-desktop-clarity/spec.md) · [实施与原生巡查](spec-052-desktop-clarity/plan.md) · [独立复验通过](spec-052-desktop-clarity/acceptance-r1.md)：中性色层次、精简设定、稳定编辑与设置流程。
+- [Spec 053：QQ 表情来源分区](spec-053-sticker-sources/spec.md) · [独立验收通过](spec-053-sticker-sources/acceptance.md)：区分网络表情与本地表情，统一添加入口文案。
