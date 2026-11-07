@@ -68,7 +68,7 @@ DOUYIN_PROXY_URL/TOKEN 提供可鉴权的宿主回环代理；LockyBee 的 boots
 ## QQ 与 NapCat
 
 - [NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ)：发布 v4.18.42 指向 commit `9335843246e3b7a17944861f3ac8731a259732c2`；本轮接口源码检查 `98d781d19815d1625b24d717ce280ecf0a4f6d0c`。
-- NapCat LICENSE 为自定义 Limited Redistribution License，含非商业及修改发布限制。Spec023 经用户确认管理未修改原版组件：Mac/Linux 固定官方 Docker digest，Windows x64 按需下载校验原版 Windows.Node 包；大肥鱼自实现界面和进程管理，不复制其受限源码。既有独立服务对接保留。固定版本、哈希和数据隔离见 docs/qq.md。
+- NapCat LICENSE 为自定义 Limited Redistribution License，含非商业及修改发布限制。Spec023 经用户确认管理未修改原版组件：Mac/Linux 固定官方 Docker digest，Windows x64 按需下载校验原版 Windows.Node 包；大肥鱼自实现界面和进程管理，不复制其受限源码。QQ 的自有 OneBot 客户端现已直接编入 Runtime，不依赖插件安装目录或单独升级；未复制受限源码。既有独立服务对接保留。固定版本、哈希和数据隔离见 docs/qq.md。
 - [NapNeko/NapCatQQ-Desktop](https://github.com/NapNeko/NapCatQQ-Desktop)：3.5.17，`08cb0fb5e669624a9fd6265a869803da7ea6b746`，GPL-3.0；Windows/Linux x64。Tauri2/React18；可独立使用管理QQ，默认关闭的Streamable HTTP MCP有限媒体支持，不能代替完整消息通道。
 - [FablerTan/dsh-qq-relay](https://github.com/FablerTan/dsh-qq-relay)：0.25.6，`26c00fa5aa4c1faa53aead87e15e0d67a6d90d37`，package标MIT但研究树缺LICENSE/GitHub license=null；代码复制前需要许可证来源。createOneBotClient/API可以研究协议，实际业务只处理群消息等，不能当作已完成私聊实现。
 - [leliln52/dsh-qqbot](https://github.com/leliln52/dsh-qqbot)：0.2.0，`2a4b8c19762ad3b9cdc13e2074a9b86445bd60fb`，MIT，Node>=22.19。心跳调用 get_version，与所查NapCat get_version_info 不同；图片语音有占位转换，不能未经适配宣称完整多模态。

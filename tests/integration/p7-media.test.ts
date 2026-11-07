@@ -1,4 +1,3 @@
-import {readBundle} from '../../apps/runtime/src/plugins/service.js';
 import {deflateSync,crc32} from 'node:zlib';
 import {expect,it} from 'vitest';
 import {mkdtempSync,rmSync} from 'node:fs';
@@ -21,9 +20,7 @@ it('real ASR/TTS media and QQ file upload plus configured image bytes, failure c
   const speech=await call<{data:string;mimeType:string;synthetic:boolean}>('/v1/media/synthesize','POST',{text:'鱼在这里',voice:'fixture'});expect(speech.synthetic).toBe(true);expect(Buffer.from(speech.data,'base64').subarray(0,4).toString()).toBe('RIFF');
   expect(await call('/v1/media/transcribe','POST',speech)).toMatchObject({text:'隔离音轨转写：海洋里的鱼'});expect(fixture.requests.find(r=>r.url==='/v1/audio/transcriptions')?.raw).toContain('capture.wav');
   await expect(call('/v1/media/transcribe','POST',{mimeType:'text/html',data:'YQ=='})).rejects.toThrow('UNSUPPORTED_MEDIA_FORMAT');
-  const bundle=readBundle('dist/runtime/plugin-catalog/qq.bff-plugin');await call('/v1/plugins/install','POST',bundle);await call('/v1/plugins/qq/enable','POST',{granted:bundle.manifest.permissions,config:{}});
   const status=await call<ChannelStatus>('/v1/channels/qq');await call('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:'20002',groups:[],enabled:true,replyEnabled:true,proactiveEnabled:true,token:'fixture-token',revision:status.revision});await wait(async()=>(await call<ChannelStatus>('/v1/channels/qq')).health.state==='online');
-  bundle.manifest.version='0.1.1';await call('/v1/plugins/update','POST',bundle);await wait(async()=>(await call<ChannelStatus>('/v1/channels/qq')).health.state==='online');
   await expect(call('/v1/channels/qq/send','POST',{target:{kind:'private',id:'20002'},segments:[{type:'file',data:{file:'base64://'+Buffer.alloc(2_000_001).toString('base64'),name:'large.txt'}}]})).rejects.toThrow('UNSAFE_MEDIA_REFERENCE');
   const proposal=await call<SendResult>('/v1/channels/qq/send','POST',{target:{kind:'private',id:'20002'},segments:[{type:'file',data:{file:'base64://'+Buffer.from('真实文档'.repeat(20000)).toString('base64'),name:'fish.txt'}}]});expect(proposal.status).toBe('sent');expect(bot.requests.filter(r=>r.action==='upload_private_file')).toHaveLength(1);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(0);
   const png=realPNG();expect(png.length).toBeGreaterThan(32768);expect(Buffer.from(speech.data,'base64').length).toBeGreaterThan(32768);
@@ -41,7 +38,7 @@ it('real ASR/TTS media and QQ file upload plus configured image bytes, failure c
   const beforeMedia=bot.requests.filter(r=>r.action==='get_image').length;
   bot.event(mediaEvent('13','/etc/passwd'));await terminal('13');expect(await lastInput()).toContain('图片已收到，但未能取得可读取的内容');expect(bot.requests.filter(r=>r.action==='get_image')).toHaveLength(beforeMedia);
   const beforeSend=bot.requests.filter(r=>r.action.startsWith('send_')).length,beforeModel=fixture.requests.length,gate=bot.pauseNextMedia();bot.controls.media=png.toString('base64');bot.event(mediaEvent('14'));await gate.reached;
-  await call('/v1/plugins/qq/disable','POST');expect((await call<ChannelStatus>('/v1/channels/qq')).health.state).toBe('stopped');await expect(call('/v1/channels/qq/start','POST')).rejects.toThrow('PLUGIN_DISABLED');
+  await call('/v1/channels/qq/stop','POST');expect((await call<ChannelStatus>('/v1/channels/qq')).health.state).toBe('stopped');
   gate.release();await terminal('14');expect((await call<{id:string;status:string;error:string}[]>('/v1/channels/qq/deliveries')).find(d=>d.id.endsWith(':14'))).toMatchObject({status:'interrupted',error:'CANCELLED'});expect(fixture.requests).toHaveLength(beforeModel);expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(beforeSend);
  }finally{await runtime.stop();await bot.close();await fixture.close();rmSync(p.root,{recursive:true,force:true});}
 },45000);

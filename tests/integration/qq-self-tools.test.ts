@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {WebSocketServer} from 'ws';
 import {migrate,openDatabase} from '../../apps/runtime/src/storage/database.js';
-import {loadQQ} from '../../apps/runtime/src/channels/plugin.js';
+import {QQClient} from '../../apps/runtime/src/channels/onebot/client.js';
 import {QQActionState} from '../../apps/runtime/src/channels/action-state.js';
 import {interactionTools} from '../../apps/runtime/src/channels/interaction-tools.js';
 import {selfTools} from '../../apps/runtime/src/channels/self-tools.js';
@@ -32,7 +32,7 @@ async function bot(){const server=new WebSocketServer({host:'127.0.0.1',port:0})
  if(b.action==='get_qzone_msg_list')data={total:2,msglist:[{tid:'private',content:'PRIVATE_OLD_POST',is_private:true,comments:['PRIVATE_COMMENT']},{tid:'unknown-scope',content:'UNKNOWN_SCOPE_OLD_POST',is_private:false}]};
  if(b.action==='get_qzone_profile')data=space;if(b.action==='set_qzone_profile')space={...space,...b.params};
  ws.send(JSON.stringify({status:'ok',retcode:0,echo:b.echo,data}));}));
- const loaded=await loadQQ(resolve('plugins/qq'));loaded.plugin.initialize({event:()=>{},status:()=>{}});loaded.plugin.start({url:`ws://127.0.0.1:${(server.address() as {port:number}).port}`,accountId:'10001',ownerId:'20002',groups:['40004'],enabled:true,replyEnabled:true,proactiveEnabled:false,token:''});await wait(()=>loaded.plugin.health().state==='online');
+ const loaded={plugin:new QQClient()};loaded.plugin.initialize({event:()=>{},status:()=>{}});loaded.plugin.start({url:`ws://127.0.0.1:${(server.address() as {port:number}).port}`,accountId:'10001',ownerId:'20002',groups:['40004'],enabled:true,replyEnabled:true,proactiveEnabled:false,token:''});await wait(()=>loaded.plugin.health().state==='online');
  return {plugin:loaded.plugin,requests,control,url:`ws://127.0.0.1:${(server.address() as {port:number}).port}`,event:(value:unknown)=>{for(const ws of server.clients)ws.send(JSON.stringify(value));},close:async()=>{loaded.plugin.dispose();for(const client of server.clients)client.terminate();await new Promise<void>(r=>server.close(()=>r()));}};}
 
 it('binds real OneBot interactions to the current chat, own messages and private image evidence',async()=>{

@@ -1,16 +1,16 @@
 import {assertActionReceipt} from './protocol.js';
 import type {EngineTool} from '../ai/engine.js';
 import {InputError,object,string} from '../ai/types.js';
-import type {Plugin,QQAction} from './types.js';
+import type {QQConnection,QQAction} from './types.js';
 import type {QQActionState,SelfOptions} from './action-state.js';
 import type {StickerLibrary} from './stickers.js';
 interface Image {data:string;mimeType:string}
 const schema=(properties:Record<string,unknown>,required:string[]=[])=>({type:'object',properties,required,additionalProperties:false});
-export function selfTools(context:'owner'|'autonomous',plugin:Plugin,state:QQActionState,options:SelfOptions,library:StickerLibrary,guard:()=>void,externalImage?:(reference:string)=>Image):EngineTool[]{
- if(!plugin.action)return [];
+export function selfTools(context:'owner'|'autonomous',client:QQConnection,state:QQActionState,options:SelfOptions,library:StickerLibrary,guard:()=>void,externalImage?:(reference:string)=>Image):EngineTool[]{
+ if(!client.action)return [];
  const viewed=new Map<string,string>(),usedImages=new Set<string>();
  const check=(signal?:AbortSignal)=>{signal?.throwIfAborted();guard();if(state.options(options.accountId).revision!==options.revision)throw new InputError('PERMISSION_REVOKED');for(const ref of usedImages){if(viewed.has(ref))library.assertEnabled(ref,viewed.get(ref));else externalImage?.(ref);}};
- const call=async(name:QQAction,params:Record<string,unknown>,signal:AbortSignal)=>{check(signal);const r=await plugin.action!(name,params,()=>check(signal));check(signal);return r;};
+ const call=async(name:QQAction,params:Record<string,unknown>,signal:AbortSignal)=>{check(signal);const r=await client.action!(name,params,()=>check(signal));check(signal);return r;};
  const image=(ref:unknown)=>{const id=string(ref,100);if(id.startsWith('builtin-')&&viewed.has(id)){library.assertEnabled(id,viewed.get(id));usedImages.add(id);return library.image(id);}if(externalImage){const result=externalImage(id);usedImages.add(id);return result;}throw new InputError('STICKER_VIEW_REQUIRED');};
  const profile=async(signal:AbortSignal)=>{const r=object(await call('profile',{user_id:options.accountId,no_cache:true},signal));if(String(r.user_id)!==options.accountId)throw new InputError('QQ_ACCOUNT_CHANGED');return {nickname:string(r.nickname,100,true),signature:typeof r.long_nick==='string'?r.long_nick:typeof r.longNick==='string'?r.longNick:''};};
  const writes=new Map<string,Promise<unknown>>(),lastWrite=new Map<string,string>();

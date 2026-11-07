@@ -78,7 +78,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
       if (command === 'runtime_request') {
         const data: Record<string, unknown> = {
           '/v1/model-routes': routes,
-          '/v1/plugins': [{ id: 'qq', manifest: { name: 'QQ', version: '1.0', source: 'bundled plugins/qq', license: 'MIT', permissions: ['channel.qq'], tools: [] }, installed: true, enabled: true, health: 'ready', config: {} }],
+          '/v1/plugins': [{ id: 'bilibili', manifest: { name: 'B站', version: '1.0', source: 'bundled plugins/bilibili', license: 'MIT', permissions: ['activity.bilibili'], tools: [] }, installed: true, enabled: true, health: 'ready', config: {} }],
           '/v1/bilibili': { enabled: false, revision: 'fixture', accountState: 'unverified', health: {} },
           '/v1/bilibili/tasks': [{ id: 'v1', bvid: 'BVfixture', status: 'completed', result: { evidence: { title: '一段海边视频' }, summary: '海边日落' }, createdAt: '2026-11-07T08:00:00Z' }],
           '/v1/bilibili/tasks/v1/share': { status: 'sent' },
@@ -92,10 +92,10 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.addInitScript(() => { Object.assign(window, { __TAURI_INTERNALS__: { invoke: (command: string, args: unknown) => (window as unknown as { fixtureInvoke: (command: string, args: unknown) => unknown }).fixtureInvoke(command, args) } }); });
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop-clarity.html')}`;
     await page.goto(`${url}?plugins`);
-    await page.getByRole('heading', { name: 'QQ', exact: true }).waitFor();
-    expect(await page.getByText('bundled plugins/qq', { exact: true }).count()).toBe(0);
+    await page.getByRole('heading', { name: 'B站', exact: true }).waitFor();
+    expect(await page.getByText('bundled plugins/bilibili', { exact: true }).count()).toBe(0);
     await page.getByRole('button', { name: '插件信息', exact: true }).click();
-    await page.getByText('channel.qq', { exact: true }).waitFor();
+    await page.getByText('activity.bilibili', { exact: true }).waitFor();
     expect(await page.getByRole('button', { name: '高级配置', exact: true }).count()).toBe(0);
     await page.keyboard.press('Escape');
     await page.goto(`${url}?media`);

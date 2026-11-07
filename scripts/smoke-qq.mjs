@@ -17,6 +17,6 @@ try{
   await new Promise(resolve=>{process.once('SIGTERM',resolve);process.once('SIGINT',resolve);});
  }else{
   if(sent.status!=='sent'||!(await cli(['channels','deliveries'])).some(item=>item.id===sent.id&&item.status==='sent'))throw new Error('MESSAGE_NOT_SENT');
-  await cli(['channels','stop']);if((await cli(['channels','status'])).health.state!=='stopped')throw new Error('NOT_STOPPED');console.log('PASS: built CLI/Runtime/plugin configure, health, direct send, stop');
+  await cli(['channels','stop']);if((await cli(['channels','status'])).health.state!=='stopped')throw new Error('NOT_STOPPED');console.log('PASS: built CLI/Runtime/built-in QQ configure, health, direct send, stop');
  }
 }finally{await cli(['stop']).catch(()=>{});await bot.close();await model.close();rmSync(root,{recursive:true,force:true});}

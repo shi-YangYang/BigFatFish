@@ -60,7 +60,7 @@ docker compose -f infra/docker/compose.yaml stop
 
 镜像以 node 用户运行，卷保存 `/home/node/.local/share/bigfatfish`，健康检查调用认证 CLI。管理 API 不发布端口，只能在容器内访问 loopback；需要远程操作时通过 SSH 执行 Docker CLI。重新构建/替换容器保留卷，`down -v` 会删除数据，普通升级不要使用它。导出备份应另起临时容器挂载已停止服务的同一卷，避免 PID1 停止导致 `docker exec backup` 被容器终止。
 
-镜像构建包含 `dist/web`、插件 SDK、示例和三个平台安装产物。默认命令仍只启动 Runtime；HTTPS 控制台须按 [Web 管理说明](developer.md#启用-https-控制台) 显式配置并单独启动网关，Compose 不会自动发布 Web 端口。
+镜像构建包含 `dist/web`、插件 SDK、示例和内置 QQ 及 B站/抖音插件产物。默认命令仍只启动 Runtime；HTTPS 控制台须按 [Web 管理说明](developer.md#启用-https-控制台) 显式配置并单独启动网关，Compose 不会自动发布 Web 端口。
 
 ## 可选能力依赖
 
@@ -110,4 +110,4 @@ P6 曾在 macOS 上验证候选缺少内置 Node 时数据库保持原状，并�
 
 ## Web 与插件资源
 
-发行目录现在包含Web前端、三个平台的独立安装产物、普通SDK源码及独立示例。远程管理默认关闭，认证HTTPS部署、网关单独启停、恢复后插件重新授权及外部目录开发步骤见 [开发与Web管理](developer.md)。
+发行目录现在包含Web前端、内置 QQ 及 B站/抖音插件产物、普通SDK源码及独立示例。远程管理默认关闭，认证HTTPS部署、网关单独启停、恢复后插件重新授权及外部目录开发步骤见 [开发与Web管理](developer.md)。

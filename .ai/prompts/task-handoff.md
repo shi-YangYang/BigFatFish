@@ -4,7 +4,15 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前阶段：Spec055 QQ 互动工具与自主账号生活已完成
+## 当前阶段：Spec056 QQ 内置能力已完成
+
+用户要求先本地提交，再把三平台逐步变为固有能力，本轮先 QQ。前序 Spec055 已提交 dev / 6fd50d2，工作区当时干净，未推送、远端未刷新。[Spec056](../../specs/spec-056-builtin-qq/spec.md) Done，S3；自有 QQ 适配已静态并入 Runtime，取消插件装载、启用和单独升级；旧设置/密钥/停用意图兼容，旧安装代码不执行。Runtime停止开始即撤销QQ，不等待其它扩展排空。保持原版 NapCat，B站/抖音未迁移。
+
+实施与停止顺序补记完整读取，新的独立 Agent 在[验收](../../specs/spec-056-builtin-qq/acceptance.md)判 PASS，无待返工；验证与已在基线复现的旧媒体断言失败见[Plan](../../specs/spec-056-builtin-qq/plan.md)，决策见[Decision027](../decisions/027-builtin-qq.md)。未操作真实用户库/账号、收费模型或原生/Windows测试；下次运行 desktop:dev 才加载新版及一次兼容，无需再更新 QQ 插件。新实现未暂存/commit/push，用户此前提交授权仅用于前序阶段。满足停止条件，不追加检查；后续提交须明确指令。
+
+用户随后明确要求「本地commit」，授权保存已验收的 Spec056 实现及相关文档。本次按授权提交至 dev，确切提交号以 git log 为准；不推送，不恢复持续自动提交授权，沿用已有验收结果，不重复测试。
+
+## 上一阶段：Spec055 QQ 互动工具与自主账号生活已完成
 
 [Spec055](../../specs/spec-055-qq-self-tools/spec.md) Done，S3。用户确认的自主头像/简介/说说与聊天互动工具已实现，不增加审批。首验发现旧说说正文的可见范围不明，新的实施 Agent 在工具注册层隔离，新的独立 Agent 于[返工验收](../../specs/spec-055-qq-self-tools/acceptance-r1.md)判 PASS。全部报告完整读取，无待返工；证据和边界见[Plan](../../specs/spec-055-qq-self-tools/plan.md)及[Decision026](../decisions/026-qq-self-tools.md)。
 

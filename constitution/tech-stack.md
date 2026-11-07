@@ -20,11 +20,11 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 
 | 位置 | 职责 |
 | --- | --- |
-| `apps/runtime/src/` | `server.ts`、`lifecycle.ts` 等负责本机 API、实例与生命周期；`ai/`、`memory/`、`tasks/` 负责引擎、养成和调度。QQ 在 `channels/`，B站与抖音在 `bilibili/`、`douyin/`；存储、维护、插件与 Web 网关有独立模块。 |
+| `apps/runtime/src/` | `server.ts`、`lifecycle.ts` 等负责本机 API、实例与生命周期；`ai/`、`memory/`、`tasks/` 负责引擎、养成和调度。QQ 内置客户端和业务在 `channels/`（`onebot/` 为传输与动作适配），B站与抖音在 `bilibili/`、`douyin/`；存储、维护、插件与 Web 网关有独立模块。 |
 | `apps/cli/src/` | `main.ts` 分派命令，`commands/` 处理子命令，`io/input.ts` 读取输入，`runtime/` 负责客户端请求和进程控制。 |
 | `apps/desktop/src/` | React 入口和双端业务界面。`features/` 按聊天、连接、我的鱼、设置分区；`components/` 放通用组件和 beUI，`api/` 封装请求及事件传输，`hooks/`、`styles/`、`assets/` 放共享钩子、样式及资源。 |
 | `apps/desktop/src-tauri/src/`、`apps/web/src/` | 前者是 Rust 宿主，后者提供浏览器登录及 Web 管理设置，复用桌面业务组件。HTTPS 网关位于 `apps/runtime/src/web/`。 |
-| `plugins/`、`services/douyin/` | 随项目维护的平台适配代码、普通源码 SDK 和抖音 Python 辅助服务。第三方插件示例在 `examples/hello-fish/`。 |
+| `plugins/`、`services/douyin/` | 尚未内置的 B站/抖音适配代码、普通源码 SDK 和抖音 Python 辅助服务。第三方插件示例在 `examples/hello-fish/`。 |
 | `infra/docker/`、`infra/systemd/`、`scripts/` | Linux 部署配置；构建资源复制、开发进程管理、独立发行及签名归档脚本。 |
 | `tests/integration/`、`tests/fixtures/` | Vitest 跨模块检查、协议与界面夹具。模块级测试随源码存放。 |
 | `docs/`、`.github/` | 使用与开发指南、设计资料、阶段记录；贡献指南、安全问题报告和 CI 工作流。 |
