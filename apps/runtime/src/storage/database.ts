@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { classifyLegacyMemories } from '../memory/attribution.js';
 import { rebuildPersonProfiles } from '../memory/person-profile.js';
 import { rebuildScenarios } from '../memory/scenario-store.js';
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -83,6 +83,10 @@ export const migrations = [
      timezone TEXT NOT NULL,since TEXT NOT NULL,revision TEXT NOT NULL);
    CREATE TABLE diary_auto_runs(day TEXT NOT NULL,timezone TEXT NOT NULL,status TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,
      task_id TEXT,next_at INTEGER NOT NULL DEFAULT 0,error TEXT,PRIMARY KEY(day,timezone));`,
+  `CREATE TABLE qq_self_options(account_id TEXT PRIMARY KEY,profile INTEGER NOT NULL,posts INTEGER NOT NULL,visibility TEXT NOT NULL,revision TEXT NOT NULL);
+   CREATE TABLE qq_self_clock(account_id TEXT PRIMARY KEY,next_at INTEGER NOT NULL,day TEXT NOT NULL,decisions INTEGER NOT NULL);
+   CREATE TABLE qq_operations(id TEXT PRIMARY KEY,account_id TEXT NOT NULL,kind TEXT NOT NULL,fingerprint TEXT NOT NULL,status TEXT NOT NULL,result TEXT,error TEXT,created_at TEXT NOT NULL);
+   CREATE INDEX qq_operations_lookup ON qq_operations(account_id,kind,fingerprint,created_at);`,
 ];
 export function transaction<T>(db: DatabaseSync, run: () => T): T {
   db.exec('BEGIN IMMEDIATE');

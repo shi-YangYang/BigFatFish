@@ -4,6 +4,12 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
+## 当前阶段：Spec055 QQ 互动工具与自主账号生活已完成
+
+[Spec055](../../specs/spec-055-qq-self-tools/spec.md) Done，S3。用户确认的自主头像/简介/说说与聊天互动工具已实现，不增加审批。首验发现旧说说正文的可见范围不明，新的实施 Agent 在工具注册层隔离，新的独立 Agent 于[返工验收](../../specs/spec-055-qq-self-tools/acceptance-r1.md)判 PASS。全部报告完整读取，无待返工；证据和边界见[Plan](../../specs/spec-055-qq-self-tools/plan.md)及[Decision026](../decisions/026-qq-self-tools.md)。
+
+基线 dev / 655d75e；原心情/日记已提交，本轮未暂存、commit 或 push。协议、DSH、Runtime定时器、持久化与UI使用隔离夹具验证，未调用收费模型、实改QQ资料、发真实说说、启动或迁移用户实例；未做原生/Windows检查。下次运行 desktop:dev 后，已有安装还须在「设置 → 扩展」选择 dist/runtime/plugin-catalog/qq.bff-plugin 并更新，再检查 QQ 已连接；源码不会自动覆盖已安装插件。研究缓存 build/qq-tools-research/napcat-4.18.42.json。已满足停止条件，不追加检查，后续提交须用户明确指令。
+
 ## 当前阶段：Spec054 持续心情与自动日记已完成
 
 [Spec054](../../specs/spec-054-emotional-life/spec.md) Done，S3。已实现有来源、按身份场合隔离且自然衰减的持续心情，以及默认当地23:00自动写在经历页的日记。网站完整人设卡保留。首轮真实日记缺少鱼实际回复的 R1 已由新的实施 Agent 修复，并由新的独立 Agent 在[返工验收](../../specs/spec-054-emotional-life/acceptance-r1.md)判 PASS；全部报告已读取处理，无待返工。

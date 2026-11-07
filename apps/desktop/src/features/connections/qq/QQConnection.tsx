@@ -1,3 +1,4 @@
+import {QQSelfActivity} from './QQSelfActivity';
 import {RefreshCw} from 'lucide-react';
 import {QQStickers} from './QQStickers';
 import {Tabs} from '../../../components/UI';
@@ -107,7 +108,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
   {mode==='external'&&<Card><div className="qq-method-heading"><div><h2>QQ</h2><Badge status={connectionTone(statusLabel)}>{statusLabel}</Badge></div><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>
    {readError}{alerts}
   </Card>}
-  <Tabs items={['回复设置','表情','消息']} value={tab} onChange={setTab} label="QQ 设置">
+  <Tabs items={['回复设置','自主活动','表情','消息']} value={tab} onChange={setTab} label="QQ 设置">
    {tab==='回复设置'&&(mode==='managed'?<>
    {component?.account&&component.phase==='online'&&<Card className="qq-reply-card"><form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,friendIds:form.friendIds??[],groupReplyMode:form.groupReplyMode??'all',groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>
     <fieldset disabled={locked}>
@@ -149,6 +150,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
     <ActionRow><Button type="submit" variant="primary">保存并连接</Button>{channel?.config?.enabled&&channel.config.mode!=='managed'&&<Button onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
    </fieldset>
   </form></Card>)}
+   {tab==='自主活动'&&<QQSelfActivity key={channel?.config?.accountId??'none'}/>}
    {tab==='表情'&&<QQStickers fail={fail}/>}
    {tab==='消息'&&<div className="qq-messages-panel">{children}</div>}
   </Tabs>

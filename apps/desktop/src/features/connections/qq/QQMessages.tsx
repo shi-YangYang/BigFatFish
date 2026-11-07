@@ -16,15 +16,16 @@ const issueLabels: Record<QQMessageIssue["kind"], string> = {
 
 export function QQMessages() {
   const [issues, setIssues] = useState<QQMessageIssue[]>([]);
+  const [actions,setActions]=useState<{id:string;kind:string;status:string;at:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [historyError, setHistoryError] = useState(false);
   const alive = useRef(true), sequence = useRef(0);
   const refresh = useCallback(async () => {
     const n = ++sequence.current;
     try {
-      const records = await api<QQMessageIssue[]>("/v1/channels/qq/message-issues");
+      const [records,operations] = await Promise.all([api<QQMessageIssue[]>("/v1/channels/qq/message-issues"),api<{id:string;kind:string;status:string;at:string}[]>("/v1/channels/qq/action-issues")]);
       if (!alive.current || n !== sequence.current) return;
-      setIssues(records);
+      setIssues(records);setActions(operations);
       setHistoryError(false);
     } catch {
       if (alive.current && n === sequence.current) setHistoryError(true);
@@ -48,6 +49,7 @@ export function QQMessages() {
     };
   }, [refresh]);
 
+  const rows=[...issues.map(issue=>({id:String(issue.id),at:issue.at,label:issueLabels[issue.kind],target:issue.target})),...actions.map(a=>({id:a.id,at:a.at,label:({post:"说说发布",profile:"资料更新",avatar:"头像更新",space_profile:"空间资料更新",recall:"消息撤回",group_card:"群名片更新",like:"名片点赞",reaction:"表情回应"}[a.kind]??"QQ操作")+(a.status==='unknown'?"结果待核实":"未完成"),target:undefined}))].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,20);
   return (
     <Card>
       <h3>操作记录</h3>
@@ -58,19 +60,19 @@ export function QQMessages() {
         </Alert>
       )}
       {loading && <Loading />}
-      {issues.length > 0 && <ContentScroll label="操作记录" className="operation-record-list">
-        {issues.map(issue => (
+      {rows.length > 0 && <ContentScroll label="操作记录" className="operation-record-list">
+        {rows.map(issue => (
           <div key={issue.id} className="operation-record">
             <div className="operation-record-heading">
-              <span>{issueLabels[issue.kind]}</span>
+              <span>{issue.label}</span>
               {issue.target && <span className="operation-record-status">{issue.target.kind === "group" ? "群聊" : "私聊"} · {issue.target.id}</span>}
             </div>
             <time dateTime={issue.at}>{new Date(issue.at).toLocaleString()}</time>
           </div>
         ))}
       </ContentScroll>}
-      {!loading && !historyError && !issues.length && <p className="muted">暂无需要处理的问题</p>}
-      {issues.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}
+      {!loading && !historyError && !rows.length && <p className="muted">暂无需要处理的问题</p>}
+      {rows.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}
     </Card>
   );
 }

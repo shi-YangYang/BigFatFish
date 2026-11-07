@@ -96,3 +96,5 @@
 - [Spec 052：Desktop 清晰度与易用性](spec-052-desktop-clarity/spec.md) · [实施与原生巡查](spec-052-desktop-clarity/plan.md) · [独立复验通过](spec-052-desktop-clarity/acceptance-r1.md)：中性色层次、精简设定、稳定编辑与设置流程。
 - [Spec 053：QQ 表情来源分区](spec-053-sticker-sources/spec.md) · [独立验收通过](spec-053-sticker-sources/acceptance.md)：区分网络表情与本地表情，统一添加入口文案。
 - [Spec 054：持续心情与自动日记](spec-054-emotional-life/spec.md)：已完成，温和持续情绪、聊天表达与每天自动回顾；[返工独立验收 PASS](spec-054-emotional-life/acceptance-r1.md)。
+
+- [Spec 055：QQ 互动工具与自主账号生活](spec-055-qq-self-tools/spec.md)：已完成，补充聊天互动、自身资料、头像与自主说说；[返工独立验收 PASS](spec-055-qq-self-tools/acceptance-r1.md)。

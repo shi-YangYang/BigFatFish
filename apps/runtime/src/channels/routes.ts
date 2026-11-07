@@ -9,6 +9,9 @@ export function registerChannels(app:FastifyInstance,channels:Channels,managedSt
   app.get<{Params:{id:string}}>('/v1/channels/qq/stickers/:id/image',async req=>channels.stickers.image(req.params.id));
   app.put<{Params:{id:string}}>('/v1/channels/qq/stickers/:id',async req=>channels.stickers.update(req.params.id,req.body));
   app.delete<{Params:{id:string}}>('/v1/channels/qq/stickers/:id',async req=>channels.stickers.remove(req.params.id));
+  app.get('/v1/channels/qq/self-options',async()=>channels.selfOptions());
+  app.put('/v1/channels/qq/self-options',async req=>channels.saveSelfOptions(req.body));
+  app.get('/v1/channels/qq/action-issues',async()=>channels.selfState.issues());
   app.get('/v1/channels/qq',async()=>channels.status());
   app.put('/v1/channels/qq',async req=>{if(object(req.body).mode==='managed')throw new InputError('QQ_MANAGED_CONFIGURATION_REQUIRED');return channels.save(req.body);});
   app.post('/v1/channels/qq/start',async()=>channels.status().config?.mode==='managed'&&managedStart?{...channels.status(),component:managedStart()}:channels.enable(true));

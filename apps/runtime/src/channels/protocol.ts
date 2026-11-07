@@ -61,3 +61,8 @@ export function inbound(input:unknown,config:QQConfig) {
   const identity={author,nickname:nickname.slice(0,100),mentioned:parts.some(s=>s.type==='at'&&s.data.qq===config.accountId),replyToMessageId:parts.find(s=>s.type==='reply')?.data.id??null};
   return {id:messageId(b.message_id),author,target:to,parts,text,identity};
 }
+
+export function assertActionReceipt(value:unknown){
+  if(value===false)throw new Error('ACTION_REJECTED');
+  if(value&&typeof value==='object'&&'result' in value){const result=value.result;if(result===false||typeof result==='number'&&result!==0)throw new Error('ACTION_REJECTED');}
+}

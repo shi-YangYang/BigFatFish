@@ -29,7 +29,7 @@ export class QQPlugin {
       if(typeof value.echo==='string'){
         const p=this.pending.get(value.echo);if(!p)return;this.pending.delete(value.echo);clearTimeout(p.timer);
         if(value.status==='ok'&&value.retcode===0)p.resolve(value.data);
-        else p.reject(new Error(value.status==='async'||value.retcode===1?'SEND_UNKNOWN':'ACTION_REJECTED'));
+        else p.reject(new Error(value.retcode===1404?'QQ_TOOL_UNSUPPORTED':value.status==='async'||value.retcode===1?'SEND_UNKNOWN':'ACTION_REJECTED'));
       }else if(this.state.state==='online')this.host.event(value);
     });
     socket.on('unexpected-response',(_req,res)=>{res.resume();if(res.statusCode===401||res.statusCode===403){this.active=false;this.update('error','TOKEN_REJECTED');}socket.terminate();});
@@ -80,6 +80,12 @@ export class QQPlugin {
     }catch(error){throw new Error('SEND_NOT_STARTED',{cause:error});}
   }
   beforeIo(guard){try{guard();}catch(error){throw new Error('SEND_NOT_STARTED',{cause:error});}}
+  async action(name,params,guard) {
+    const actions={history_private:'get_friend_msg_history',history_group:'get_group_msg_history',message:'get_msg',recall:'delete_msg',group_card:'set_group_card',like:'send_like',reaction:'set_msg_emoji_like',profile:'get_stranger_info',profile_update:'set_qq_profile',avatar:'set_qq_avatar',posts:'get_qzone_msg_list',post:'send_qzone_msg',space_profile:'get_qzone_profile',space_update:'set_qzone_profile'};
+    if(!Object.hasOwn(actions,name))throw new Error('QQ_TOOL_UNSUPPORTED');
+    await this.readyToSend(guard);this.beforeIo(guard);
+    return this.request(actions[name],params,30000);
+  }
   async poke(kind,id,userId,guard){await this.readyToSend(guard);this.beforeIo(guard);await this.request('send_poke',{user_id:userId,...(kind==='group'?{group_id:id}:{})});}
   async send(kind,id,message,guard) {
     await this.readyToSend(guard);this.beforeIo(guard);

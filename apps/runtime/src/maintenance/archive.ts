@@ -63,7 +63,7 @@ export const groups = {
     "activity_requests",
     "activity_schedules",
   ],
-  plugins: ["plugin_config", "qq_stickers", "qq_sticker_options"],
+  plugins: ["plugin_config", "qq_stickers", "qq_sticker_options", "qq_self_options", "qq_operations"],
 } as const;
 export type Scope = keyof typeof groups;
 type Row = Record<string, SQLInputValue>;
@@ -163,7 +163,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || ![6, 7, 8, 9, 10, 11, 12, SCHEMA_VERSION].includes(payload.schema))
+  if (payload.version !== 1 || ![6, 7, 8, 9, 10, 11, 12, 13, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -334,6 +334,14 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
             if(row.id!==1||![0,1].includes(Number(row.enabled))||!Number.isInteger(row.hour)||Number(row.hour)<0||Number(row.hour)>23||!Number.isFinite(Date.parse(String(row.since)))||typeof row.revision!=='string')throw new Error('INVALID_ARCHIVE_DIARY');
             new Intl.DateTimeFormat('en',{timeZone:String(row.timezone)}).format();row.enabled=0;row.revision=randomUUID();
           }
+          if (table === 'qq_self_options') {
+            if(!/^[1-9][0-9]{0,31}$/.test(String(row.account_id))||![0,1].includes(Number(row.profile))||![0,1].includes(Number(row.posts))||!['friends','self','public'].includes(String(row.visibility)))throw new Error('INVALID_ARCHIVE_QQ_OPTIONS');
+            row.profile=0;row.posts=0;row.revision=randomUUID();
+          }
+          if (table === 'qq_operations') {
+            if(!['running','done','failed','unknown'].includes(String(row.status))||!Number.isFinite(Date.parse(String(row.created_at))))throw new Error('INVALID_ARCHIVE_QQ_OPERATION');
+            if(row.status==='running'){row.status='unknown';row.error='RESTORED';}
+          }
           if (table === "settings" && row.key !== "model_routes")
             throw new Error("INVALID_ARCHIVE_SETTING");
           if (table === "models" || table === "plugin_config")
@@ -354,6 +362,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
         }
       }
       db.prepare('INSERT OR IGNORE INTO diary_options VALUES(1,0,23,?,?,?)').run(Intl.DateTimeFormat().resolvedOptions().timeZone,new Date().toISOString(),randomUUID());
+      db.prepare("INSERT OR REPLACE INTO settings VALUES('qq.self.restorePaused','true')").run();
       if (payload.schema < 9) classifyLegacyMemories(db);
       rebuildPersonProfiles(db);
       rebuildScenarios(db);
@@ -513,11 +522,13 @@ export function pauseAfterRollback(database: string) {
     );
     const updates: Record<string, string> = {
       approvals: "DELETE FROM approvals",
+      qq_self_options: "UPDATE qq_self_options SET profile=0,posts=0",
+      qq_operations: "UPDATE qq_operations SET status='unknown',error='RESTORED' WHERE status='running'",
       diary_options: "UPDATE diary_options SET enabled=0",
       diary_auto_runs: "UPDATE diary_auto_runs SET status='cancelled' WHERE status IN ('running','retry')",
       emotion_jobs: "UPDATE emotion_jobs SET status='skipped' WHERE status='pending'",
       settings:
-        "INSERT OR REPLACE INTO settings VALUES('activities.paused','true')",
+        "INSERT OR REPLACE INTO settings VALUES('activities.paused','true'),('qq.self.restorePaused','true')",
       plugin_config:
         "UPDATE plugin_config SET config=json_set(config,'$.enabled',json('false'))",
       activity_schedules: "UPDATE activity_schedules SET enabled=0",

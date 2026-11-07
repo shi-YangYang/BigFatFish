@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { InputError } from '../ai/types.js';
 export interface ActivityTask{id:string;platform:string;kind:string;mode:string;input:Record<string,unknown>;status:string;result:Record<string,unknown>|null;error:string|null;createdAt:string}
 export class TaskQueue{
+ onPause:()=>void=()=>{};
  private runs=new Map<string,{control:AbortController;promise:Promise<void>;started:boolean}>();private tail=Promise.resolve();private closed=false;paused=false;
  constructor(private db:DatabaseSync){db.prepare("UPDATE activity_tasks SET status=CASE WHEN kind='write' THEN 'unknown' ELSE 'interrupted' END,error='RUNTIME_RESTARTED' WHERE status IN ('queued','running')").run();this.paused=db.prepare("SELECT value FROM settings WHERE key='activities.paused'").get()?.value==='true';}
  get(id:string):ActivityTask{const r=this.db.prepare('SELECT id,platform,kind,mode,input,status,result,error,created_at AS createdAt FROM activity_tasks WHERE id=?').get(id);if(!r)throw new InputError('TASK_NOT_FOUND',404);return {...r,input:JSON.parse(r.input as string),result:r.result?JSON.parse(r.result as string):null} as unknown as ActivityTask;}
@@ -17,6 +18,6 @@ export class TaskQueue{
  private state(id:string,status:string,result?:Record<string,unknown>,error:string|null=null){this.db.prepare('UPDATE activity_tasks SET status=?,result=?,error=? WHERE id=?').run(status,result?JSON.stringify(result):null,error,id);}
  cancel(id:string){this.get(id);const run=this.runs.get(id);run?.control.abort();if(run&&!run.started)this.state(id,'cancelled',undefined,'CANCELLED');return this.get(id);}
  async abort(platform?:string){const entries=[...this.runs].filter(([id])=>!platform||this.get(id).platform===platform);for(const [id]of entries)this.cancel(id);await Promise.allSettled(entries.filter(([,r])=>r.started).map(([,r])=>r.promise));}
- async pause(value:boolean){this.paused=value;this.db.prepare("INSERT INTO settings(key,value) VALUES('activities.paused',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(value));if(value)await this.abort();return {paused:value};}
+ async pause(value:boolean){this.paused=value;if(value)this.onPause();this.db.prepare("INSERT INTO settings(key,value) VALUES('activities.paused',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(value));if(value)await this.abort();return {paused:value};}
  async close(){this.closed=true;await this.abort();await this.tail;}
 }
