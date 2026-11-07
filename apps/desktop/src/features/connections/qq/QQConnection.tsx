@@ -2,7 +2,7 @@ import {RefreshCw} from 'lucide-react';
 import {QQStickers} from './QQStickers';
 import {Tabs} from '../../../components/UI';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
-import { activeQQMode, qqStatus } from '../connection-status';
+import { connectionTone, activeQQMode, qqStatus } from '../connection-status';
 import { ConnectionReadError } from '../ConnectionReadError';
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
@@ -88,7 +88,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
  return <section className="page-section qq-connection">
   {mode==='managed'&&<>
    <Card className={`qq-account-card${component?.phase==='online'?' qq-account-online':''}`}>
-    <div className="qq-account-heading"><div><h2>QQ{component?.account?.name && <span className="account-name"> · {component.account.name}</span>}</h2>{component?.account&&<p className="muted">{component.account.id}</p>}</div><div className="account-status"><Badge>{statusLabel}</Badge></div></div>
+    <div className="qq-account-heading"><div><h2>QQ{component?.account?.name && <span className="account-name"> · {component.account.name}</span>}</h2>{component?.account&&<p className="muted">{component.account.id}</p>}</div><div className="account-status"><Badge status={connectionTone(statusLabel)}>{statusLabel}</Badge></div></div>
     {readError}
     {component&&!component.supported&&<Alert>此系统暂不支持内置组件，请使用已有服务。</Alert>}
     {feedback.qr&&<div className="qq-login-code"><img src={feedback.qr} alt="QQ 登录二维码"/><p>使用手机 QQ 扫码，并确认登录</p></div>}
@@ -104,7 +104,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
     {component?.phase==='missing'&&<p className="muted">首次连接需下载 QQ 组件。{component.engine==='docker'?'请先启动 Docker。':''}</p>}
    </Card>
   </>}
-  {mode==='external'&&<Card><div className="qq-method-heading"><div><h2>QQ</h2><Badge>{statusLabel}</Badge></div><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>
+  {mode==='external'&&<Card><div className="qq-method-heading"><div><h2>QQ</h2><Badge status={connectionTone(statusLabel)}>{statusLabel}</Badge></div><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>
    {readError}{alerts}
   </Card>}
   <Tabs items={['回复设置','表情','消息']} value={tab} onChange={setTab} label="QQ 设置">

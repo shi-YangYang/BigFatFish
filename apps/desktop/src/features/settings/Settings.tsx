@@ -30,7 +30,7 @@ export function Settings({
   return (
     <>
       <Tabs
-        items={["模型", "扩展", "声音", "通用", "数据", "关于", "高级"]}
+        items={["模型", "扩展", "声音", "通用", "数据", "关于", "诊断"]}
         value={tab}
         onChange={setTab}
         label="设置分类"
@@ -40,7 +40,7 @@ export function Settings({
       ) : tab === "扩展" ? (
         <Plugins fail={fail} />
       ) : tab === "声音" ? (
-        <Media fail={fail} />
+        <Media fail={fail} configureModel={() => setTab("模型")} />
       ) : tab === "通用" ? (
         isWeb ? (
           <WebSettings fail={fail} showLogout />
@@ -62,10 +62,7 @@ export function Settings({
             <pre className="asset-notice">{assetNotice}</pre>
           </Disclosure>
           {!isWeb && (
-            <Disclosure  title={<>软件更新</>}>
-
-              <Updates fail={fail} />
-            </Disclosure>
+            <Updates fail={fail} />
           )}
         </section>
       ) : (

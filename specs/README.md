@@ -93,3 +93,4 @@
 - [Spec 049：回复后的记忆整理](spec-049-background-memory/spec.md) · [独立复验通过](spec-049-background-memory/acceptance-r1.md)。
 - [Spec 050：能追溯到原话的人物资料](spec-050-memory-layers/spec.md) · [真实模型验证](spec-050-memory-layers/live.md) · [独立复验通过](spec-050-memory-layers/acceptance-r1.md)。
 - [Spec 051：四层长期记忆](spec-051-scenario-memory/spec.md) · [真实模型测试](spec-051-scenario-memory/live.md) · [独立复验通过](spec-051-scenario-memory/acceptance-r1.md)。
+- [Spec 052：Desktop 清晰度与易用性](spec-052-desktop-clarity/spec.md) · [实施与原生巡查](spec-052-desktop-clarity/plan.md) · [独立复验通过](spec-052-desktop-clarity/acceptance-r1.md)：中性色层次、精简设定、稳定编辑与设置流程。

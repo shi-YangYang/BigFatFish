@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import type { ActivityTask } from "../../../../runtime/src/tasks/queue";
 import { Card, ContentScroll, Alert } from "../../components/Surfaces";
 import { ActionRow, Field, Input, Button, Select, FormGrid, Checkbox } from "../../components/Controls";
+import { Drawer } from "../../components/UI";
 import { api } from "../../api/client";
 import { errorText } from "../../api/errors";
 import { cancelActivity, loadActivities, type ActivityOverview } from "../../api/activities";
@@ -134,11 +135,10 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
               {data.paused ? "恢复活动" : "暂停全部活动"}
             </Button>
           )}
-          <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>{creating ? "收起创建" : "创建计划"}</Button>
+          <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>创建计划</Button>
         </ActionRow>
       </div>
-      {creating && <Card>
-      <h3>创建计划</h3>
+      {creating && <Drawer title="创建计划" close={() => setCreating(false)}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -200,7 +200,7 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
           启用计划
         </Button>
       </form>
-      </Card>}
+      </Drawer>}
       {data && !data.schedules.length && <p className="muted">还没有活动计划。</p>}
       {data?.schedules.map((s) => (
         <Card key={s.id}>

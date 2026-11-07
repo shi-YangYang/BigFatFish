@@ -1,26 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Disclosure, Loading } from "../../components/Surfaces";
+import { Loading } from "../../components/Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "../../components/Controls";
 import type { Persona } from "../../../../runtime/src/ai/types";
 import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../../runtime/src/ai/persona-presets";
 import { api } from "../../api/client";
-
-const detailLabels = {
-  avatar: "头像地址",
-  role: "角色设定",
-  traits: "基础性格",
-  style: "说话风格",
-  likes: "喜欢",
-  dislikes: "不喜欢",
-  boundaries: "行为边界",
-  schedule: "作息偏好",
-  autonomy: "自主活动偏好",
-};
+import { Drawer } from "../../components/UI";
 
 export function Personality({ fail }: { fail: (e: unknown) => void }) {
   const [persona, setPersona] = useState<Persona>();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState(false);
   const savingRef = useRef(false);
   useEffect(() => {
     let active = true;
@@ -42,6 +32,7 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
       const value = await api<Persona>("/v1/persona", "PUT", persona);
       setPersona(value);
       setSaved(true);
+      setEditingPrompt(false);
     } catch (error) { fail(error); }
     finally { savingRef.current = false; setSaving(false); }
   }
@@ -70,31 +61,26 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
             </Select>
           </Field>
         </FormGrid>
-        {source && <a href={source.sourceURL} target="_blank" rel="noreferrer">{source.title} · {source.author}</a>}
-        {persona.cardPrompt !== undefined && <Disclosure title="编辑完整人设"><Field>完整人设<Textarea value={persona.cardPrompt} rows={12} maxLength={32000} disabled={saving} onChange={event=>change({...persona,cardPrompt:event.target.value})}/></Field></Disclosure>}
         {preset && <div className="persona-example">
           <span>口吻示例</span>
           <p>{preset.example}</p>
         </div>}
-        <Disclosure title="编辑详细设定">
-          <FormGrid>
-            {(Object.keys(detailLabels) as (keyof typeof detailLabels)[]).filter(key=>!persona.cardPrompt||!['role','traits','style','likes','dislikes'].includes(key)).map(key => (
-              <Field key={key} className={key === "style" || key === "avatar" ? "persona-wide-field" : undefined}>
-                {detailLabels[key]}
-                {key === "avatar"
-                  ? <Input value={persona[key]} maxLength={4000} disabled={saving}
-                    onChange={event => change({ ...persona, [key]: event.target.value })} />
-                  : <Textarea value={persona[key]} rows={key === "style" ? 7 : 3} maxLength={4000} disabled={saving}
-                    onChange={event => change({ ...persona, [key]: event.target.value })} />}
-              </Field>
-            ))}
-          </FormGrid>
-        </Disclosure>
         <ActionRow>
           <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存设定"}</Button>
+          {persona.cardPrompt !== undefined && <Button disabled={saving} onClick={() => setEditingPrompt(true)}>自定义人设</Button>}
           <span role="status">{saved ? "已保存" : ""}</span>
         </ActionRow>
+        {source && <a className="persona-source" href={source.sourceURL} target="_blank" rel="noreferrer">人设来源：{source.title} · {source.author}</a>}
       </form>
+      {editingPrompt && <Drawer title="自定义人设" close={() => { if (!saving) setEditingPrompt(false); }}>
+        <form className="persona-editor" onSubmit={event => { event.preventDefault(); void save(); }}>
+          <Field>完整人设<Textarea value={persona.cardPrompt ?? ""} rows={16} maxLength={32000} disabled={saving} onChange={event => change({ ...persona, cardPrompt: event.target.value })} /></Field>
+          <ActionRow>
+            <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存人设"}</Button>
+            <Button disabled={saving} onClick={() => setEditingPrompt(false)}>关闭编辑</Button>
+          </ActionRow>
+        </form>
+      </Drawer>}
     </section>
   );
 }

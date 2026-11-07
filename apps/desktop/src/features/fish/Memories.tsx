@@ -1,4 +1,6 @@
 import { memoryOrigin, memoryRoles } from "./memory-origin";
+import { Drawer } from "../../components/UI";
+import { Disclosure } from "../../components/Surfaces";
 import { MemoryScenes } from "./MemoryScenes";
 import { PersonProfiles } from "./PersonProfiles";
 import { SemanticRecall } from "./SemanticRecall";
@@ -59,7 +61,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     [offset, setOffset] = useState(0),
     [session, setSession] = useState(""),
     [editing, setEditing] = useState<Memory>(),
-    [panel, setPanel] = useState<"edit" | "extract" | null>(null),
+    [panel, setPanel] = useState<"edit" | "extract" | "settings" | null>(null),
     [form, setForm] = useState(empty),
     [allowConflict, setAllowConflict] = useState(false),
     [busy, setBusy] = useState(false),
@@ -145,6 +147,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         {layer === "重要记忆" && <ActionRow>
           <Button disabled={busy} aria-expanded={panel === "extract"} onClick={() => setPanel(panel === "extract" ? null : "extract")}>从对话整理</Button>
           <Button variant="primary" disabled={busy} aria-expanded={panel === "edit"} onClick={() => setPanel(panel === "edit" ? null : "edit")}>{editing ? "继续编辑" : "添加记忆"}</Button>
+          <Button disabled={busy} onClick={() => setPanel("settings")}>记忆设置</Button>
         </ActionRow>}
       </div>
       <div className="memory-layer-switch" role="group" aria-label="记忆视图">
@@ -165,9 +168,8 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Alert>
       )}
       {layer === "重要记忆" && <>
-      <SemanticRecall fail={fail} />
-      {panel === "extract" && <Card>
-      <h3>从对话整理</h3>
+      {panel === "settings" && <Drawer title="记忆设置" close={() => setPanel(null)}><SemanticRecall fail={fail} /></Drawer>}
+      {panel === "extract" && <Drawer title="从对话整理" close={() => { if (!busy) setPanel(null); }}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -197,18 +199,17 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             </Select>
           </Field>
           <Button type="submit" variant="primary" disabled={busy || !session}>
-            提取候选
+            开始整理
           </Button>
         </ActionRow>
       </form>
-      </Card>}
+      </Drawer>}
       <TaskList
         tasks={tasks.filter((t) => t.kind === "extract")}
         refresh={load}
         fail={fail}
       />
-      {panel === "edit" && <Card>
-      <h3>{editing ? "编辑记忆" : "添加记忆"}</h3>
+      {panel === "edit" && <Drawer title={editing ? "编辑记忆" : "添加记忆"} close={() => { if (!busy) setPanel(null); }}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -234,16 +235,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Field>
         <Field>
           重要性
-          <Input
-            disabled={busy}
-            type="number"
-            min={1}
-            max={5}
-            value={form.importance}
-            onChange={(e) =>
-              setForm({ ...form, importance: Number(e.target.value) })
-            }
-          />
+          <Select disabled={busy} value={form.importance} onValueChange={value => setForm({ ...form, importance: Number(value) })}>
+            <option value="1">偶尔用到</option><option value="2">一般</option><option value="3">值得记住</option><option value="4">重要</option><option value="5">很重要</option>
+          </Select>
         </Field>
         </FormGrid>
         <Field>
@@ -274,13 +268,13 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             checked={allowConflict}
             onCheckedChange={(value) => setAllowConflict(value)}
           />
-          允许与同主题已确认记忆并存
+          保留同主题的旧记忆
         </Field>
         <ActionRow>
         <Button type="submit" variant="primary" disabled={busy}>
           保存
         </Button>
-        <Button disabled={busy} onClick={() => setPanel(null)}>收起</Button>
+        <Button disabled={busy} onClick={() => setPanel(null)}>关闭编辑</Button>
         {editing && (
           <Button
             disabled={busy}
@@ -297,9 +291,9 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         )}
         </ActionRow>
       </form>
-      </Card>}
+      </Drawer>}
       </>}
-      <FormGrid className="filters">
+      <FormGrid className="memory-search">
         <Field>
           搜索
           <Input
@@ -318,7 +312,8 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             {Object.entries(memoryRoles).filter(([key]) => layer !== "人物资料" || key === "owner" || key === "other").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </Select>
         </Field>
-        {layer === "重要记忆" && <><Field>
+      </FormGrid>
+      {layer === "重要记忆" && <Disclosure title={status || kind ? "筛选（已启用）" : "筛选"} className="secondary-options"><FormGrid><Field>
           状态
           <Select
             disabled={busy}
@@ -353,8 +348,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
               </option>
             ))}
           </Select>
-        </Field></>}
-      </FormGrid>
+        </Field></FormGrid></Disclosure>}
       {layer === "场景记忆" ? <MemoryScenes entries={scenes} fail={fail} /> : layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
       {selected.length > 0 && <ActionRow>
         <span>已选 {selected.length} 条</span>

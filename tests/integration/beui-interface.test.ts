@@ -28,6 +28,12 @@ it.skipIf(!existsSync(executable))("beUI preserves form contracts, Chinese tab i
     expect(await page.getByRole("option", { name: "第一项", exact: true }).evaluate((el) => el === document.activeElement)).toBe(true);
     await page.keyboard.press("Enter");
     expect(await select.innerText()).toContain("第一项");
+    const field = page.getByLabel("口令", { exact: true });
+    const beforeFocus = await field.boundingBox();
+    await field.focus();
+    expect(await field.evaluate(el => ({ outline: getComputedStyle(el).outlineStyle, fieldShadow: getComputedStyle(el.parentElement!).boxShadow }))).toMatchObject({ outline: "none" });
+    expect(await field.evaluate(el => getComputedStyle(el.parentElement!).boxShadow)).toContain("1px");
+    expect(await field.boundingBox()).toEqual(beforeFocus);
     const checkbox = page.getByRole("checkbox", { name: "保存后启用", exact: true });
     await page.getByText("保存后启用", { exact: true }).click();
     expect(await checkbox.getAttribute("aria-checked")).toBe("true");

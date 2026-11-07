@@ -1,6 +1,7 @@
-import { Card, Disclosure } from "../../components/Surfaces";
+import { Card, Disclosure, Badge } from "../../components/Surfaces";
 import { Field, Input, Button, Textarea, ActionRow } from "../../components/Controls";
 import { useEffect, useState } from "react";
+import { Drawer } from "../../components/UI";
 import { api } from "../../api/client";
 import type { Manifest } from "../../../../runtime/src/plugins/package";
 type Item = {
@@ -12,6 +13,7 @@ type Item = {
   config: Record<string, unknown>;
 };
 export function Plugins({ fail }: { fail: (e: unknown) => void }) {
+  const [detail, setDetail] = useState<string>();
   const [configs, setConfigs] = useState<Record<string, string>>({});
   const [items, setItems] = useState<Item[]>([]),
     [bundle, setBundle] = useState<unknown>(),
@@ -34,7 +36,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
   return (
     <section className="page-section">
       <h2>扩展</h2>
-      <p>插件以当前用户运行，可访问本机文件和网络。仅安装你信任的代码。</p>
+      <p className="muted">仅安装你信任的插件。</p>
       <Field>
         选择插件文件
         <Input
@@ -90,34 +92,10 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
       )}
       {items.map((item) => (
         <Card key={item.id}>
-          <h3>
-            {item.manifest.name} {item.manifest.version}
-          </h3>
-          <p>
-            {item.installed ? (item.enabled ? "已启用" : "已停用") : "未安装"} ·{" "}
-            {{
-              ready: "就绪",
-              stopped: "已停止",
-              crashed: "异常退出",
-              failed: "启动失败",
-            }[item.health] ?? item.health}
-          </p>
-          <p>
-            {item.manifest.source} · {item.manifest.license}
-          </p>
-          <p>权限：{item.manifest.permissions.join("、")}</p>
-          <Disclosure  title={<>高级配置</>}>
-
-            <Field>
-              配置（不接受密钥等敏感信息）
-              <Textarea
-                value={configs[item.id] ?? JSON.stringify(item.config)}
-                onChange={(e) =>
-                  setConfigs({ ...configs, [item.id]: e.target.value })
-                }
-              />
-            </Field>
-          </Disclosure>
+          <div className="section-heading plugin-heading">
+            <h3>{item.manifest.name}</h3>
+            <Badge status={['crashed', 'failed'].includes(item.health) ? 'danger' : item.enabled ? 'success' : 'neutral'}>{['crashed', 'failed'].includes(item.health) ? '运行异常' : item.installed ? item.enabled ? '已启用' : '已停用' : '未安装'}</Badge>
+          </div>
           <ActionRow>
             <Button
               type="button"
@@ -148,7 +126,12 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
             >
               卸载并保留数据
             </Button>
+            <Button variant="ghost" onClick={() => setDetail(item.id)}>插件信息</Button>
           </ActionRow>
+          {detail === item.id && <Drawer title={item.manifest.name} close={() => setDetail(undefined)}>
+            <div className="page-section">
+              <dl className="detail-list"><div><dt>版本</dt><dd>{item.manifest.version}</dd></div><div><dt>来源</dt><dd>{item.manifest.source}</dd></div><div><dt>许可</dt><dd>{item.manifest.license}</dd></div><div><dt>权限</dt><dd>{item.manifest.permissions.join("、")}</dd></div></dl>
+              {!["qq", "bilibili", "douyin"].includes(item.id) && <Disclosure title="高级配置"><Field>配置（不接受密钥）<Textarea value={configs[item.id] ?? JSON.stringify(item.config)} onChange={e => setConfigs({ ...configs, [item.id]: e.target.value })} /></Field></Disclosure>}
           {item.enabled && item.manifest.tools.length > 0 && (
             <Disclosure  title={<>工具调试</>}>
 
@@ -179,6 +162,8 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
               </ActionRow>
             </Disclosure>
           )}
+            </div>
+          </Drawer>}
         </Card>
       ))}
       {result && <output>{result}</output>}

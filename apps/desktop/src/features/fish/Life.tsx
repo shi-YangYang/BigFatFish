@@ -1,4 +1,5 @@
 import { memoryOrigin } from "./memory-origin";
+import { visibleExperiences } from "./life-presentation";
 import { usePoll } from "../../hooks/usePoll";
 import { loadActivities, type ActivityOverview } from "../../api/activities";
 import { activityState } from "./activity-labels";
@@ -99,6 +100,7 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
   }, []);
   const refreshError = useLifeRefresh(load);
   if (!data) return refreshError ? <Alert>{refreshError}</Alert> : <Loading />;
+  const recent = visibleExperiences(data.recent);
   return (
     <section className="page-section">
       {refreshError && (
@@ -162,8 +164,8 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
         <Card>
           <h3>最近经历</h3>
           <ContentScroll label="最近经历" className="overview-recent">
-          {data.recent.length ? (
-            data.recent.map((a) => (
+          {recent.length ? (
+            recent.map((a) => (
               <div key={a.id} className="summary-entry">
                 <p>{a.summary}</p>
                 <time>{new Date(a.occurredAt).toLocaleString()}</time>
@@ -204,7 +206,7 @@ export function TaskList({
     <ContentScroll label="整理任务" className="task-list">
       {tasks.slice(0, 8).map((t) => (
         <div className="task-row" key={t.id}>
-          <div className="task-summary"><strong>{t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]}</strong><span className="muted">{t.modelId}</span></div>
+          <div className="task-summary"><strong>{t.kind === "extract" ? "记忆整理" : "日记"} · {taskState[t.status]}</strong></div>
           {t.error && <Alert>{errorText(t.error)}</Alert>}{" "}
           {["queued", "running"].includes(t.status) && (
             <Button
@@ -239,7 +241,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       api<MemoryTask[]>("/v1/memory-tasks"),
     ]);
     if (isCurrent()) {
-      setTimeline(a);
+      setTimeline(visibleExperiences(a));
       setDiaries(b);
       setTasks(c);
     }
@@ -305,14 +307,10 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       <ContentScroll label="日记" className="content-scroll-list">
       {diaries.map((d) => (
         <Card key={d.id}>
-          <div className="record-title"><h3>{d.day}</h3><span className="muted">{d.timezone} · 第 {d.version} 版</span></div>
+          <div className="record-title"><h3>{d.day}</h3></div>
           <p className="prewrap">{d.content}</p>
           <Sources sources={d.sources} fail={fail} />
-          <p>
-            {d.copyStatus === "ready"
-              ? "Markdown 副本已保存"
-              : "Markdown 副本保存失败，日记仍保存在应用中"}
-          </p>
+          {d.copyStatus !== "ready" && <><p className="muted">文件副本保存失败，日记仍保存在应用中。</p>
           <Button
             type="button"
             onClick={() =>
@@ -321,8 +319,8 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
                 .catch(fail)
             }
           >
-            重建副本
-          </Button>
+            重试保存副本
+          </Button></>}
         </Card>
       ))}
       </ContentScroll>

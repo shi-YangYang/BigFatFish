@@ -158,6 +158,7 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     legacyRuntime = false;
     await page.getByRole('tab', { name: '记忆', exact: true }).click();
     await page.getByText('没有符合条件的记忆。可整理对话，或直接添加。', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '记忆设置', exact: true }).click();
     const recallCard = page.getByRole('article').filter({ hasText: '按语义回忆' });
     await recallCard.getByRole('button', { name: '启用' }).click();
     await recallCard.getByRole('button', { name: '取消' }).waitFor();
@@ -167,13 +168,14 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     await recallCard.getByRole('button', { name: '停用' }).click();
     await recallCard.getByRole('button', { name: '启用' }).waitFor();
     expect(recallWrites).toEqual([true, true, false]);
+    await page.keyboard.press('Escape');
     expect(await page.getByLabel('主题', { exact: true }).count()).toBe(0);
     expect(await page.getByRole('button', { name: '合并所选两条', exact: true }).count()).toBe(0);
     expect(await page.getByRole('button', { name: '下一页', exact: true }).count()).toBe(0);
     await page.getByRole('button', { name: '添加记忆', exact: true }).click();
     await page.getByLabel('主题', { exact: true }).fill('偏好');
     await page.getByLabel('内容', { exact: true }).fill('喜欢蓝色');
-    await page.getByRole('button', { name: '收起', exact: true }).click();
+    await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
     await page.getByRole('button', { name: '添加记忆', exact: true }).click();
     expect(await page.getByLabel('内容', { exact: true }).inputValue()).toBe('喜欢蓝色');
     await page.getByRole('button', { name: '保存', exact: true }).click();

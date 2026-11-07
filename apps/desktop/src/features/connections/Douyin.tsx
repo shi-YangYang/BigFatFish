@@ -12,10 +12,10 @@ import {
   ActionRow,
 } from "../../components/Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { douyinStatus, type DouyinStatus } from './connection-status';
+import { connectionTone, douyinStatus, type DouyinStatus } from './connection-status';
 import { ConnectionReadError } from './ConnectionReadError';
 import { OperationRecords } from "./OperationRecords";
-import { Tabs } from "../../components/UI";
+import { Tabs, Drawer } from "../../components/UI";
 import { api } from "../../api/client";
 import { errorText } from "../../api/errors";
 import type { BrowserConfig } from "../../../../runtime/src/douyin/browser";
@@ -24,8 +24,8 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
   const [state,setState]=useState<DouyinStatus>(),
     [form,setForm]=useState<BrowserConfig>(),[formRevision,setFormRevision]=useState(''),[tab,setTab]=useState('记录'),
     [videoId,setVideoId]=useState(''),[busy,setBusy]=useState(false),[tasks,setTasks]=useState<ActivityTask[]>(),[recordsError,setRecordsError]=useState<string>(),
-    [tool,setTool]=useState('douyin_like'),[text,setText]=useState('');
-  const [readError,setReadError]=useState(false),[actionError,setActionError]=useState('');
+    [settingsOpen,setSettingsOpen]=useState(false),[tool,setTool]=useState('douyin_like'),[text,setText]=useState('');
+  const [readError,setReadError]=useState(false),[actionError,setActionError]=useState(''),[settingsError,setSettingsError]=useState('');
   useEffect(()=>setActionError(''),[state?.connection?.phase,state?.revision]);
   const editing=useRef(false),pending=useRef(false),sequence=useRef(0),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;++sequence.current;};},[]);
@@ -52,18 +52,19 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
   return <section className="page-section platform-connection">
 
    <Card className="platform-account-card">
-    <div className="platform-account-heading"><div><h2>抖音</h2>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div><Badge>{readError?'状态待更新':label}</Badge></div>
+    <div className="platform-account-heading"><div><h2>抖音</h2>{state.config.accountId&&<p className="muted">{state.config.accountId}</p>}</div><Badge status={connectionTone(readError?'状态待更新':label)}>{readError?'状态待更新':label}</Badge></div>
     {readWarning}
     {failure&&<Alert>{failure}</Alert>}
     {state.connection?.phase==='login'&&<p>{state.connection.loginState==='verification'?'请在专用浏览器中完成验证':state.connection.loginState==='confirmation'?'请在手机上确认登录':'请在打开的浏览器中登录抖音'}</p>}
     <ActionRow className="platform-connect-actions">
      {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{state.connection?.phase==='error'?'重试连接':'连接抖音'}</Button>}
      {(state.config.enabled||connecting)&&<Button disabled={busy} onClick={()=>void act(()=>api('/v1/douyin/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
-     <Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>连接设置</Button>
+     <Button variant="ghost" disabled={busy} onClick={()=>{setSettingsError('');setSettingsOpen(true);}}>连接设置</Button>
     </ActionRow>
    </Card>
-   <Tabs items={['记录','互动','设置']} value={tab} onChange={setTab} label="抖音功能">
-    {tab==='互动'&&<div className="platform-records"><Card><h3>互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
+   <Tabs items={['记录','互动']} value={tab} onChange={setTab} label="抖音功能">
+    {tab==='互动'&&!connected&&<Card><p>连接抖音后可点赞或评论。</p><Button variant="primary" disabled={busy||connecting} onClick={()=>void act(()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{connecting?'正在连接…':'连接抖音'}</Button></Card>}
+    {tab==='互动'&&connected&&<div className="platform-records"><Card><h3>互动</h3><p className="muted">暂不支持私信、分享和投稿。</p><fieldset disabled={locked||!connected}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -101,13 +102,18 @@ export function Douyin({ fail }: { fail: (e: unknown) => void }) {
       error:t.error||t.result?.error?errorText(t.error||t.result?.error):undefined,
       actions:['queued','running'].includes(t.status)?<Button size="compact" disabled={busy} onClick={()=>void act(()=>cancelActivity(t.id),fail)}>取消任务</Button>:undefined,
     }))}/>}
-    {tab==='设置'&&<Card><h3>连接设置</h3><form onSubmit={e=>{e.preventDefault();void act(async()=>{await api('/v1/douyin/connect','POST',{...form,revision:formRevision});editing.current=false;});}}><fieldset disabled={locked}>
+    {settingsOpen&&<Drawer title="连接设置" close={()=>{if(!busy)setSettingsOpen(false);}}>
+     {settingsError&&<Alert>{settingsError}</Alert>}
+     <form onSubmit={e=>{e.preventDefault();setSettingsError('');void act(async()=>{
+      await api('/v1/douyin/connect','POST',{...form,revision:formRevision});
+      if(alive.current){editing.current=false;setSettingsOpen(false);}
+     },error=>setSettingsError(errorText(error)));}}><fieldset disabled={locked}>
      <Field>浏览器路径<Input value={form.executablePath} placeholder="自动发现" onChange={e=>change({executablePath:e.target.value})}/></Field>
      <Field>Python 路径<Input value={form.pythonPath} onChange={e=>change({pythonPath:e.target.value})}/></Field>
      <Field>账号 ID<Input value={form.accountId} placeholder="登录后自动识别" onChange={e=>change({accountId:e.target.value})}/></Field>
      <Field className="check"><Checkbox checked={form.headless} onCheckedChange={headless=>change({headless})}/>无窗口运行</Field>
      <ActionRow><Button type="submit" variant="primary">保存并连接</Button></ActionRow>
-    </fieldset></form></Card>}
+    </fieldset></form></Drawer>}
    </Tabs>
   </section>;
 }

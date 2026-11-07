@@ -29,7 +29,7 @@ function ProfileDetail({ entry, close, refresh, fail }: {
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const route = `/v1/memories/${entry.memoryId}`;
-  const loadDetail = useCallback(async (isCurrent = () => true) => {
+  const loadDetail = useCallback(async (isCurrent: () => boolean = () => true) => {
     const [record, scenes] = await Promise.all([
       api<Memory>(route),
       api<MemoryScene[]>("/v1/memory-scenes/search", "POST", { memoryId: entry.memoryId }),

@@ -120,3 +120,91 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     await browser.close(); await server.close();
   }
 }, 65000);
+
+it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the dialog and reveals the next step after success', async () => {
+  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false, fs: { allow: [resolve('.')] } } });
+  await server.listen();
+  const browser = await chromium.launch({ executablePath: browserPath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 900, height: 680 }, reducedMotion: 'reduce' });
+    page.setDefaultTimeout(5000);
+    const bili = { enabled: true, hasCredentials: true, accountState: 'verified', revision: 'bili-1', account: { mid: '10001', name: '测试账号' }, connection: { phase: 'online' } };
+    const douyin = { config: { enabled: false, executablePath: '', pythonPath: 'python3', accountId: '', headless: false }, accountState: 'unverified', revision: 'douyin-1', connection: { phase: 'idle', loginState: '' } };
+    let rejectBili = true, rejectLogout = true, rejectDouyin = true;
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    await page.route('**/api/v1/**', async route => {
+      const request = route.request(), path = new URL(request.url()).pathname.slice(4);
+      if (request.method() === 'POST') requests.push({ path, body: request.postDataJSON() });
+      if (path === '/v1/bilibili/connect') {
+        if (rejectBili) return route.fulfill({ status: 400, json: { error: 'BILI_LOGIN_FAILED' } });
+        bili.revision = 'bili-connected';
+        return route.fulfill({ json: {} });
+      }
+      if (path === '/v1/bilibili/logout') {
+        if (rejectLogout) return route.fulfill({ status: 503, json: { error: 'BILI_TIMEOUT' } });
+        Object.assign(bili, { enabled: false, hasCredentials: false, accountState: 'signed-out', revision: 'bili-out', connection: { phase: 'idle' } });
+        return route.fulfill({ json: {} });
+      }
+      if (path === '/v1/douyin/connect') {
+        if (rejectDouyin) return route.fulfill({ status: 400, json: { error: 'BROWSER_LAUNCH_FAILED' } });
+        douyin.config = { ...douyin.config, ...request.postDataJSON(), enabled: true };
+        douyin.connection = { phase: 'login', loginState: 'confirmation' };
+        douyin.revision = 'douyin-connecting';
+        return route.fulfill({ json: {} });
+      }
+      const json = path === '/v1/bilibili' ? bili : path === '/v1/douyin' ? douyin : path === '/v1/activities' ? { tasks: [], schedules: [] } : [];
+      return route.fulfill({ json });
+    });
+    const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop-clarity.html')}`;
+    await page.goto(`${url}?bili`);
+    await page.getByRole('button', { name: '导入凭据', exact: true }).click();
+    const biliDialog = page.getByRole('dialog', { name: '导入凭据', exact: true });
+    await biliDialog.getByLabel('SESSDATA', { exact: true }).fill('fixture-sessdata');
+    await biliDialog.getByLabel('bili_jct', { exact: true }).fill('fixture-csrf');
+    await biliDialog.getByRole('button', { name: '验证并连接', exact: true }).click();
+    await biliDialog.getByRole('alert').getByText(/登录验证失败/).waitFor();
+    // A new polled revision must not erase the current form failure or its input.
+    bili.revision = 'bili-poll'; bili.account.mid = '10002';
+    await page.locator('.platform-account-card').getByText('10002', { exact: true }).waitFor();
+    expect(await biliDialog.getByRole('alert').isVisible()).toBe(true);
+    expect(await biliDialog.getByLabel('SESSDATA', { exact: true }).inputValue()).toBe('fixture-sessdata');
+    expect(await biliDialog.getByLabel('bili_jct', { exact: true }).inputValue()).toBe('fixture-csrf');
+    await biliDialog.getByRole('button', { name: '退出登录', exact: true }).click();
+    await biliDialog.getByRole('alert').getByText('B站任务超时。', { exact: true }).waitFor();
+    expect(await biliDialog.getByLabel('SESSDATA', { exact: true }).inputValue()).toBe('fixture-sessdata');
+    rejectBili = false;
+    await biliDialog.getByRole('button', { name: '验证并连接', exact: true }).click();
+    await biliDialog.waitFor({ state: 'detached' });
+    await page.locator('[data-badge-label]').getByText('已连接', { exact: true }).waitFor();
+    expect(requests.filter(item => item.path === '/v1/bilibili/connect').at(-1)?.body).toEqual({ revision: 'bili-poll', credentials: { sessdata: 'fixture-sessdata', bili_jct: 'fixture-csrf' } });
+    await page.getByRole('button', { name: '导入凭据', exact: true }).click();
+    expect(await biliDialog.getByLabel('SESSDATA', { exact: true }).inputValue()).toBe('');
+    expect(await biliDialog.getByLabel('bili_jct', { exact: true }).inputValue()).toBe('');
+    expect(await biliDialog.getByRole('alert').count()).toBe(0);
+    rejectLogout = false;
+    await biliDialog.getByRole('button', { name: '退出登录', exact: true }).click();
+    await biliDialog.waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: '连接 B站', exact: true }).waitFor();
+
+    await page.goto(`${url}?douyin`);
+    await page.getByRole('button', { name: '连接设置', exact: true }).click();
+    const douyinDialog = page.getByRole('dialog', { name: '连接设置', exact: true });
+    await douyinDialog.getByLabel('浏览器路径', { exact: true }).fill('/fixture/chrome');
+    await douyinDialog.getByRole('button', { name: '保存并连接', exact: true }).click();
+    await douyinDialog.getByRole('alert').getByText(/浏览器无法启动/).waitFor();
+    douyin.revision = 'douyin-poll'; douyin.config.accountId = '20002';
+    await page.locator('.platform-account-card').getByText('20002', { exact: true }).waitFor();
+    expect(await douyinDialog.getByRole('alert').isVisible()).toBe(true);
+    expect(await douyinDialog.getByLabel('浏览器路径', { exact: true }).inputValue()).toBe('/fixture/chrome');
+    expect(await douyinDialog.getByLabel('账号 ID', { exact: true }).inputValue()).toBe('');
+    mkdirSync('build/desktop-clarity/browser', { recursive: true });
+    await page.screenshot({ path: 'build/desktop-clarity/browser/connection-settings-error-r1.png' });
+    rejectDouyin = false;
+    await douyinDialog.getByRole('button', { name: '保存并连接', exact: true }).click();
+    await douyinDialog.waitFor({ state: 'detached' });
+    await page.getByText('请在手机上确认登录', { exact: true }).waitFor();
+    expect(requests.filter(item => item.path === '/v1/douyin/connect').at(-1)?.body).toMatchObject({ executablePath: '/fixture/chrome', revision: 'douyin-1', accountId: '' });
+    expect(await page.getByRole('alert').count()).toBe(0);
+    await page.screenshot({ path: 'build/desktop-clarity/browser/connection-settings-success-r1.png' });
+  } finally { await browser.close(); await server.close(); }
+}, 25000);

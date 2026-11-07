@@ -4,9 +4,15 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec051 四层长期记忆
+## 当前任务：Spec052 Desktop 清晰度与易用性已完成
 
-用户选择腾讯 Agent Memory 的四层组织方式。采用本地持久化场景，把同一件事的多条重要记忆关联起来，保留原话、画像和权限边界。上阶段已本地提交；本阶段改动留在工作区。真实百炼测试与独立复验通过，未重启当前用户实例。[规格](../../specs/spec-051-scenario-memory/spec.md) · [验收](../../specs/spec-051-scenario-memory/acceptance-r1.md)
+用户要求面向小白的 Desktop，直接操作逐页检查，修复满屏淡蓝、焦点重复描边、详细人设字段和跳动的编辑流程。本次从干净 dev / `bda0bed` 开始，共享视觉与设置、模型、记忆及连接编辑流程已收紧。macOS 原生逐页复查、相关前端检查和连接设置返工后的[独立复验 PASS](../../specs/spec-052-desktop-clarity/acceptance-r1.md)，无阻塞项。[规格](../../specs/spec-052-desktop-clarity/spec.md)与[巡查记录](../../specs/spec-052-desktop-clarity/plan.md)记录实际证据和范围限制。在线平台状态用隔离数据补充，未向真实账号发送消息，未验证 Windows。
+
+按用户本轮「本地commit」授权完成一次本地提交，确切哈希以 git log 为准；不含 push，也不恢复持续自动提交。任务满足停止条件，不追加检查。
+
+## 上一阶段：Spec051 四层长期记忆
+
+用户选择腾讯 Agent Memory 的四层组织方式。采用本地持久化场景，把同一件事的多条重要记忆关联起来，保留原话、画像和权限边界。真实百炼测试与独立复验通过，已按用户明确指令本地提交 `bda0bed`。[规格](../../specs/spec-051-scenario-memory/spec.md) · [验收](../../specs/spec-051-scenario-memory/acceptance-r1.md)
 
 ## 上一阶段：Spec050 分层存储与真实模型验证
 

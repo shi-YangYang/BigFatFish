@@ -6,7 +6,7 @@ import { Bilibili } from "./Bilibili";
 import { Douyin } from "./Douyin";
 import { QQConnection } from "./qq/QQConnection";
 import { QQMessages } from "./qq/QQMessages";
-import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
+import { connectionTone, activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
 import type { ChannelStatus } from "../../../../runtime/src/channels/types";
 import type { ManagedQQStatus } from "../../../../runtime/src/channels/managed/types";
 
@@ -76,7 +76,7 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
             <div className="connection-info">
               <h3>{name}</h3>
               <p>{["消息与陪伴", "视频与兴趣", "发现与观看"][i]}</p>
-              <Badge className="connection-state">
+              <Badge className="connection-state" status={connectionTone(states[name] ?? "正在读取…")}>
                 {states[name] ?? "正在读取…"}
               </Badge>
             </div>

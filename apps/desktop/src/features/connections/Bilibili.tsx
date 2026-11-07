@@ -1,17 +1,18 @@
 import { Card, Alert, Badge, Loading } from "../../components/Surfaces";
 import { Button, Field, Input, Select, ActionRow, FormGrid } from "../../components/Controls";
 import { OperationRecords } from "./OperationRecords";
-import { Tabs } from '../../components/UI';
+import { Drawer } from '../../components/UI';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { errorText } from "../../api/errors";
 import type { VideoTask } from "../../../../runtime/src/bilibili/service";
-import { biliStatus, type BiliStatus } from './connection-status';
+import { connectionTone, biliStatus, type BiliStatus } from './connection-status';
 import { ConnectionReadError } from './ConnectionReadError';
 const states:Record<string,string>={queued:'等待观看',running:'获取字幕与画面',understanding:'理解内容',completed:'已完成',partial:'部分完成',failed:'失败',cancelled:'已取消',interrupted:'服务中断'};
 export function Bilibili({fail}:{fail:(e:unknown)=>void}){
- const [status,setStatus]=useState<BiliStatus>(),[tasks,setTasks]=useState<VideoTask[]>(),[recordsError,setRecordsError]=useState<string>(),[busy,setBusy]=useState(false),[tab,setTab]=useState('记录'),[cookie,setCookie]=useState(''),[csrf,setCsrf]=useState(''),[target,setTarget]=useState(''),[kind,setKind]=useState('private'),[notice,setNotice]=useState('');
- const [readError,setReadError]=useState(false),[actionError,setActionError]=useState('');
+ const [status,setStatus]=useState<BiliStatus>(),[tasks,setTasks]=useState<VideoTask[]>(),[recordsError,setRecordsError]=useState<string>(),[busy,setBusy]=useState(false),[settingsOpen,setSettingsOpen]=useState(false),[cookie,setCookie]=useState(''),[csrf,setCsrf]=useState(''),[target,setTarget]=useState(''),[kind,setKind]=useState('private'),[notice,setNotice]=useState('');
+ const [sharing,setSharing]=useState<VideoTask>();
+ const [readError,setReadError]=useState(false),[actionError,setActionError]=useState(''),[settingsError,setSettingsError]=useState('');
  useEffect(()=>setActionError(''),[status?.connection?.phase,status?.revision]);
  const pending=useRef(false),alive=useRef(true),sequence=useRef(0);
  const reload=useCallback(async()=>{
@@ -35,7 +36,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
  const failure=actionError||(error&&errorText(error));
  return <section className="page-section platform-connection">
   <Card className="platform-account-card">
-   <div className="platform-account-heading"><div><h2>B站{status.account?.name && <span className="account-name"> · {status.account.name}</span>}</h2>{status.account&&<p className="muted">{status.account.mid}</p>}</div><Badge>{readError?'状态待更新':label}</Badge></div>
+   <div className="platform-account-heading"><div><h2>B站{status.account?.name && <span className="account-name"> · {status.account.name}</span>}</h2>{status.account&&<p className="muted">{status.account.mid}</p>}</div><Badge status={connectionTone(readError?'状态待更新':label)}>{readError?'状态待更新':label}</Badge></div>
    {readWarning}
    {failure&&<Alert>{failure}</Alert>}
    {login?.image&&login.status!=='scanned'&&<div className="platform-login-code"><img src={login.image} alt="B站登录二维码"/><p>使用手机 B站扫码</p></div>}
@@ -43,33 +44,40 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
     {!connected&&!connecting&&<Button variant="primary" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/connect','POST',{revision:status.revision}))}>{connection?.phase==='expired'?'重新获取二维码':connection?.phase==='error'?'重试连接':'连接 B站'}</Button>}
     {(status.enabled||connecting)&&<Button disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
     {!status.enabled&&!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>void run(()=>api('/v1/bilibili','PUT',{enabled:true,revision:status.revision}))}>暂不登录</Button>}
-    {!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>setTab('设置')}>导入凭据</Button>}
+    {!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>{setSettingsError('');setSettingsOpen(true);}}>导入凭据</Button>}
    </ActionRow>
   </Card>
-  <Tabs items={['记录','设置']} value={tab} onChange={setTab} label="B站功能">
-  {tab==='记录'&&<OperationRecords error={recordsError} records={tasks?.map(t=>({
+  <OperationRecords error={recordsError} records={tasks?.map(t=>({
    id:t.id,action:'观看视频',title:t.result?.evidence.title||t.bvid,status:states[t.status]??'状态未知',createdAt:t.createdAt,
    error:t.error?errorText(t.error):undefined,
    actions:['queued','running','understanding'].includes(t.status)?
     <Button size="compact" disabled={busy} onClick={()=>void run(()=>api(`/v1/bilibili/tasks/${t.id}/cancel`,'POST'),fail)}>取消任务</Button>:
     ['completed','partial'].includes(t.status)&&t.result?.summary?
-    <Button size="compact" disabled={busy||!target.trim()} onClick={()=>void run(async()=>{
-     const result=await api<{status:string;error?:string}>(`/v1/bilibili/tasks/${t.id}/share`,'POST',{target:{kind,id:target.trim()}});
-     if(alive.current)setNotice(result.status==='sent'?'已分享到 QQ。':result.status==='unknown'?'发送结果未知，请在 QQ 核实，勿重复发送。':`分享未发送成功。${result.error?errorText(result.error):''}`);
-    },fail)}>分享到 QQ</Button>:undefined,
-  }))}>
-   <fieldset disabled={busy}>
-    <FormGrid>
-     <Field>QQ 分享对象<Select value={kind} onValueChange={setKind}><option value="private">主人私聊</option><option value="group">已授权群</option></Select></Field>
-     <Field>接收 QQ 或群号<Input value={target} onChange={e=>setTarget(e.target.value)}/></Field>
-    </FormGrid>
-   </fieldset>
-   {notice&&<Alert variant="info" role="status">{notice}</Alert>}
-  </OperationRecords>}
-  {tab==='设置'&&<Card><h3>导入凭据</h3><form onSubmit={event=>{event.preventDefault();void run(async()=>{await api('/v1/bilibili/connect','POST',{revision:status.revision,credentials:{sessdata:cookie,bili_jct:csrf}});if(alive.current){setCookie('');setCsrf('');}});}}><fieldset disabled={locked}>
+    <Button size="compact" disabled={busy} onClick={()=>{setSharing(t);setNotice('');}}>分享到 QQ</Button>:undefined,
+  }))}/>
+  {notice&&<Alert variant="info" role="status">{notice}</Alert>}
+  {sharing&&<Drawer title="分享到 QQ" close={()=>{if(!busy)setSharing(undefined);}}>
+   <form onSubmit={event=>{event.preventDefault();void run(async()=>{
+     const result=await api<{status:string;error?:string}>(`/v1/bilibili/tasks/${sharing.id}/share`,'POST',{target:{kind,id:target.trim()}});
+     if(alive.current){setNotice(result.status==='sent'?'已分享到 QQ。':result.status==='unknown'?'发送结果未知，请在 QQ 核实，勿重复发送。':`分享未发送成功。${result.error?errorText(result.error):''}`);setSharing(undefined);}
+   },fail);}}>
+    <p>{sharing.result?.evidence.title||sharing.bvid}</p>
+    <Field>分享对象<Select value={kind} disabled={busy} onValueChange={setKind}><option value="private">主人私聊</option><option value="group">已授权群</option></Select></Field>
+    <Field>接收 QQ 或群号<Input value={target} required disabled={busy} onChange={event=>setTarget(event.target.value)}/></Field>
+    <Button type="submit" variant="primary" disabled={busy||!target.trim()}>确认分享</Button>
+   </form>
+  </Drawer>}
+  {settingsOpen&&<Drawer title="导入凭据" close={()=>{if(!busy)setSettingsOpen(false);}}>
+   {settingsError&&<Alert>{settingsError}</Alert>}
+   <form onSubmit={event=>{event.preventDefault();setSettingsError('');void run(async()=>{
+    await api('/v1/bilibili/connect','POST',{revision:status.revision,credentials:{sessdata:cookie,bili_jct:csrf}});
+    if(alive.current){setCookie('');setCsrf('');setSettingsOpen(false);}
+   },e=>setSettingsError(errorText(e)));}}><fieldset disabled={locked}>
    <FormGrid><Field>SESSDATA<Input required type="password" autoComplete="off" value={cookie} onChange={e=>setCookie(e.target.value)}/></Field><Field>bili_jct<Input required type="password" autoComplete="off" value={csrf} onChange={e=>setCsrf(e.target.value)}/></Field></FormGrid>
-   <ActionRow><Button type="submit" variant="primary">验证并连接</Button>{status.hasCredentials&&<Button onClick={()=>void run(()=>api('/v1/bilibili/logout','POST'))}>退出登录</Button>}</ActionRow>
-  </fieldset></form></Card>}
-  </Tabs>
+   <ActionRow><Button type="submit" variant="primary">验证并连接</Button>{status.hasCredentials&&<Button onClick={()=>{setSettingsError('');void run(async()=>{
+    await api('/v1/bilibili/logout','POST');
+    if(alive.current){setCookie('');setCsrf('');setSettingsOpen(false);}
+   },e=>setSettingsError(errorText(e)));}}>退出登录</Button>}</ActionRow>
+  </fieldset></form></Drawer>}
  </section>;
 }

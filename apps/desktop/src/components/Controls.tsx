@@ -16,7 +16,7 @@ type ButtonProps = Omit<BeButtonProps, "variant" | "size"> & {
 };
 /** Product sizing/intent adapters; all base controls render beUI source. */
 export function Button({ variant = "secondary", size = "regular", className = "", type = "button", title, ...props }: ButtonProps) {
-  const button = <BeButton {...props} type={type}
+  const button = <BeButton pressScale={1} {...props} type={type}
     variant={variant === "danger" ? "outline" : variant}
     size={size === "regular" ? "md" : size === "compact" ? "sm" : "icon"}
     className={cn(`ui-button ui-button-${variant} ui-button-${size}`,

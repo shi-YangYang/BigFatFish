@@ -10,7 +10,8 @@ import {
   ActionRow,
   FormGrid,
 } from "../../components/Controls";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Drawer } from "../../components/UI";
 import type { ModelConfig, ModelPurpose } from "../../../../runtime/src/ai/types";
 import { api } from "../../api/client";
 type PublicModel = ModelConfig & { hasKey: boolean };
@@ -32,21 +33,24 @@ export function Models({
 }) {
   const [form, setForm] = useState(blank),
     [editorOpen, setEditorOpen] = useState(false),
-    [hasDraft, setHasDraft] = useState(false),
+    [draftBaseline, setDraftBaseline] = useState(JSON.stringify([blank, "", "chat"])),
     [key, setKey] = useState(""),
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
     [purpose, setPurpose] = useState<ModelPurpose>("chat");
   const connection = useModelConnection(form, key, fail, purpose);
-  const editorHeading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    if (!editorOpen) return;
-    editorHeading.current?.focus({ preventScroll: true });
-    editorHeading.current?.scrollIntoView({ block: "nearest" });
-  }, [editorOpen, form.id]);
   const [routes, setRoutes] = useState<Partial<Record<ModelPurpose, string>>>({});
   useEffect(() => { let live = true; void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes").then(value => { if (live) setRoutes(value); }).catch(fail); return () => { live = false; }; }, [models, fail]);
   const purposes = { chat: "聊天模型", asr: "语音输入模型", tts: "朗读模型" };
+  const hasDraft = JSON.stringify([form, key, purpose]) !== draftBaseline;
+  function openEditor(model?: PublicModel) {
+    if (hasDraft && form.id === (model?.id ?? "")) { setEditorOpen(true); return; }
+    if (hasDraft && !window.confirm("放弃未保存的修改，打开另一份配置？")) { setEditorOpen(true); return; }
+    const next = model ? { id: model.id, label: model.model, provider: model.provider, baseURL: model.baseURL, model: model.model, reasoningEffort: model.reasoningEffort } : blank;
+    const nextPurpose = model ? (Object.keys(purposes) as ModelPurpose[]).find(p => routes[p] === model.id) ?? "chat" : "chat";
+    setForm(next); setPurpose(nextPurpose); setKey(""); setSaved("");
+    setDraftBaseline(JSON.stringify([next, "", nextPurpose])); setEditorOpen(true);
+  }
   const waiting = busy || !!connection.pending;
   const effortLabels: Record<ReasoningEffort, string> = { none: "关闭", minimal: "极低", low: "低", medium: "中", high: "高", xhigh: "极高", max: "最高" };
   async function save(e: React.FormEvent) {
@@ -69,7 +73,7 @@ export function Models({
       setKey("");
       await reload();
       setSaved("配置已保存");
-      setHasDraft(false);
+      setDraftBaseline(JSON.stringify([value, "", purpose]));
       setEditorOpen(false);
     } catch (e) {
       fail(e);
@@ -86,21 +90,13 @@ export function Models({
         <Button
           type="button"
           disabled={waiting}
-          onClick={() => {
-            setEditorOpen(true);
-            setHasDraft(true);
-            setPurpose("chat");
-            setForm(blank);
-            setKey("");
-            setSaved("");
-          }}
+          onClick={() => openEditor()}
         >
           新建配置
         </Button>
         </ActionRow>
       </div>
-      {editorOpen && <Card className="model-editor">
-      <h3 ref={editorHeading} tabIndex={-1} className="focus-target">{form.id ? "编辑模型" : "新建模型"}</h3>
+      {editorOpen && <Drawer title={form.id ? "编辑模型" : "新建模型"} close={() => { if (!waiting) setEditorOpen(false); }}>
       <form onSubmit={save} className="model-form">
         <FormGrid className="model-fields">
           <Field>模型用途<Select value={purpose} onValueChange={value => {
@@ -194,43 +190,38 @@ export function Models({
           <Button variant="primary" type="submit" disabled={waiting}>
             保存模型
           </Button>
-          <Button disabled={waiting} onClick={() => setEditorOpen(false)}>收起</Button>
+          <Button disabled={waiting} onClick={() => setEditorOpen(false)}>关闭编辑</Button>
         </ActionRow>
       </form>
-      </Card>}
+      </Drawer>}
       {models.length > 0 && (
         <div className="model-list">
           {models.map((m) => (
-            <div key={m.id}>
-              <Button
-                type="button"
-                className="model-name"
-                disabled={waiting}
-                onClick={() => {
-                  setEditorOpen(true);
-                  setHasDraft(true);
-                  setForm({ id: m.id, label: m.model, provider: m.provider, baseURL: m.baseURL, model: m.model, reasoningEffort: m.reasoningEffort });
-                  setPurpose((Object.keys(purposes) as ModelPurpose[]).find(p => routes[p] === m.id) ?? "chat");
-                  setKey("");
-                  setSaved("");
-                }}
-              >
-                {m.label}
+            <div key={m.id} className="model-row">
+              <div className="model-summary">
+                <h3 className="model-name">{m.label}</h3>
                 {m.label !== m.model && <small>{m.model}</small>}
-                <small>{(Object.keys(purposes) as ModelPurpose[]).filter(p => routes[p] === m.id).map(p => purposes[p]).join(" · ") || "尚未设为默认用途"}</small>
-              </Button>
-              <span>{m.hasKey ? "密钥已设置" : "未设置密钥"}</span>
+                <div className="model-meta">
+                  <span>{(Object.keys(purposes) as ModelPurpose[]).filter(p => routes[p] === m.id).map(p => purposes[p]).join(" · ") || "未使用"}</span>
+                  <span>{m.hasKey ? "密钥已设置" : "未设置密钥"}</span>
+                </div>
+              </div>
+              <ActionRow>
+                <Button type="button" disabled={waiting} aria-label={`编辑 ${m.label}`} onClick={() => openEditor(m)}>编辑</Button>
               <Button
                 type="button"
                 disabled={waiting}
-                onClick={() =>
+                variant="ghost"
+                onClick={() => {
+                  if (!window.confirm(`删除模型「${m.label}」？`)) return;
                   void api("/v1/models/" + m.id, "DELETE")
-                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setHasDraft(false); setForm(blank); } await reload(); })
-                    .catch(fail)
-                }
+                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setForm(blank); setKey(""); setPurpose("chat"); setDraftBaseline(JSON.stringify([blank, "", "chat"])); } await reload(); })
+                    .catch(fail);
+                }}
               >
                 删除
               </Button>
+              </ActionRow>
             </div>
           ))}
         </div>

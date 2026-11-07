@@ -27,7 +27,7 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     await page.getByRole('button', { name: '新建配置', exact: true }).click();
     await page.getByLabel('服务地址', { exact: true }).fill('https://example.invalid/v1');
     await page.getByLabel('API Key', { exact: true }).fill('fixture-only-key');
-    await page.getByRole('button', { name: '收起', exact: true }).click();
+    await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
     await page.getByRole('button', { name: '继续编辑', exact: true }).click();
     expect(await page.getByLabel('API Key', { exact: true }).inputValue()).toBe('fixture-only-key');
     await page.getByRole('button', { name: '获取模型列表', exact: true }).click();
@@ -49,7 +49,16 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     expect(saved[0]).toMatchObject({ model: 'manual-model', reasoningEffort: 'max' });
     expect(await page.getByLabel('API Key', { exact: true }).count()).toBe(0);
     expect(await page.getByRole('heading', { name: '默认用途' }).count()).toBe(1);
-    await page.locator('.model-name').first().click();
+    const editor = page.getByRole('button', { name: '编辑 manual-model', exact: true });
+    const position = await page.locator('.model-row').first().boundingBox();
+    await editor.click();
+    await page.getByRole('dialog', { name: '编辑模型', exact: true }).waitFor();
+    expect(await page.locator('.model-row').first().boundingBox()).toEqual(position);
+    await page.keyboard.press('Escape');
+    expect(await editor.evaluate(element => element === document.activeElement)).toBe(true);
+    expect(await page.getByRole('button', { name: '继续编辑', exact: true }).count()).toBe(0);
+    expect(await page.locator('.model-row').first().boundingBox()).toEqual(position);
+    await editor.click();
     expect(await page.getByLabel('API Key', { exact: true }).inputValue()).toBe('');
     expect(await page.getByRole('combobox', { name: '推理强度', exact: true }).innerText()).toContain('最高');
     rejectTest = true; await page.getByRole('button', { name: '测试连接', exact: true }).click(); await page.getByRole('alert').filter({ hasText: '鉴权失败' }).waitFor();

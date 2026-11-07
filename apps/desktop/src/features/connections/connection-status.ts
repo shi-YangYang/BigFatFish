@@ -79,3 +79,12 @@ export function douyinStatus(status: DouyinStatus) {
   const label = status.config.enabled && status.accountState === 'verified' && !connected ? '未连接' : accountStatus(status.config.enabled, status.accountState);
   return { label, connected };
 }
+
+/** Color supplements the visible label; login progress is never an error. */
+export function connectionTone(label: string): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (["已连接", "已登录"].includes(label)) return "success";
+  if (["连接异常", "登录失败", "账号不符"].includes(label)) return "danger";
+  if (["状态待更新", "暂时无法获取状态", "二维码已过期", "登录失效或暂不可用"].includes(label)) return "warning";
+  if (/^(正在|等待|连接中|需要登录|待验证)/.test(label)) return "info";
+  return "neutral";
+}
