@@ -1120,3 +1120,7 @@ audio {
 .memory-search { grid-template-columns: minmax(0, 2fr) minmax(160px, 1fr); }
 .qq-account-card .ui-alert, .platform-account-card .ui-alert { font-size: 12px; }
 @media (max-width: 520px) { .memory-search { grid-template-columns: minmax(0, 1fr); } }
+
+.diary-auto-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.diary-auto-toolbar .check { margin: 0; }
+.diary-auto-toolbar > .muted { margin-left: auto; }

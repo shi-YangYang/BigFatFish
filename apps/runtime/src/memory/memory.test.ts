@@ -32,9 +32,9 @@ it('enforces retrieval budgets, updates search and collections, exports only sel
  const updated=store.update(m.id,{version:m.version,content:'喜欢绘画',kind:'relationship'});expect(store.list({query:'绘画'})).toHaveLength(1);expect(store.list({query:'茶'})).toHaveLength(0);expect(store.retrieve('茶')).toHaveLength(0);expect(db.prepare('SELECT * FROM interests').all()).toHaveLength(0);expect(db.prepare('SELECT * FROM relationships').all()).toHaveLength(1);
  const exported=store.export({format:'json',ids:[m.id]});expect(exported.content).toContain('喜欢绘画');expect(exported.content).not.toContain('master.key');expect(()=>store.export({format:'../../json',ids:[m.id]})).toThrow();store.delete(m.id,{version:updated.version});db.close();
 });
-it('rejects nonexistent, assistant and incomplete-turn sources; records activity and mood exactly once',()=>{
+it('rejects nonexistent, assistant and incomplete-turn sources; records activity once without manufacturing a mood',()=>{
  const db=openDatabase(':memory:'),store=new MemoryStore(db);expect(()=>store.insert({...candidate(),sources:[{type:'message',id:'missing',quote:'茶'}]})).toThrow('INVALID_MEMORY_SOURCE');
- const event={id:'real-event',kind:'chat.completed',sourceId:'message-id',summary:'完成一次真实对话',occurredAt:new Date().toISOString()};expect(store.record(event)).toBe(true);expect(store.record(event)).toBe(false);expect(store.timeline()).toHaveLength(1);expect(db.prepare('SELECT * FROM experiences').all()).toHaveLength(1);expect(db.prepare('SELECT * FROM mood_history').all()).toHaveLength(1);db.close();
+ const event={id:'real-event',kind:'chat.completed',sourceId:'message-id',summary:'完成一次真实对话',occurredAt:new Date().toISOString()};expect(store.record(event)).toBe(true);expect(store.record(event)).toBe(false);expect(store.timeline()).toHaveLength(1);expect(db.prepare('SELECT * FROM experiences').all()).toHaveLength(1);expect(db.prepare('SELECT * FROM mood_history').all()).toHaveLength(0);db.close();
 });
 it('handles timezone midnight, invalid dates, interrupted tasks and failed readable copies',()=>{
  expect(dayAt('2026-11-02T18:00:00Z','Asia/Shanghai')).toBe('2026-11-03');expect(dayAt('2026-11-02T18:00:00Z','America/Los_Angeles')).toBe('2026-11-02');expect(()=>diaryDate('2026-02-30','UTC')).toThrow('INVALID_DATE');expect(()=>diaryDate('2026-02-02','not/a/zone')).toThrow('INVALID_TIMEZONE');
@@ -82,15 +82,55 @@ it('bounds long context excerpts while retaining full valid evidence and skippin
  } finally { db.close(); }
 });
 
-function diaryFixture(){
+function diaryFixture(selectedIds?:string[]){
  const p=temp(),db=openDatabase(p.database),config=new Configuration(db,p);
  config.saveModel({id:'test',label:'测试',provider:'openai',baseURL:'http://127.0.0.1:9999/v1',model:'test',contextWindow:32768,maxTokens:4096,timeoutMs:30000,vision:false});config.saveRoutes({chat:'test'});
  const prompts:string[]=[];
- const life=new LifeService(db,p,config,{run:async({prompt})=>{prompts.push(prompt);const sources=JSON.parse(prompt.split('\n来源：')[1]!.split('\n参考记忆：')[0]!) as {id:string}[];return JSON.stringify({content:'真实活动日记',sourceIds:sources.map(s=>s.id)});},close:async()=>{}},new EventEmitter());
+ const life=new LifeService(db,p,config,{run:async({prompt})=>{prompts.push(prompt);const sources=JSON.parse(prompt.split('\n来源：')[1]!.split('\n参考记忆：')[0]!) as {id:string}[];return JSON.stringify({content:'真实活动日记',sourceIds:selectedIds??sources.map(s=>s.id)});},close:async()=>{}},new EventEmitter());
  const insert=db.prepare('INSERT INTO activity_records VALUES(?,?,?,?,?)');
- const event=(id:string,at:string)=>insert.run(id,'activity',id,'真实活动',at);
+ const event=(id:string,at:string)=>insert.run(id,'bilibili.watched',id,'真实观看活动',at);
  return {db,life,prompts,event};
 }
+
+it('gives diary generation both completed speakers and keeps the cited exchange traceable',async()=>{
+ const {db,life,prompts}=diaryFixture(['done-user']);
+ try {
+  const at='2026-01-02T12:00:00.000Z';
+  db.prepare("INSERT INTO conversations VALUES('diary-chat','对话','test',?,'owner','local-owner')").run(at);
+  const message=db.prepare('INSERT INTO messages(id,conversation_id,role,content,status,created_at,request_id,persona_version,author) VALUES(?,?,?,?,?,?,?,1,?)');
+  for(const [request,userStatus,replyStatus] of [['done','completed','completed'],['pending','completed','running'],['failed','completed','failed'],['incomplete-user','queued','completed']] as const){
+   message.run(request+'-user','diary-chat','user','你认真听我说话的样子很可爱。',userStatus,at,request,'local-owner');
+   message.run(request+'-fish','diary-chat','assistant','我也开心！你说的话我一句句都记着呢。',replyStatus,at,request,'fish');
+   db.prepare('INSERT INTO activity_records VALUES(?,?,?,?,?)').run('chat:'+request,'chat.completed',request+'-fish','完成对话：对话',at);
+  }
+  const task=life.start('diary',{day:'2026-01-02',timezone:'UTC',requestId:'speakers'});await new Promise(resolve=>setTimeout(resolve,0));
+  expect(life.task(task.id).status).toBe('completed');expect(prompts).toHaveLength(1);
+  const sources=JSON.parse(prompts[0]!.split('\n来源：')[1]!.split('\n参考记忆：')[0]!);
+  expect(sources).toEqual([
+   {type:'activity',id:'chat:done',quote:'完成对话：对话',turnId:'done-fish'},
+   {type:'message',id:'done-user',author:'local-owner',messageRole:'user',speakerRole:'owner',turnId:'done-fish',quote:'你认真听我说话的样子很可爱。'},
+   {type:'message',id:'done-fish',author:'fish',messageRole:'assistant',speakerRole:'fish',turnId:'done-fish',quote:'我也开心！你说的话我一句句都记着呢。'},
+  ]);
+  expect(prompts[0]).toContain('回顾说过或没说过、做过或没做过的事必须有这些记录支持');
+  expect(life.diaries()[0]!.sources).toEqual(sources);expect(life.diaries()[0]!.copyStatus).toBe('ready');
+  expect(life.source({type:'message',id:'done-fish'})).toMatchObject({content:'我也开心！你说的话我一句句都记着呢。',conversationId:'diary-chat'});
+ } finally { await life.close();db.close(); }
+});
+
+it('keeps diary turns complete within the source budget and rejects an oversized exchange before calling the model',async()=>{
+ const {db,life,prompts}=diaryFixture();
+ try {
+  const at='2026-01-02T12:00:00.000Z',reply='我认真听着。'.repeat(900)+'我也开心！';
+  db.prepare("INSERT INTO conversations VALUES('long-diary','对话','test',?,'owner','local-owner')").run(at);
+  db.prepare("INSERT INTO messages VALUES('long-user','long-diary','user','今天很开心','completed',NULL,?,'long',1,'local-owner')").run(at);
+  db.prepare("INSERT INTO messages VALUES('long-fish','long-diary','assistant',?,'completed',NULL,?,'long',1,'fish')").run(reply,at);
+  db.prepare("INSERT INTO activity_records VALUES('long-event','chat.completed','long-fish','完成对话',?)").run(at);
+  const task=life.start('diary',{day:'2026-01-02',timezone:'UTC',requestId:'complete-turn'});await new Promise(resolve=>setTimeout(resolve,0));
+  expect(life.task(task.id).status).toBe('completed');expect(life.diaries()[0]!.sources.find(s=>s.id==='long-fish')?.quote).toBe(reply);
+  db.prepare("UPDATE messages SET content=? WHERE id='long-fish'").run('好'.repeat(24000));
+  expect(()=>life.start('diary',{day:'2026-01-02',timezone:'UTC',requestId:'oversized-turn'})).toThrow('SOURCE_BUDGET_EXCEEDED');expect(prompts).toHaveLength(1);
+ } finally { await life.close();db.close(); }
+});
 
 it.each([501,9999])('reads the target day after %i preceding-day events without truncation',async preceding=>{
  const {db,life,prompts,event}=diaryFixture();

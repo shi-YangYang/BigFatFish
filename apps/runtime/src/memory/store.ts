@@ -11,7 +11,7 @@ import { InputError, object, string } from '../ai/types.js';
 import { attributionRoles, canShareMemory, kinds, type Memory, type MemoryKind, type MemoryStatus, type Source, type Activity } from './types.js';
 export const normalizeMemoryText = (text: string) => text.normalize('NFKC').toLowerCase().replace(/[\p{P}\p{Z}\s]/gu, '');
 export class MemoryStore {
-  constructor(private db: DatabaseSync, private changed: () => void = () => {}) {}
+  constructor(private db: DatabaseSync, private changed: () => void = () => {}, private onActivity: (event: Activity) => void = () => {}) {}
   transaction<T>(run: () => T): T { return transaction(this.db,run); }
 
   // A human change takes precedence over already-received messages, even if the worker
@@ -271,8 +271,8 @@ export class MemoryStore {
       const inserted = this.db.prepare('INSERT OR IGNORE INTO activity_records(id,kind,source_id,summary,occurred_at) VALUES(?,?,?,?,?)').run(event.id,event.kind,event.sourceId,event.summary,event.occurredAt);
       if (!inserted.changes) return false;
       this.db.prepare('INSERT INTO experiences(id,title) VALUES(?,?)').run(event.id,event.summary);
-      this.db.prepare('INSERT INTO mood_history(id,mood,reason,occurred_at) VALUES(?,?,?,?)').run(event.id,event.kind==='chat.completed'?'愉快':'专注',event.kind==='chat.completed'?'刚完成一次对话':'刚完成一次记录整理',event.occurredAt); return true;
-    }); if (result) this.changed(); return result;
+      return true;
+    }); if (result) { this.changed(); this.onActivity(event); } return result;
   }
   timeline() { return this.db.prepare('SELECT id,kind,source_id AS sourceId,summary,occurred_at AS occurredAt FROM activity_records ORDER BY occurred_at DESC,id LIMIT 200').all() as unknown as Activity[]; }
   export(input: unknown) {

@@ -120,6 +120,7 @@ export class Channels {
       }
       const canRemember = !mediaControl.signal.aborted && this.allowed(event.target,revision);
       this.chat.life.turnQueue.completeTurn(canRemember ? memorySourceId : undefined, () => this.state(id,sent?'sent':'skipped'));
+      if(canRemember&&memorySourceId)this.chat.life.emotions.enqueue('message',memorySourceId);
 
     }catch(error){
       const code=mediaControl.signal.aborted?'CANCELLED':error instanceof InputError?error.message:'GENERATION_FAILED';

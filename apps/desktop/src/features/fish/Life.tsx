@@ -1,3 +1,4 @@
+import { DiarySettings } from './DiarySettings';
 import { memoryOrigin } from "./memory-origin";
 import { visibleExperiences } from "./life-presentation";
 import { usePoll } from "../../hooks/usePoll";
@@ -270,6 +271,8 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           {refreshError}
         </Alert>
       )}
+      <DiarySettings fail={fail}/>
+      <Disclosure title="手动写日记" className="secondary-options">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -297,13 +300,14 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           </Field>
         </Disclosure>
       </form>
+      </Disclosure>
       <TaskList
         tasks={tasks.filter((t) => t.kind === "diary")}
         refresh={load}
         fail={fail}
       />
       <h3>日记</h3>
-      {!diaries.length && <p>暂无日记。完成聊天后，选择日期生成。</p>}
+      {!diaries.length && <p>还没有日记。有了值得记住的经历，大肥鱼会在晚上写下。</p>}
       <ContentScroll label="日记" className="content-scroll-list">
       {diaries.map((d) => (
         <Card key={d.id}>

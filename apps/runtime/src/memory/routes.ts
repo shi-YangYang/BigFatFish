@@ -7,6 +7,8 @@ export function registerLife(app: FastifyInstance, life: LifeService) {
   app.get('/v1/life/timeline',async()=>life.memories.timeline());
   app.post('/v1/life/source',async req=>life.source(req.body));
   app.get('/v1/life/moods',async()=>life.moods());
+  app.get('/v1/diary-options',async()=>life.automaticDiary.status());
+  app.put('/v1/diary-options',async req=>life.automaticDiary.save(req.body));
   const recallStatus = () => ({ ...life.embedder.status(), ...life.semantic.status() });
   app.get('/v1/memory-recall', async () => recallStatus());
   app.put('/v1/memory-recall', async req => {

@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { classifyLegacyMemories } from '../memory/attribution.js';
 import { rebuildPersonProfiles } from '../memory/person-profile.js';
 import { rebuildScenarios } from '../memory/scenario-store.js';
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    CREATE TABLE audit (id INTEGER PRIMARY KEY, event TEXT NOT NULL, at TEXT NOT NULL);
@@ -75,6 +75,14 @@ export const migrations = [
    CREATE INDEX memory_scene_topic ON memory_scene_terms(scope_key,topic,observed_at DESC,memory_id);
    CREATE TABLE memory_scene_context(memory_id TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
      basis_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,topic TEXT NOT NULL);`,
+  `CREATE TABLE emotional_states(scope_key TEXT PRIMARY KEY,mood TEXT NOT NULL,intensity REAL NOT NULL,
+     reason TEXT NOT NULL,quote TEXT NOT NULL,source_kind TEXT NOT NULL,source_id TEXT NOT NULL,occurred_at TEXT NOT NULL);
+   CREATE TABLE emotion_jobs(seq INTEGER PRIMARY KEY,id TEXT NOT NULL UNIQUE,source_kind TEXT NOT NULL,source_id TEXT NOT NULL,
+     status TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_at INTEGER NOT NULL DEFAULT 0,error TEXT);
+   CREATE TABLE diary_options(id INTEGER PRIMARY KEY CHECK(id=1),enabled INTEGER NOT NULL,hour INTEGER NOT NULL,
+     timezone TEXT NOT NULL,since TEXT NOT NULL,revision TEXT NOT NULL);
+   CREATE TABLE diary_auto_runs(day TEXT NOT NULL,timezone TEXT NOT NULL,status TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,
+     task_id TEXT,next_at INTEGER NOT NULL DEFAULT 0,error TEXT,PRIMARY KEY(day,timezone));`,
 ];
 export function transaction<T>(db: DatabaseSync, run: () => T): T {
   db.exec('BEGIN IMMEDIATE');

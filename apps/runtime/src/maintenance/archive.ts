@@ -54,6 +54,8 @@ export const groups = {
     "activity_records",
     "experiences",
     "mood_history",
+    "emotional_states",
+    "diary_options",
     "daily_diaries",
     "video_tasks",
     "video_requests",
@@ -161,7 +163,7 @@ function decode(file: string, password?: string): Payload {
   if (bytes.length !== entry.size || hash(bytes) !== entry.sha256)
     throw new Error("ARCHIVE_CHECKSUM");
   const payload = JSON.parse(bytes.toString()) as Payload;
-  if (payload.version !== 1 || ![6, 7, 8, 9, 10, 11, SCHEMA_VERSION].includes(payload.schema))
+  if (payload.version !== 1 || ![6, 7, 8, 9, 10, 11, 12, SCHEMA_VERSION].includes(payload.schema))
     throw new Error("ARCHIVE_SCHEMA_UNSUPPORTED");
   if (
     !Array.isArray(payload.scopes) ||
@@ -325,6 +327,13 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
             const actor = {role:row.actor_role,personKey:row.person_key,scopeKey:row.scope_key} as MemoryAttribution;
             if (!validAttribution(actor) || (row.visibility === 'shared' && !canShareMemory(actor))) throw new Error('INVALID_ARCHIVE_MEMORY');
           }
+          if (table === 'emotional_states') {
+            if (!['平静','开心','期待','温暖','委屈','低落','疲惫'].includes(String(row.mood)) || typeof row.intensity!=='number' || row.intensity<0 || row.intensity>0.7 || !Number.isFinite(Date.parse(String(row.occurred_at))) || !['message','activity'].includes(String(row.source_kind)) || ['scope_key','reason','quote','source_id'].some(key=>typeof row[key]!=='string'||String(row[key]).length>500))throw new Error('INVALID_ARCHIVE_EMOTION');
+          }
+          if (table === 'diary_options') {
+            if(row.id!==1||![0,1].includes(Number(row.enabled))||!Number.isInteger(row.hour)||Number(row.hour)<0||Number(row.hour)>23||!Number.isFinite(Date.parse(String(row.since)))||typeof row.revision!=='string')throw new Error('INVALID_ARCHIVE_DIARY');
+            new Intl.DateTimeFormat('en',{timeZone:String(row.timezone)}).format();row.enabled=0;row.revision=randomUUID();
+          }
           if (table === "settings" && row.key !== "model_routes")
             throw new Error("INVALID_ARCHIVE_SETTING");
           if (table === "models" || table === "plugin_config")
@@ -344,6 +353,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
           ).run(...importedColumns.map((c) => row[c]!));
         }
       }
+      db.prepare('INSERT OR IGNORE INTO diary_options VALUES(1,0,23,?,?,?)').run(Intl.DateTimeFormat().resolvedOptions().timeZone,new Date().toISOString(),randomUUID());
       if (payload.schema < 9) classifyLegacyMemories(db);
       rebuildPersonProfiles(db);
       rebuildScenarios(db);
@@ -503,6 +513,9 @@ export function pauseAfterRollback(database: string) {
     );
     const updates: Record<string, string> = {
       approvals: "DELETE FROM approvals",
+      diary_options: "UPDATE diary_options SET enabled=0",
+      diary_auto_runs: "UPDATE diary_auto_runs SET status='cancelled' WHERE status IN ('running','retry')",
+      emotion_jobs: "UPDATE emotion_jobs SET status='skipped' WHERE status='pending'",
       settings:
         "INSERT OR REPLACE INTO settings VALUES('activities.paused','true')",
       plugin_config:

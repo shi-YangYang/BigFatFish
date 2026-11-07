@@ -1,7 +1,7 @@
 import {Buffer} from 'node:buffer';
 import { createServer } from 'node:http';
 export async function fixtureModel() {
-  const requests = [], controls = { turnMemoryResponse: '{"items":[]}', memoryResponse: undefined, slowMemory: false, tool: false, sticker: undefined, replyTools: undefined };
+  const requests = [], controls = { emotionResponse: '{"changed":false}', turnMemoryResponse: '{"items":[]}', memoryResponse: undefined, slowMemory: false, tool: false, sticker: undefined, replyTools: undefined };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     if(req.url==='/v1/audio/transcriptions'){requests.push({url:req.url,raw});res.setHeader('content-type','application/json');res.end(JSON.stringify({text:'隔离音轨转写：海洋里的鱼'}));return;}
@@ -33,6 +33,7 @@ export async function fixtureModel() {
     if(controls.tool && body.tools?.length && !body.messages.some(m=>m.role==='tool')){emit({tool_calls:[{index:0,id:'call-fixture',type:'function',function:{name:body.tools.find(t=>t.function.name.includes('greet'))?.function.name??body.tools[0].function.name,arguments:JSON.stringify({name:'实际DSH'})}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}
     if(controls.tool&&body.messages.some(m=>m.role==='tool')){emit({content:'已消费真实工具结果：'+body.messages.filter(m=>m.role==='tool').map(m=>m.content).join('')});emit({},'stop');res.end('data: [DONE]\n\n');return;}
     let parts = prompt.includes('SLOW_NOW') ? Array(100).fill('慢') : ['测试', '模型', '回复'];
+    if (prompt.includes('BFF_EMOTION_APPRAISAL')) parts = [controls.emotionResponse];
     if (prompt.includes('BFF_MEMORY_TURN_ANALYSIS')) parts = [controls.turnMemoryResponse];
     const last = body.messages?.find(m=>m.role==='user' && (JSON.stringify(m.content).includes('BFF_MEMORY_EXTRACT') || JSON.stringify(m.content).includes('BFF_DAILY_DIARY')))?.content;
     const input = typeof last === 'string' ? last : JSON.stringify(last);
