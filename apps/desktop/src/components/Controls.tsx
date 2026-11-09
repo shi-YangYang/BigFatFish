@@ -9,18 +9,20 @@ import { Select as BeSelect, SelectTrigger, SelectValue, SelectContent, SelectIt
 import { Alert as BeAlert } from "./beui/alert";
 import { Tooltip } from "./beui/tooltip";
 import { cn } from "./beui/utils";
+import { Loader } from "./beui/loader";
 
 type ButtonProps = Omit<BeButtonProps, "variant" | "size"> & {
   variant?: "secondary" | "primary" | "ghost" | "danger";
   size?: "regular" | "compact" | "icon";
+  busy?: boolean;
 };
 /** Product sizing/intent adapters; all base controls render beUI source. */
-export function Button({ variant = "secondary", size = "regular", className = "", type = "button", title, ...props }: ButtonProps) {
-  const button = <BeButton pressScale={1} {...props} type={type}
+export function Button({ variant = "secondary", size = "regular", className = "", type = "button", title, busy, children, ...props }: ButtonProps) {
+  const button = <BeButton pressScale={1} {...props} disabled={props.disabled || busy} aria-busy={busy || props['aria-busy']} type={type}
     variant={variant === "danger" ? "outline" : variant}
     size={size === "regular" ? "md" : size === "compact" ? "sm" : "icon"}
     className={cn(`ui-button ui-button-${variant} ui-button-${size}`,
-      variant === "danger" && "text-[#a13b32] bg-[#fff7f5] border-[#ecc9c3] hover:bg-[#fff0eb]", className)} />;
+      variant === "danger" && "text-[#a13b32] bg-[#fff7f5] border-[#ecc9c3] hover:bg-[#fff0eb]", className)}>{busy && <span aria-hidden="true"><Loader size={16} label="" /></span>}{busy && size === 'icon' ? null : children}</BeButton>;
   return title ? <Tooltip content={title}>{button}</Tooltip> : button;
 }
 const FieldContext = createContext<{ id: string; labelId: string; label: ReactNode } | null>(null);

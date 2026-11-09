@@ -22,20 +22,35 @@ export async function fetchStickerBytes(value:string,signal:AbortSignal,catalog=
 interface NetworkSticker {id:string;name:string;description:string;url:string}
 export class NetworkStickers {
  private cached?:{at:number;items:NetworkSticker[]};
- constructor(private fetchBytes=fetchStickerBytes){}
+ private catalogRetryAt=0;
+ private imageRetries=new Map<string,number>();
+ private images=new Map<string,{at:number;image:Awaited<ReturnType<typeof validateStickerImage>>}>();
+ constructor(private fetchBytes=fetchStickerBytes,private now=Date.now){}
  async search(query:string,signal:AbortSignal,recent:readonly string[]=[]){
+  signal.throwIfAborted();
   query=string(query,80).toLowerCase();
-  if(!this.cached||Date.now()-this.cached.at>15*60*1000){
-   const bytes=await this.fetchBytes(catalogURL,signal,true),payload=object(JSON.parse(bytes.toString('utf8'))),gallery=object(payload.gallery),group=object(gallery['DeepSeek娘']);
+  if(!this.cached||this.now()-this.cached.at>15*60*1000){
+   if(this.now()<this.catalogRetryAt&&!this.cached)throw new InputError('STICKER_NETWORK_UNAVAILABLE');
+   if(this.now()>=this.catalogRetryAt)try{
+   const bytes=await this.fetchBytes(catalogURL,AbortSignal.any([signal,AbortSignal.timeout(2500)]),true),payload=object(JSON.parse(bytes.toString('utf8'))),gallery=object(payload.gallery),group=object(gallery['DeepSeek娘']);
    if(!Array.isArray(group.images)||group.images.length>10000)throw new InputError('STICKER_SOURCE_INVALID');
    const items:NetworkSticker[]=[];
    for(const raw of group.images){try{const row=object(raw),url=stickerURL(string(row.preview??row.original,1000)).href,name=string(row.name??row.alt,80),story=row.story?object(row.story):{},description=typeof story.zh==='string'?story.zh.slice(0,200):name;
     if(/色情|性交|乳房|乳交|胸交|口交|手淫|自慰|淫荡|高潮|精液|射精|鸡巴|阴茎|阴道|裸露|裸体|发情|媚药|强奸|调教|深喉|颜射|足交|舔脚|性奴|性癖/i.test(name+' '+description))continue;
     items.push({id:'web-'+createHash('sha256').update(url).digest('hex').slice(0,24),name,description,url});
    }catch{/* malformed entries cannot become download targets */}}
-   this.cached={at:Date.now(),items};
+   signal.throwIfAborted();this.cached={at:this.now(),items};this.catalogRetryAt=0;
+   }catch(error){signal.throwIfAborted();this.catalogRetryAt=this.now()+60_000;if(!this.cached)throw error;}
   }
-  signal.throwIfAborted();const terms=query.split(/[\s，,]+/).filter(Boolean);return this.cached.items.map(item=>({item,score:terms.reduce((n,t)=>n+(item.name.toLowerCase().includes(t)?3:0)+(item.description.toLowerCase().includes(t)?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||stickerRecency(a.item.id,recent)-stickerRecency(b.item.id,recent)).slice(0,8).map(x=>x.item);
+  signal.throwIfAborted();const terms=query.split(/[\s，,]+/).filter(Boolean);return this.cached!.items.filter(item=>(this.imageRetries.get(item.url)??0)<=this.now()).map(item=>({item,score:terms.reduce((n,t)=>n+(item.name.toLowerCase().includes(t)?3:0)+(item.description.toLowerCase().includes(t)?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||stickerRecency(a.item.id,recent)-stickerRecency(b.item.id,recent)).slice(0,8).map(x=>x.item);
  }
- async image(item:NetworkSticker,signal:AbortSignal){const raw=await this.fetchBytes(item.url,signal),decoder=sharp(raw,{limitInputPixels:STICKER_LIMITS.pixels,failOn:'warning'}),meta=await decoder.metadata();if(!['png','jpeg','webp'].includes(meta.format??'')||(meta.pages??1)!==1)throw new InputError('INVALID_STICKER_IMAGE');const png=await decoder.resize({width:768,height:768,fit:'inside',withoutEnlargement:true}).png().toBuffer();signal.throwIfAborted();return validateStickerImage(png.toString('base64'));}
+ async image(item:NetworkSticker,signal:AbortSignal){
+  signal.throwIfAborted();stickerURL(item.url);
+  const cached=this.images.get(item.url);if(cached&&this.now()-cached.at<15*60*1000)return cached.image;
+  if((this.imageRetries.get(item.url)??0)>this.now())throw new InputError('STICKER_NETWORK_UNAVAILABLE');
+  try{
+   const raw=await this.fetchBytes(item.url,AbortSignal.any([signal,AbortSignal.timeout(4000)])),decoder=sharp(raw,{limitInputPixels:STICKER_LIMITS.pixels,failOn:'warning'}),meta=await decoder.metadata();if(!['png','jpeg','webp'].includes(meta.format??'')||(meta.pages??1)!==1)throw new InputError('INVALID_STICKER_IMAGE');const png=await decoder.resize({width:768,height:768,fit:'inside',withoutEnlargement:true}).png().toBuffer();const image=await validateStickerImage(png.toString('base64'));signal.throwIfAborted();
+   this.imageRetries.delete(item.url);this.images.delete(item.url);this.images.set(item.url,{at:this.now(),image});if(this.images.size>4)this.images.delete(this.images.keys().next().value!);return image;
+  }catch(error){signal.throwIfAborted();this.imageRetries.delete(item.url);this.imageRetries.set(item.url,this.now()+60_000);if(this.imageRetries.size>32)this.imageRetries.delete(this.imageRetries.keys().next().value!);throw error;}
+ }
 }

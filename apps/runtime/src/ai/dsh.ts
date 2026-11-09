@@ -91,7 +91,7 @@ export class DSHAdapter implements AgentEngine {
     writeFileSync(profile, JSON.stringify(patches));
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP','TMPDIR','LANG']) if (process.env[key]) env[key] = process.env[key];
-    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters,resultKind})=>({name,description,parameters,resultKind}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
+    Object.assign(env, { BFF_TOOLS:JSON.stringify((input.tools??[]).map(({name,description,parameters,resultKind,concludesTurn})=>({name,description,parameters,resultKind,concludesTurn}))), BFF_SESSION:input.sessionId, BFF_MODEL_API_KEY: input.model.provider === 'openai' ? token : (input.key || 'local-no-key'), BFF_BRIDGE_TOKEN: token, BFF_BRIDGE_URL: `http://127.0.0.1:${bridgePort}`, DSH_SYSTEM_PROMPT: buildPersonaPrompt(input.persona, input.interaction, input.context) });
     harness = new DeepSeekHarness({ profile: 'sdk-minimal', patches: [profile], dshHome: home, cwd: join(home,'workspace'), processCwd: join(home,'workspace'), env, provider: input.model.provider === 'deepseek' ? 'deepseek-official' : 'bff', model: input.model.model, initializeTimeoutMs: 20000, shutdownTimeoutMs: 1000, disposeEofGraceMs: 1000, disposeGraceMs: 1000 });
     this.children.add(harness);
     cancel = () => { cancelTask ??= (async () => {
@@ -109,6 +109,14 @@ export class DSHAdapter implements AgentEngine {
       if (input.signal.aborted) throw new Error('CANCELLED');
       const end = result.events.filter(event => event.type === 'turn/end').at(-1);
       const reason = (end?.data as { reason?: { kind?: string; error?:{code?:string} } } | undefined)?.reason;
+      // DSH concludes after *all* calls in a terminal batch settle, even if a peer
+      // failed. Do not deliver partial staged replies as a successful turn. A
+      // failure in an earlier step may have been recovered by a local fallback.
+      const finalStepStart=result.events.findLastIndex(event=>event.type==='step/start');
+      const finalStep=result.events.slice(Math.max(0,finalStepStart));
+      const terminalNames=new Set(input.tools?.filter(tool=>tool.concludesTurn).map(tool=>tool.name));
+      if(finalStep.some(event=>event.type==='tool/call'&&terminalNames.has((event.data as {name:string}).name))&&
+         finalStep.some(event=>event.type==='tool/result'&&(event.data as {message:{isError?:boolean}}).message.isError))throw new Error('MODEL_RUN_FAILED');
       // Fixed SDK labels a successful no-text stop as EMPTY_RESPONSE. Only explicit
       // Runtime-owned reply actions/silence may complete without a textual final.
       const explicitEmpty=reason?.kind==='error'&&reason.error?.code==='EMPTY_RESPONSE'&&!modelError&&!toolFailed&&input.acceptEmpty?.();

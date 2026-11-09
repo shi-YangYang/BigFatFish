@@ -1,12 +1,13 @@
+import { ConnectionStatus } from './ConnectionStatus';
 import { useEffect, useState } from "react";
-import { Card, Badge } from "../../components/Surfaces";
+import { Card } from "../../components/Surfaces";
 import { Button } from "../../components/Controls";
 import { api } from "../../api/client";
 import { Bilibili } from "./Bilibili";
 import { Douyin } from "./Douyin";
 import { QQConnection } from "./qq/QQConnection";
 import { QQMessages } from "./qq/QQMessages";
-import { connectionTone, activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
+import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
 import type { ChannelStatus } from "../../../../runtime/src/channels/types";
 import type { ManagedQQStatus } from "../../../../runtime/src/channels/managed/types";
 
@@ -76,9 +77,7 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
             <div className="connection-info">
               <h3>{name}</h3>
               <p>{["消息与陪伴", "视频与兴趣", "发现与观看"][i]}</p>
-              <Badge className="connection-state" status={connectionTone(states[name] ?? "正在读取…")}>
-                {states[name] ?? "正在读取…"}
-              </Badge>
+              <ConnectionStatus className="connection-state" label={states[name] ?? "正在读取…"}/>
             </div>
             <Button type="button" onClick={() => setTab(name)}>
               管理连接

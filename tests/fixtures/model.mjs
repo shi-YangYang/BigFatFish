@@ -27,7 +27,7 @@ export async function fixtureModel() {
       const names=['list_stickers','get_sticker_image','send_sticker'];
       const completed=body.messages.filter(m=>m.role==='assistant').flatMap(m=>m.tool_calls??[]).map(t=>t.function.name);
       const name=names.find(n=>!completed.some(c=>c===n||c.endsWith(n)));
-      if(name){const actual=body.tools.find(t=>t.function.name===name||t.function.name.endsWith(name))?.function.name;if(actual){emit({tool_calls:[{index:0,id:'call-'+name,type:'function',function:{name:actual,arguments:JSON.stringify(name==='list_stickers'?{}:{id:controls.sticker})}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}}
+      if(name){const actual=body.tools.find(t=>t.function.name===name||t.function.name.endsWith(name))?.function.name;if(actual){emit({tool_calls:[...(name==='send_sticker'?[{index:0,id:'call-send_message',type:'function',function:{name:'send_message',arguments:JSON.stringify({messages:['好耶，给你看看我的表情！']})}}]:[]),{index:name==='send_sticker'?1:0,id:'call-'+name,type:'function',function:{name:actual,arguments:JSON.stringify(name==='list_stickers'?{}:{id:controls.sticker})}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}}
       emit({content:'好耶，给你看看我的表情！'});emit({},'stop');res.end('data: [DONE]\n\n');return;
     }
     if(controls.tool && body.tools?.length && !body.messages.some(m=>m.role==='tool')){emit({tool_calls:[{index:0,id:'call-fixture',type:'function',function:{name:body.tools.find(t=>t.function.name.includes('greet'))?.function.name??body.tools[0].function.name,arguments:JSON.stringify({name:'实际DSH'})}}]});emit({},'tool_calls');res.end('data: [DONE]\n\n');return;}

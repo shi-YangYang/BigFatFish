@@ -33,7 +33,12 @@ export async function apply(ctx) {
         exec.signal.throwIfAborted();await confirm(true);return rendered;
       }catch(error){try{await confirm(false);}catch{for(const agent of ctx.agents.list())agent.cancel({kind:'user'});}throw error;}
     }
-    return JSON.stringify(value);
+    const rendered=JSON.stringify(value);
+    exec.signal.throwIfAborted();
+    // Native DSH completion settles the entire batch without another model request.
+    // Only Runtime-owned final reply tools receive this flag.
+    if(tool.concludesTurn)exec.concludeTurn();
+    return rendered;
    }}));
   }
   ctx.on('agent/assistant-stream', ({ agent, frame }) => send({ sessionId: agent.session.id, frame }));

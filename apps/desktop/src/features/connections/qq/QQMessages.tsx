@@ -1,3 +1,4 @@
+import {connectionReadMessage} from '../connection-errors';
 import type { QQMessageIssue } from "../../../../../runtime/src/channels/types";
 import { ContentScroll, Card, Alert, Loading } from "../../../components/Surfaces";
 import { Button } from "../../../components/Controls";
@@ -18,19 +19,21 @@ export function QQMessages() {
   const [issues, setIssues] = useState<QQMessageIssue[]>([]);
   const [actions,setActions]=useState<{id:string;kind:string;status:string;at:string}[]>([]);
   const [loading, setLoading] = useState(true);
-  const [historyError, setHistoryError] = useState(false);
-  const alive = useRef(true), sequence = useRef(0);
-  const refresh = useCallback(async () => {
-    const n = ++sequence.current;
+  const [historyError, setHistoryError] = useState<string[]>([]);
+  const [refreshing,setRefreshing]=useState(false);
+  const alive = useRef(true), pending=useRef(false);
+  const refresh = useCallback(async (manual=false) => {
+    if(manual)setRefreshing(true);
+    if(pending.current)return;pending.current=true;
     try {
-      const [records,operations] = await Promise.all([api<QQMessageIssue[]>("/v1/channels/qq/message-issues"),api<{id:string;kind:string;status:string;at:string}[]>("/v1/channels/qq/action-issues")]);
-      if (!alive.current || n !== sequence.current) return;
-      setIssues(records);setActions(operations);
-      setHistoryError(false);
-    } catch {
-      if (alive.current && n === sequence.current) setHistoryError(true);
+      const [records,operations] = await Promise.allSettled([api<QQMessageIssue[]>("/v1/channels/qq/message-issues"),api<{id:string;kind:string;status:string;at:string}[]>("/v1/channels/qq/action-issues")]);
+      if (!alive.current) return;
+      if(records.status==='fulfilled')setIssues(records.value);
+      if(operations.status==='fulfilled')setActions(operations.value);
+      setHistoryError([...new Set([records,operations].flatMap(result=>result.status==='rejected'?[connectionReadMessage(result.reason,'部分记录暂时无法更新，请重试。')]:[]))]);
     } finally {
-      if (alive.current && n === sequence.current) setLoading(false);
+      pending.current=false;
+      if (alive.current){setLoading(false);setRefreshing(false);}
     }
   }, []);
   useEffect(() => {
@@ -44,7 +47,7 @@ export function QQMessages() {
     return () => {
       active = false;
       alive.current = false;
-      ++sequence.current;
+
       clearTimeout(timer);
     };
   }, [refresh]);
@@ -53,10 +56,10 @@ export function QQMessages() {
   return (
     <Card>
       <h3>操作记录</h3>
-      {historyError && (
+      {historyError.length>0 && (
         <Alert>
-          暂时无法更新操作记录
-          <Button size="compact" onClick={() => void refresh()}>刷新</Button>
+          {historyError.join(" ")}
+          <Button size="compact" busy={refreshing} onClick={() => void refresh(true)}>重试</Button>
         </Alert>
       )}
       {loading && <Loading />}
@@ -71,7 +74,7 @@ export function QQMessages() {
           </div>
         ))}
       </ContentScroll>}
-      {!loading && !historyError && !rows.length && <p className="muted">暂无需要处理的问题</p>}
+      {!loading && !historyError.length && !rows.length && <p className="muted">暂无需要处理的问题</p>}
       {rows.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}
     </Card>
   );
