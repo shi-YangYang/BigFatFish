@@ -6,6 +6,12 @@
 
 ## 当前任务：Spec061 Windows Runtime ACL
 
+2026-11-09 用户再次明确要求「commit and push」，本次授权保存已独立验收的 R1 修复并推送 origin/dev。提交前 fetch 确认 dev 与 origin/dev 一致并已包含 origin/main；当前打开的是 PR #3（dev → main）。沿用已有验收，不重复测试；本次不包含 PR 合并或后续自动提交，实际提交与推送结果以 Git 记录为准。
+
+当前为 R1 返工：首轮已提交推送 b4d4658，用户提供新Windows日志（附件5389009f-2cba-47a9-bf65-859066921173/已粘贴的文本.txt），27真实场景仍失败，cause均为WINDOWS_ACL_ACL_READ；测试直接输出Get-Acl无法加载Microsoft.PowerShell.Security。按[返工要求](../../specs/spec-061-windows-acl/rework.md)去掉生产与测试辅助的Security模块读取依赖，使用.NET Framework ACL API；不放宽安全边界、不猜测模块具体失败原因。当前dev与origin/dev一致、开始干净；新实施+新独立验收。没有R1 commit/push授权，上一条授权已用于首轮。
+
+R1 实施与新的 [独立复验 PASS](../../specs/spec-061-windows-acl/acceptance-r1.md) 已完成，root 已完整读取所有报告，无待返工项。生产读取与测试辅助改用.NET Access/Owner/Group，测试helper遇错停止且避免空比较，增加Security cmdlet被屏蔽时真实ACL回归。6项本机协议通过、4项Windows跳过；Node编译复制产物完成且一致，但原工具退出码未保留，证据局限已记录。未改CI/进程环境/权限策略，未提交推送，Windows真实恢复仍待CI。满足本轮代码交付停止条件，不追加检查；后续Git操作需用户新授权。
+
 2026-11-09 用户随后明确要求「commit and push」，授权提交已验收的 Spec061 并推送 origin/dev。提交前 fetch 确认本地与 origin/dev 一致且已包含 origin/main；PR #2（dev → main）为 OPEN，推送会触发新 CI。沿用已有验证，不重复检查；实际提交/推送以 Git 记录为准，不扩大为合并或后续自动提交授权。
 
 用户报告新版 Windows Runtime CI 大量 WINDOWS_ACL_UNSAFE，按 [Spec061](../../specs/spec-061-windows-acl/spec.md)/[Plan](../../specs/spec-061-windows-acl/plan.md) 修复。当前 dev / 9a58fdf，前序 Spec059/060 已按用户要求 commit+push，本轮开始干净。新云端 run 42552721204 为 PR，Windows 出错；日志用户附件已读。S3 权限边界，保留拒绝不安全访问，不用跳过检查通过；单实施与新独立验收。没有本轮 commit/push 授权，不操作真实数据或权限。根协调负责读取云端现有日志，实施者负责 ACL 源码/官方契约/定向验证。

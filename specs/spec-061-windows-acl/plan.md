@@ -47,3 +47,39 @@ Risk Level：S3（权限边界），范围只限 ACL 子系统，没有全仓业
 本机没有 Windows PowerShell/Windows 文件系统；3 个真实 ACL 场景及新版 Windows Runtime 全链路仍需后续 CI 实际运行。Windows 原有生命周期/停止夹具的超时可能是 ACL 初始化失败的连带结果，本轮没有以增加超时掩盖它们；若 ACL 修复后仍失败，需依据新原因码进一步定位。
 
 未操作真实数据/文件权限、模型或账号，未 stage/commit/push。没有产品决策待问；未获推送授权不影响本轮代码交付，但不得宣称 Windows 问题已经实机验证消失。
+
+## R1 Implementation Report
+
+实施者 `/root/rework_windows_acl_read`。本轮针对提交 `b4d4658` 后的新 Windows CI 失败，实施完成，待新的独立验收。
+
+### Confirmed Failure / 修复边界
+
+用户新附件 `5389009f-2cba-47a9-bf65-859066921173/已粘贴的文本.txt` 中，27 个真实场景失败、6 个协议测试通过。生产固定原因码落在 `WINDOWS_ACL_ACL_READ`；测试辅助的 CLIXML 明确报告：找到 `Get-Acl` 所在的 `Microsoft.PowerShell.Security`，但模块无法加载，错误为 `CouldNotAutoloadMatchingModule`。这是本轮已捕获的直接阻断点，首轮的 stdin 和 DACL-only 写入修改未覆盖它。
+
+微软文档说明 PowerShell 7 经中间进程启动 Windows PowerShell 时，可能继承不兼容的模块搜索路径；本项目 pwsh → npm/Node → powershell.exe 符合该调用形态，但本次 runner 的实际环境变量没有记录，不能认定具体是某项 `PSModulePath` 值导致。现有日志中的其他 cmdlet 已成功执行，本轮只去掉不必要的 Security 模块依赖，没有修改进程环境、CI shell、超时或全局设置。
+
+### Files Changed
+
+- `apps/runtime/src/windows-acl.ps1`：首次读取与 restrict 后复读均改用 .NET Framework `Directory.GetAccessControl` / `File.GetAccessControl`，按路径类型选择，显式只读取 `Access, Owner, Group`。不读取 Audit；首轮 DACL-only 写入和 owner、SID、继承、路径类型、reparse、verify 只读检查全部保留。
+- `apps/runtime/src/windows-acl.test.ts`：所有测试辅助 ACL 读取同步改用上述原生 API；SDDL 使用 `GetSecurityDescriptorSddlForm`，不再依赖 `Get-Acl` 的扩展属性。辅助脚本统一 `ErrorActionPreference = Stop`，防止读取失败后空值调用继续运行；owner/group 的 SID 数量与格式、SDDL 内容和 ACE 列表均检查非空，避免空结果比较假通过。隐藏管道和 Unicode/特殊字符路径、重复调用、真实宽权限拒绝、无关文件与 junction 保护检查保留。
+- 同一测试文件新增真实 Windows 回归：在隔离 PowerShell 会话里将 `Get-Acl` 和 `Set-Acl` 屏蔽为直接抛错的函数，再执行实际生产脚本，验证 restrict、verify 成功及宽权限 verify 拒绝。它验证不依赖这两个 cmdlet，不冒充复现 runner 的具体模块搜索环境；本机 macOS 不运行该 Windows 用例。
+- `windows-acl.ts` 无须修改；公开错误与原因协议保持。
+
+### 第一方依据
+
+- [Directory.GetAccessControl (.NET Framework 4.8.1)](https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.getaccesscontrol?view=netframework-4.8.1) 与 [File.GetAccessControl](https://learn.microsoft.com/en-us/dotnet/api/system.io.file.getaccesscontrol?view=netframework-4.8.1)：提供带 `AccessControlSections` 参数的原生目录/文件安全描述符读取，适用于 Windows PowerShell 使用的 .NET Framework。
+- [about_PSModulePath — Starting Windows PowerShell from PowerShell 7](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.5)：解释中间进程启动时模块搜索路径的兼容性风险；用于说明可能环境机制，不作为本次 runner 环境已实测的证据。
+
+### Validation
+
+Risk Level：S3（权限边界），验证限制在改动的 ACL 子系统与生产 Node 编译，不运行全仓测试、其他平台或云端作业。
+
+- `npx vitest run apps/runtime/src/windows-acl.test.ts`：6 passed、4 Windows-only skipped，82ms。日志 `/tmp/bff-spec061-r1-acl.log`；本机执行的是协议测试，四项真实 ACL 测试等待 Windows CI。
+- `npm run build:node`：编译和资源复制完成，日志 `/tmp/bff-spec061-r1-build.log` 无错误；编译产物和 ps1 的本次更新时间为 2026-11-09 11:28:08，复制后的 `dist/runtime/src/windows-acl.ps1` 与源文件逐字节一致。本轮工具输出在上下文压缩时截断，未保留该命令返回的退出码，因此补查了日志、进程结束和生成产物，没有无理由重跑构建。
+- `git diff --check` 通过；逐项检查实际 diff，没有放宽安全校验。测试通过后没有再改源代码，没有重复执行测试。
+
+### Remaining Work / 限制
+
+本机没有 Windows PowerShell 与 Windows 文件系统，新的 Security cmdlet 隔离回归和 Windows Runtime 全链路仍须 Windows CI 实测；目前只交付明确针对已捕获读取失败的修复，不声称 Windows 全链路已经通过。没有新产品决策、schema 变更或数据迁移。
+
+本轮只修改上述两个源码/测试文件和本报告。未改用户数据/真实文件权限，未调用模型或账号，未 stage、commit、push 或触发云端执行。

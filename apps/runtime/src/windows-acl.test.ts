@@ -18,16 +18,23 @@ afterEach(() => {
 });
 function powershell(script: string, input: unknown) {
   // Match hidden production processes: decode stdin without a console/code page.
-  script = `[Console]::SetIn([System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false, $true), $false))\n` + script;
+  script = `$ErrorActionPreference = 'Stop'
+[Console]::SetIn([System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false, $true), $false))
+$readSections = [System.Security.AccessControl.AccessControlSections]'Access, Owner, Group'
+function Read-TestAcl([string]$path, [bool]$directory) {
+  if ($directory) { [System.IO.Directory]::GetAccessControl($path, $readSections) }
+  else { [System.IO.File]::GetAccessControl($path, $readSections) }
+}
+` + script;
   return execFileSync(join(process.env.SystemRoot!, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
     ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
-    { input: JSON.stringify(input), encoding: 'utf8', windowsHide: true });
+    { input: JSON.stringify(input), encoding: 'utf8', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 function widen(entries: AclEntry[]) {
   powershell(`$ErrorActionPreference = 'Stop'
 $entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
 foreach ($entry in $entries) {
-  $acl = Get-Acl -LiteralPath $entry.path
+  $acl = Read-TestAcl $entry.path $entry.directory
   $acl.SetAccessRuleProtection($true, $false)
   foreach ($sid in @('S-1-1-0', 'S-1-5-32-545')) {
     $inherit = [System.Security.AccessControl.InheritanceFlags]::None
@@ -57,6 +64,7 @@ describe('Windows ACL process protocol', () => {
     const script = Buffer.from((args as string[]).at(-1)!, 'base64').toString('utf16le');
     expect(script).toContain('[Console]::OpenStandardInput()');
     expect(script).not.toContain('[Console]::InputEncoding =');
+    expect(script).not.toMatch(/\bGet-Acl\b/);
   });
   it.each([
     ['WINDOWS_ACL_UNSAFE:ACL_WRITE', 'ACL_WRITE'],
@@ -85,13 +93,28 @@ describe('Windows ACL process protocol', () => {
 });
 // These exercise real Windows ACLs on Windows CI, never a mocked platform/mode bit.
 describe.skipIf(process.platform !== 'win32')('Windows DACL boundary', () => {
+  it('restricts and verifies actual ACLs when Security cmdlets are unavailable', () => {
+    const root = mkdtempSync(join(tmpdir(), 'bff ACL no Security module ')); roots.push(root);
+    const file = join(root, 'credential.json'); writeFileSync(file, 'isolated fixture');
+    const entries = [{ path: root, directory: true }, { path: file, directory: false }];
+    const script = `function Get-Acl { throw 'SECURITY_CMDLET_UNAVAILABLE' }
+function Set-Acl { throw 'SECURITY_CMDLET_UNAVAILABLE' }
+` + readFileSync(new URL('./windows-acl.ps1', import.meta.url), 'utf8');
+    expect(powershell(script, { operation: 'restrict', entries })).toBe('OK');
+    expect(powershell(script, { operation: 'verify', entries })).toBe('OK');
+    widen(entries);
+    expect(() => powershell(script, { operation: 'verify', entries })).toThrow('WINDOWS_ACL_UNSAFE');
+  });
   it('restricts a Unicode path from hidden PowerShell repeatedly without changing owner or group', () => {
     const root = mkdtempSync(join(tmpdir(), "bff ACL 中文 ' $() [1] ")); roots.push(root);
     const file = join(root, 'credential.json'); writeFileSync(file, 'isolated fixture');
     const entries = [{ path: root, directory: true }, { path: file, directory: false }];
     const identities = `$entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
-@($entries | ForEach-Object { $acl = Get-Acl -LiteralPath $_.path; $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $acl.GetGroup([System.Security.Principal.SecurityIdentifier]).Value }) | ConvertTo-Json -Compress`;
+@($entries | ForEach-Object { $acl = Read-TestAcl $_.path $_.directory; $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $acl.GetGroup([System.Security.Principal.SecurityIdentifier]).Value }) | ConvertTo-Json -Compress`;
     const before = powershell(identities, entries);
+    const identitySids = JSON.parse(before) as string[];
+    expect(identitySids).toHaveLength(entries.length * 2);
+    for (const sid of identitySids) expect(sid).toMatch(/^S-1-\d+(?:-\d+)+$/);
     for (let i = 0; i < 2; i++) { windowsAcl('restrict', entries); windowsAcl('verify', entries); }
     expect(powershell(identities, entries)).toBe(before);
     expect(readFileSync(file, 'utf8')).toBe('isolated fixture');
@@ -113,13 +136,15 @@ describe.skipIf(process.platform !== 'win32')('Windows DACL boundary', () => {
     const unrelated = join(root, 'user-owned.txt'); writeFileSync(unrelated, 'keep');
     widen([{ path: unrelated, directory: false }]);
     const inspect = `$path = [Console]::In.ReadToEnd() | ConvertFrom-Json
-[Console]::Out.Write((Get-Acl -LiteralPath $path).Sddl)`;
+[Console]::Out.Write((Read-TestAcl $path $false).GetSecurityDescriptorSddlForm($readSections))`;
     const originalAcl = powershell(inspect, unrelated);
+    expect(originalAcl).toMatch(/^O:.+G:.+D:/);
     preparePaths(p);
     windowsAcl('verify', entries);
     // Independently inspect ACE SIDs instead of relying only on the production verifier.
     const aclSummary = powershell(`$entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
-@($entries | ForEach-Object { (Get-Acl -LiteralPath $_.path).GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } }) | ConvertTo-Json -Compress`, entries);
+@($entries | ForEach-Object { (Read-TestAcl $_.path $_.directory).GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } }) | ConvertTo-Json -Compress`, entries);
+    expect(JSON.parse(aclSummary).length).toBeGreaterThan(0);
     expect(aclSummary).not.toContain('S-1-1-0'); expect(aclSummary).not.toContain('S-1-5-32-545');
     expect(readConnection(p)).toEqual(value);
     expect(readFileSync(sidecar, 'utf8')).toBe('existing sidecar');
@@ -133,11 +158,13 @@ describe.skipIf(process.platform !== 'win32')('Windows DACL boundary', () => {
     const root = mkdtempSync(join(tmpdir(), 'bigfatfish acl link ')); roots.push(root);
     const p = paths(root); preparePaths(p);
     const external = mkdtempSync(join(tmpdir(), 'bigfatfish acl target ')); roots.push(external);
-    const before = powershell('[Console]::Out.Write((Get-Acl -LiteralPath ([Console]::In.ReadToEnd() | ConvertFrom-Json)).Sddl)', external);
+    const inspectDirectory = '$path = [Console]::In.ReadToEnd() | ConvertFrom-Json\n[Console]::Out.Write((Read-TestAcl $path $true).GetSecurityDescriptorSddlForm($readSections))';
+    const before = powershell(inspectDirectory, external);
+    expect(before).toMatch(/^O:.+G:.+D:/);
     rmSync(p.runtime, { recursive: true });
     powershell(`$request = [Console]::In.ReadToEnd() | ConvertFrom-Json
 New-Item -ItemType Junction -Path $request.link -Target $request.target | Out-Null`, { link: p.runtime, target: external });
     expect(() => preparePaths(p)).toThrow('UNSAFE_DATA_PATH');
-    expect(powershell('[Console]::Out.Write((Get-Acl -LiteralPath ([Console]::In.ReadToEnd() | ConvertFrom-Json)).Sddl)', external)).toBe(before);
+    expect(powershell(inspectDirectory, external)).toBe(before);
   });
 });

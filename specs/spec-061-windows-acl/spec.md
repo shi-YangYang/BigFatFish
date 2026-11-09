@@ -1,6 +1,6 @@
 # Spec061：Windows Runtime 权限初始化失败
 
-状态：Done，[独立验收 PASS](acceptance.md)；Windows CI 实际重跑待后续推送。风险 S3：本机凭据与数据目录权限边界。
+状态：R1 代码完成，[独立复验 PASS](acceptance-r1.md)；Windows CI 实际重跑待推送。首轮之后发现的 Get-Acl 模块加载阻断及修复见 [返工要求](rework.md)。风险 S3：本机凭据与数据目录权限边界。
 
 ## 背景与当前行为
 
@@ -16,6 +16,7 @@
 - restrict 仅修复产品路径，verify 只读；保留当前用户/SYSTEM DACL、可信 owner、继承和链接检查。
 - 若原日志不足定位，补充固定枚举诊断，不输出任意 PowerShell 错误、路径、SID、配置内容。
 - 定向回归必须覆盖实际 Windows ACL 操作及故障边界；本机可以验证调用协议和错误清洗，但不能将 Mac 测试称作 Windows 通过。
+- ACL 读取与测试辅助读取不得依赖当前环境无法加载的 PowerShell Security 模块；通过 .NET Framework 文件/目录 API 获取 Owner/Group/Access，维持同一权限校验。
 
 ## 非目标
 

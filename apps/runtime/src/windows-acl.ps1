@@ -8,6 +8,7 @@ try {
     if ($request.operation -notin @('restrict', 'verify')) { throw 'INVALID_OPERATION' }
     $stage = 'IDENTITY'
     $sidType = [System.Security.Principal.SecurityIdentifier]
+    $readSections = [System.Security.AccessControl.AccessControlSections]'Access, Owner, Group'
     $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
     $system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')
     $allowed = @($user.Value, $system.Value) | Select-Object -Unique
@@ -19,7 +20,10 @@ try {
         if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'REPARSE_POINT' }
         if ([bool]$item.PSIsContainer -ne [bool]$entry.directory) { throw 'WRONG_PATH_TYPE' }
         $stage = 'ACL_READ'
-        $acl = Get-Acl -LiteralPath $entry.path
+        # Read the native descriptor without loading Microsoft.PowerShell.Security.
+        # Parent hosts can leave incompatible module paths in this process's environment.
+        $acl = if ($entry.directory) { [System.IO.Directory]::GetAccessControl($entry.path, $readSections) }
+               else { [System.IO.File]::GetAccessControl($entry.path, $readSections) }
         if ($acl.GetOwner($sidType).Value -notin $trustedOwners) { throw 'UNSAFE_OWNER' }
         if ($request.operation -eq 'restrict') {
             $stage = 'ACL_WRITE'
@@ -45,7 +49,8 @@ try {
             if ($entry.directory) { [System.IO.Directory]::SetAccessControl($entry.path, $acl) }
             else { [System.IO.File]::SetAccessControl($entry.path, $acl) }
             $stage = 'ACL_READ'
-            $acl = Get-Acl -LiteralPath $entry.path
+            $acl = if ($entry.directory) { [System.IO.Directory]::GetAccessControl($entry.path, $readSections) }
+                   else { [System.IO.File]::GetAccessControl($entry.path, $readSections) }
         }
         $stage = 'ACL_VERIFY'
         if ($acl.GetOwner($sidType).Value -notin $trustedOwners) { throw 'UNSAFE_OWNER' }
