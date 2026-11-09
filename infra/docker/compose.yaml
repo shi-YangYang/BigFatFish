@@ -1,0 +1,14 @@
+services:
+  bigfatfish:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - fish-data:/home/node/.local/share/bigfatfish
+    stop_grace_period: 45s
+    security_opt:
+      - no-new-privileges:true
+    # Management remains authenticated and loopback-only. Use docker compose exec.
+volumes:
+  fish-data:

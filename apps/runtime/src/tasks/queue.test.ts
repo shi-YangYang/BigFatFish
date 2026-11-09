@@ -1,0 +1,5 @@
+import {expect,it} from 'vitest';import { DatabaseSync } from 'node:sqlite';import { migrate } from '../storage/database.js';import { TaskQueue } from './queue.js';
+it('serializes actual operation completion, keeps cancelled writes unknown and recovers without replay',async()=>{
+ const db=new DatabaseSync(':memory:');migrate(db);const q=new TaskQueue(db);let finish!:()=>void,started=false;const first=q.enqueue('douyin','watch',{},'a','Activity',async signal=>{await new Promise<void>(r=>{finish=r;});signal.throwIfAborted();return {};});const second=q.enqueue('douyin','read',{},'b','Activity',async()=>{started=true;return {};});await new Promise<void>(r=>setImmediate(r));q.cancel(first.id);await Promise.resolve();expect(started).toBe(false);finish();await q.abort();expect(q.get(second.id).status).toBe('cancelled');
+ db.prepare("INSERT INTO activity_tasks(id,request_id,platform,kind,mode,input,status,created_at) VALUES('stale','stale','douyin','write','Activity','{}','running','now')").run();const next=new TaskQueue(db);expect(next.get('stale').status).toBe('unknown');await next.close();await q.close();db.close();
+});

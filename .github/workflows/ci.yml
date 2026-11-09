@@ -1,0 +1,74 @@
+name: checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  node:
+    name: Runtime / ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: npm
+      - run: npm ci
+      - name: Compile Runtime and test platform behavior
+        run: npm run test:platform
+        timeout-minutes: 15
+  desktop:
+    name: Desktop / ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # Compile the host and real frontend without preparing a bundled Runtime.
+      # This override applies only to CI; local desktop:build still bundles it.
+      TAURI_CONFIG: '{"bundle":{"active":false,"resources":[]}}'
+      CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target/ci
+      - run: npm ci
+      - name: Compile desktop frontend
+        run: npm run build:desktop
+      - name: Compile native desktop host
+        working-directory: apps/desktop/src-tauri
+        run: cargo build --locked --features tauri/custom-protocol
+        timeout-minutes: 30
+      - name: Test native desktop host
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --features tauri/custom-protocol
+        timeout-minutes: 10
+  linux-container:
+    name: Linux container / Web
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Runtime and Web in container
+        run: docker build -f infra/docker/Dockerfile -t bigfatfish:test .
+      - name: Run container lifecycle smoke
+        run: docker run --rm bigfatfish:test node scripts/smoke.mjs
+        timeout-minutes: 3

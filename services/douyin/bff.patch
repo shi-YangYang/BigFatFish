@@ -1,0 +1,629 @@
+--- a/vendor/douyin-mcp/mcp_server.py
++++ b/vendor/douyin-mcp/mcp_server.py
+@@ -47,7 +47,7 @@
+ import traceback
+ from datetime import datetime
+ from pathlib import Path
+-from urllib.parse import urlparse
++from urllib.parse import urlparse, parse_qs
+ 
+ try:  # 宿主已设 PYTHONUTF8=1；这里再兜一层，避免 GBK 控制台炸
+     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+@@ -64,7 +64,7 @@
+ APP_NAME = "douyin-mcp"
+ # 按本插件任务口径：家目录固定在 %USERPROFILE%\.dsh\douyin-duty（宿主会把脚本铺到这里再启动）。
+ # 需要换位置时用 DSH_DOUYIN_HOME（宿主可传），不要用 DSH_HOME —— 那是 dsh 自己的家。
+-HOME = Path(os.environ.get("DSH_DOUYIN_HOME") or (Path.home() / ".dsh" / "douyin-duty"))
++HOME = Path(os.environ["DSH_DOUYIN_HOME"])
+ PROFILE_DIR = HOME / "browser"
+ QR_PNG = HOME / "login-qr.png"
+ 
+@@ -345,117 +345,11 @@
+         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+         self._pw = await async_playwright().start()
+ 
+-        # ⭐ 先看有没有**别的会话**已经把这个 profile 的 Chrome 开着了（同一份 profile 只允许一个 Chrome）。
+-        #    2026-10-23 事故：交互会话 + 值班那一轮各起了一个 MCP ⇒ 4 个 MCP / 10 个 Chrome 抢同一份 profile，
+-        #    抢输的那个 launch 直接 TargetClosedError ⇒ 读不到 cookie ⇒ 报告里写成 "needLogin"（其实是锁冲突）。
+-        #    解法：插件自己固定一个调试端口；端口通就连它（共享同一个浏览器），不通才由本进程拉起。
+-        try:
+-            if CDP_URL:
+-                raise RuntimeError("优先使用显式 CDP 地址")
+-            self._browser = await self._pw.chromium.connect_over_cdp(f"http://127.0.0.1:{SHARED_PORT}", timeout=3000)
+-            self._ctx = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context(locale="zh-CN")
+-            self._ctx.set_default_timeout(15000)
+-            self._ctx.set_default_navigation_timeout(40000)
+-            self.mode = "shared"
+-            self.cdp_note = f"复用已开的浏览器（端口 {SHARED_PORT}）"
+-            log(f"复用已开的浏览器：127.0.0.1:{SHARED_PORT}（别的会话开着同一个 profile）")
+-            return self._ctx
+-        except Exception:
+-            self._browser = None
+-            self._ctx = None
+-
+-        # ⭐ 端口不通 ⇒ 默认用 **Playwright 拉起**（带上 9333 端口，别人可以连进来共享）。
+-        #    为什么不用裸 chrome.exe：实测（2026-10-23）裸 chrome + CDP 连过去时，抖音给的是
+-        #    "精简版"评论区 —— **没有发送按钮、打 @ 也不出联想面板**；Playwright 拉起的那份是完整 UI
+-        #    （Ctrl+Enter 能提交、@ 有候选）。所以"owner"必须由 Playwright 起，其它会话连过来共享。
+-        #    需要裸 chrome（只想读、不要写）时设 DOUYIN_DETACHED=1。
+-        if os.environ.get("DOUYIN_DETACHED") == "1" and not _port_open(SHARED_PORT) and _find_chrome():
+-            _launch_chrome_detached()
+-            for _ in range(20):
+-                await asyncio.sleep(0.5)
+-                if _port_open(SHARED_PORT):
+-                    break
+-        if _port_open(SHARED_PORT) and os.environ.get("DOUYIN_DETACHED") == "1":
+-            try:
+-                self._browser = await self._pw.chromium.connect_over_cdp(f"http://127.0.0.1:{SHARED_PORT}", timeout=8000)
+-                self._ctx = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context(locale="zh-CN")
+-                self._ctx.set_default_timeout(15000)
+-                self._ctx.set_default_navigation_timeout(40000)
+-                self.mode = "shared"
+-                self.cdp_note = f"独立 Chrome（端口 {SHARED_PORT}）"
+-                log(f"已连上独立进程的 Chrome：127.0.0.1:{SHARED_PORT}")
+-                return self._ctx
+-            except Exception as exc:  # noqa: BLE001
+-                log(f"连独立 Chrome 失败（退回 Playwright 拉起）：{type(exc).__name__}: {exc}")
+-                self._browser = None
+-                self._ctx = None
+-
+-        if CDP_URL:
+-            try:
+-                self._ctx = await self._connect_cdp()
+-                self._ctx.set_default_timeout(15000)
+-                self._ctx.set_default_navigation_timeout(40000)
+-                log(f"已连上本人 Chrome：{CDP_URL}（登录态直接用）")
+-                return self._ctx
+-            except Exception as exc:  # noqa: BLE001
+-                # ⭐ 默认不因为 CDP 没开就整个失败：退回插件自己的持久 profile（首次扫码）。
+-                #    想强制 CDP 才用 DOUYIN_CDP_STRICT=1。
+-                if os.environ.get("DOUYIN_CDP_STRICT") == "1":
+-                    try:
+-                        await self._pw.stop()
+-                    except Exception:
+-                        pass
+-                    self._pw = None
+-                    self._browser = None
+-                    raise RuntimeError(f"显式 CDP 地址不可用：{CDP_URL}") from exc
+-                log(f"CDP 地址不可用（{CDP_URL}），退回插件自有 profile：{type(exc).__name__}: {exc}")
+-                self._browser = None
+-                self._ctx = None
+-        try:
+-            self._ctx = await self._pw.chromium.launch_persistent_context(
+-                str(PROFILE_DIR),
+-                **({"channel": BROWSER_CHANNEL} if BROWSER_CHANNEL else {}),
+-                headless=HEADLESS,
+-                locale="zh-CN",
+-                viewport={"width": 1440, "height": 900},
+-                user_agent=UA,
+-                accept_downloads=True,
+-                args=[
+-                    "--disable-blink-features=AutomationControlled",
+-                    "--no-first-run",
+-                    "--no-default-browser-check",
+-                    "--disable-features=Translate",
+-                    # ⭐ 让"本进程拉起的这个 Chrome"能被别的 MCP 进程连上（共享同一份 profile）
+-                    f"--remote-debugging-port={SHARED_PORT}",
+-                    "--remote-allow-origins=*",
+-                ],
+-            )
+-        except Exception:
+-            try:
+-                await self._pw.stop()
+-            finally:
+-                self._pw = None
+-            raise
++        if not CDP_URL or os.environ.get("DOUYIN_CDP_STRICT") != "1":
++            raise RuntimeError("BFF_OWNED_BROWSER_REQUIRED")
++        self._ctx = await self._connect_cdp()
+         self._ctx.set_default_timeout(15000)
+         self._ctx.set_default_navigation_timeout(40000)
+-        self.mode = "profile"
+-        log(f"浏览器起来了：channel={BROWSER_CHANNEL or 'bundled'} profile={PROFILE_DIR} headless={HEADLESS}")
+-        if OPEN_LOGIN and not self._login_page_opened:
+-            self._login_page_opened = True
+-            try:
+-                pg = await self._ctx.new_page()
+-                await _goto(pg, "https://www.douyin.com/jingxuan", settle=3)
+-                for sel in ("text=登录", "[data-e2e='login-button']"):
+-                    try:
+-                        loc = pg.locator(sel).first
+-                        if await loc.count():
+-                            await loc.click(timeout=4000)
+-                            break
+-                    except Exception:
+-                        continue
+-                log("登录页已打开（带界面）：扫码或短信验证码都在这个窗口里完成")
+-            except Exception as exc:
+-                log(f"打开登录页失败：{type(exc).__name__}: {exc}")
+         return self._ctx
+ 
+     async def page_chat(self):
+@@ -675,7 +569,12 @@
+ _OPERATION = ContextVar("douyin_operation", default=None)
+ 
+ 
+-def _submitted():
++async def _submitted():
++    # Every upstream final-submit marker must obtain the current one-call grant.
++    import httpx
++    async with httpx.AsyncClient(timeout=5, trust_env=False) as client:
++        reply = await client.post(os.environ["BFF_GUARD_URL"], headers={"Authorization": "Bearer " + os.environ["BFF_GUARD_TOKEN"]})
++        reply.raise_for_status()
+     operation = _OPERATION.get()
+     if operation is not None:
+         operation["submitted"] = True
+@@ -959,7 +858,8 @@
+             data = json.loads(body)
+             if isinstance(data, dict):
+                 self.items.append({"url": url.split("?")[0], "data": data, "method": resp.request.method,
+-                                   "afterSubmit": resp.request in self.submitted_requests})
++                                   "afterSubmit": resp.request in self.submitted_requests,
++                                   "requestBody": resp.request.post_data or ""})
+         except Exception:
+             return
+ 
+@@ -1920,7 +1820,7 @@
+                        state=dom["state"], verified=True,
+                        note="本来就是目标状态，没动")
+ 
+-        _submitted()
++        await _submitted()
+         note = ""
+         if dom["visible"]:
+             try:
+@@ -1967,7 +1867,7 @@
+         if await vid.count() == 0:
+             return _err("页面里没有 video 元素，点赞按钮也找不到", aweme_id=aid)
+         await vid.scroll_into_view_if_needed(timeout=3000)
+-        _submitted()
++        await _submitted()
+         await vid.dblclick(timeout=5000, force=True)
+     except Exception as exc:  # noqa: BLE001
+         return _err(f"找不到点赞按钮，双击兜底也失败：{type(exc).__name__}: {exc}", aweme_id=aid)
+@@ -2011,6 +1911,18 @@
+             matches.append(item)
+     if len(direct) == 1: return direct[0]
+     return matches[0] if not direct and len(matches) == 1 else None
++
++
++def _comment_parent(comment, expected):
++    def normalize(value):
++        if value == "" or value == "0" or (type(value) is int and value == 0):
++            return ""
++        return value if isinstance(value, str) else None
++    parents = [comment[key] for key in ("reply_id", "reply_to_reply_id") if key in comment]
++    target = normalize(expected)
++    if not parents or target is None or any(normalize(value) != target for value in parents):
++        return None
++    return target
+ 
+ 
+ async def _comment_core(page, ctx, aweme_id: str, text: str, reply_cid: str, mention: str = "", reply_index: int = -1) -> dict:
+@@ -2307,57 +2219,25 @@
+             except Exception:
+                 return _err("评论内容填不进去", aweme_id=aid, notes=notes)
+         # Submit exactly once. An absent acknowledgement is unknown, never a retry.
+-        try:
+-            before_cmt_text = await page.evaluate("""() => {
+-                const l = document.querySelector('[data-e2e="comment-list"]');
+-                return (l ? l.innerText : document.body.innerText) || '';
+-            }""")
+-        except Exception:
+-            before_cmt_text = ""
+-        try:
+-            before_children = {c["cid"] for c in await _fetch_reply_children(page, aid, str(reply_cid or "")) if c.get("cid")}
+-        except Exception:
+-            before_children = set()
+-        _submitted()
++        await _submitted()
+         await page.keyboard.press("Enter")
+         hit = await net.wait_for(lambda u, d: "status_code" in d or bool(d.get("comment")), timeout=12.0)
+         if not hit:
+-            # 图文作品的评论不抛回执 XHR ⇒ 用回复/评论列表接口确认（最可靠），再退 DOM 文本
+-            for _ in range(10):
+-                await page.wait_for_timeout(1200)
+-                try:
+-                    kids = await _fetch_reply_children(page, aid, str(reply_cid or ""))
+-                except Exception:
+-                    kids = []
+-                for c in kids:
+-                    cid2 = str(c.get("cid") or "")
+-                    if not cid2 or cid2 in before_children:
+-                        continue
+-                    if text and str(c.get("text") or "").strip() == text.strip():
+-                        notes.append("接口回执：回复列表里出现了这句")
+-                        return _ok(aweme_id=aid, cid=cid2, text=text, reply_cid=str(reply_cid or ""),
+-                                   verified=True, evidence="reply-list-api", notes=notes)
+-            try:
+-                for _ in range(4):
+-                    await page.wait_for_timeout(800)
+-                    now_text = await page.evaluate("""() => {
+-                        const l = document.querySelector('[data-e2e="comment-list"]');
+-                        return (l ? l.innerText : document.body.innerText) || '';
+-                    }""")
+-                    if text and text in now_text and text not in before_cmt_text:
+-                        return _ok(aweme_id=aid, cid="", text=text, reply_cid=str(reply_cid or ""),
+-                                   verified=True, evidence="comment-text-appears", notes=notes)
+-            except Exception:
+-                pass
+             return _err("已提交但没有平台回执，未自动重发", status="unknown", aweme_id=aid)
++        try:
++            fields = parse_qs(hit.get("requestBody", ""), keep_blank_values=True)
++            if fields.get("aweme_id") != [aid] or fields.get("text") != [text] or fields.get("reply_id", [""]) != [str(reply_cid or "")]:
++                return _err("评论请求与批准内容不匹配", status="unknown", aweme_id=aid)
++        except Exception:
++            return _err("无法核对评论请求", status="unknown", aweme_id=aid)
+         data = hit["data"]
+-        if data.get("status_code", 0) != 0:
++        if data.get("status_code") != 0:
+             return _err("平台拒绝评论", status="failed", status_code=data.get("status_code"), aweme_id=aid)
+         comment = data.get("comment") or {}
+         cid = str(comment.get("cid") or "")
+         posted_aid = str(comment.get("aweme_id") or "")
+-        parent = str(comment.get("reply_id") or comment.get("reply_to_reply_id") or "")
+-        if not cid or posted_aid != aid or (reply_cid and parent != str(reply_cid)) or (not reply_cid and parent not in ("", "0")):
++        parent = _comment_parent(comment, reply_cid)
++        if str(comment.get("text") or "") != text or not cid or posted_aid != aid or parent is None:
+             return _err("平台回执缺少 CID 或目标/父评论不匹配", status="unknown", aweme_id=aid)
+         return _ok(aweme_id=aid, cid=cid, text=comment.get("text") or text, reply_cid=parent,
+                    verified=True, evidence="comment-publish-response", notes=notes)
+@@ -2432,9 +2312,9 @@
+ 
+     try:
+         await title_box.click(timeout=3000)
+-        await title_box.fill(title[:55], timeout=4000)
++        await title_box.fill(title, timeout=4000)
+         actual_title = await title_box.evaluate("(e) => e.value === undefined ? e.textContent : e.value")
+-        if str(actual_title or "").strip() != title[:55].strip():
++        if str(actual_title or "").strip() != title.strip():
+             return _err("标题回读不一致，未投稿")
+     except Exception as exc:
+         return _err(f"填标题失败，未投稿：{type(exc).__name__}: {exc}")
+@@ -2564,7 +2444,7 @@
+             return _err("AI 内容声明未确认，未投稿", notes=notes)
+ 
+     if draft:
+-        _submitted()
++        await _submitted()
+         # ⭐ 2026-10-23 实测：创作页没有「存草稿」，草稿动作叫**「暂存离开」**
+         clicked = await _click_text(page, "暂存离开", exact=True)
+         if not clicked:
+@@ -2588,7 +2468,7 @@
+                 txt = ((await item.inner_text()) or "").strip()
+                 if txt in ("发布", "发布作品"):
+                     attempted = True
+-                    _submitted()
++                    await _submitted()
+                     await item.click(timeout=5000)
+                     clicked = True
+                     break
+@@ -2597,7 +2477,7 @@
+             return _err(f"发布点击过程异常，未再次提交：{type(exc).__name__}: {exc}", status="unknown")
+         notes.append(f"发布按钮读取失败：{type(exc).__name__}: {exc}")
+     if not clicked:
+-        _submitted()
++        await _submitted()
+         clicked = await _click_text(page, "发布", exact=True)
+     if not clicked:
+         return _err("没找到可点的「发布」按钮", url=page.url, notes=notes)
+@@ -2617,13 +2497,13 @@
+                 if item.get("method") != "POST" or not item.get("afterSubmit"):
+                     continue
+                 data = item["data"]
+-                if data.get("status_code", 0) != 0:
++                if data.get("status_code") != 0:
+                     return _err("平台拒绝投稿或保存草稿", status="failed", status_code=data.get("status_code"))
+                 obj = data.get("draft") or data.get("aweme") or data.get("data") or data
+                 identity = str((obj.get("draft_id") if draft else obj.get("aweme_id") or obj.get("item_id")) or "")
+                 if identity:
+-                    return _ok(draft=bool(draft), verified=True, platformId=identity, aweme_id="" if draft else identity,
+-                               draftId=identity if draft else "", url="" if draft else VIDEO_URL.format(aweme_id=identity), evidence="publish-response")
++                    return _ok(draft=bool(draft), verified=False, status="unknown", platformId=identity, aweme_id="" if draft else identity,
++                               draftId=identity if draft else "", url="" if draft else VIDEO_URL.format(aweme_id=identity), evidence="publish-response-unbound-media")
+             await page.wait_for_timeout(500)
+         return _err("已提交但未收到带作品/草稿 ID 的回执，请核对平台后再操作", status="unknown", draft=bool(draft))
+     finally:
+@@ -2932,7 +2812,7 @@
+             @functools.wraps(fn)
+             async def proxied(*args, **kwargs):
+                 import httpx
+-                from urllib.parse import urlparse
++                from urllib.parse import urlparse, parse_qs
+                 url = urlparse(proxy_url)
+                 if url.scheme != "http" or url.hostname != "127.0.0.1" or url.path != "/action":
+                     return j(_err("无效宿主代理地址"))
+@@ -3165,7 +3045,7 @@
+ 
+ 
+ def _media_url_allowed(url):
+-    from urllib.parse import urlparse
++    from urllib.parse import urlparse, parse_qs
+     u = urlparse(url)
+     host = (u.hostname or "").lower()
+     domains = ("douyin.com", "douyinvod.com", "douyincdn.com", "amemv.com", "bytecdn.cn", "byteimg.com", "ibytedtos.com", "toutiaovod.com")
+@@ -3777,7 +3657,7 @@
+                 if(!r.ok) throw new Error('作品接口 HTTP '+r.status);
+                 return await r.json();
+             }""", {"uid": sec, "cursor": cursor})
+-            if data.get("status_code", 0) != 0:
++            if data.get("status_code") != 0:
+                 return _err("作品接口拒绝请求", status_code=data.get("status_code"))
+             videos = data.get("aweme_list") or []
+             for v in videos:
+@@ -3810,7 +3690,7 @@
+     return j(await _guard(_impl, 150))
+ 
+ 
+-async def _share_core(page, ctx, aweme_id: str, nickname: str) -> dict:
++async def _share_core(page, ctx, aweme_id: str, nickname: str, peer_id: str) -> dict:
+     """转发：视频页 → **鼠标悬停**分享图标 → 面板「分享给朋友」→ 点那个人右边的「分享」。
+ 
+     2026-10-25 实测：这个面板是 **hover 打开**的（click 不弹）。面板里每行是「头像+昵称 … [分享]」。
+@@ -3818,13 +3698,8 @@
+     notes = []
+     (HOME / "thumbs").mkdir(parents=True, exist_ok=True)
+     aid = _extract_aweme_id(str(aweme_id)) or str(aweme_id)
+-    await _open_conversation(page, ctx, nickname)
+-    before_msgs = await _message_snapshot(page)
+-    before_ids = {m["messageId"] for m in before_msgs if m.get("messageId")}
+-    try:
+-        before_share = await page.evaluate(r"""() => document.querySelectorAll('[class*="MessageItemShareAwemecontainer"]').length""")
+-    except Exception:
+-        before_share = 0
++    await _open_conversation(page, ctx, nickname, peer_id)
++    before_ids = await _known_message_ids(page)
+     await _goto(page, VIDEO_URL.format(aweme_id=aid), settle=4.0)
+     st = await _login_state(page, ctx)
+     if not st["loggedIn"]:
+@@ -3851,9 +3726,9 @@
+         return _err("悬停后没弹出「分享给朋友」面板", aweme_id=aid, url=page.url, notes=notes)
+ 
+     # 找到那个人那一行的「分享」按钮（红色）
+-    _submitted()
++    await _submitted()
+     hit = await page.evaluate(
+-        r"""(nick) => {
++        r"""({nick,peer}) => {
+             const v = e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
+             const norm = s => String(s || '').replace(/\s+/g, '');
+             const target = norm(nick);
+@@ -3869,6 +3744,7 @@
+                     if (norm(it) === target) { nameHit = true; break; }
+                 }
+                 if (!nameHit) continue;
++                if ((row.getAttribute('data-user-id') || row.getAttribute('data-peer-id') || '') !== peer) continue;
+                 for (const b of row.querySelectorAll('div,span,button')) {
+                     if ((b.innerText || '').trim() === '分享' && v(b) && !buttons.includes(b)) { buttons.push(b); break; }
+                 }
+@@ -3877,35 +3753,15 @@
+             if (minimal.length !== 1) return {ok:false, found: minimal.length, rows: buttons.length};
+             minimal[0].click(); return {ok:true};
+         }""",
+-        nickname,
++        {"nick": nickname, "peer": peer_id},
+     )
+     await page.wait_for_timeout(2500)
+     if hit.get("ok"):
+         # Confirm the outgoing video card in the exact target conversation.
+-        await _open_conversation(page, ctx, nickname)
+-        for _ in range(10):
+-            messages = await _message_snapshot(page)
+-            for message in reversed(messages):
+-                if message["direction"] == "outbound" and message.get("awemeId") == aid and message.get("messageId") and message["messageId"] not in before_ids:
+-                    return _ok(shared_to=nickname, aweme_id=aid, messageId=message["messageId"], verified=True, evidence="outbound-video-card")
+-            await page.wait_for_timeout(500)
+-        # 兜底：会话里出站数量增加了 / 分享了新的视频卡片，也认（卡片往往拿不到 awemeId）
+-        try:
+-            now_share = await page.evaluate(r"""() => document.querySelectorAll('[class*="MessageItemShareAwemecontainer"]').length""")
+-            if now_share > before_share:
+-                return _ok(shared_to=nickname, aweme_id=aid, messageId="share-card-count",
+-                           verified=True, evidence="share-card-appeared")
+-        except Exception:
+-            pass
+-        try:
+-            now_msgs = await _message_snapshot(page)
+-            now_out = sum(1 for m in now_msgs if m.get("direction") == "outbound")
+-            before_out = sum(1 for m in before_msgs if m.get("direction") == "outbound")
+-            if now_out > before_out:
+-                return _ok(shared_to=nickname, aweme_id=aid, messageId="outbound-count",
+-                           verified=True, evidence="outbound-count-increased")
+-        except Exception:
+-            pass
++        await _open_conversation(page, ctx, nickname, peer_id)
++        receipt = await _new_message_receipt(page, ctx, peer_id, before_ids, video_id=aid)
++        if receipt:
++            return _ok(shared_to=nickname, aweme_id=aid, messageId=receipt, verified=True, evidence="new-stable-sent-video")
+         # 已经点了分享但没拿到卡片回执：仍然算「操作过」，返回 ok 让上层继续补附言
+         return _ok(shared_to=nickname, aweme_id=aid, messageId="share-clicked", clicked=True,
+                    verified=False, status="unknown", evidence="share-clicked-unconfirmed",
+@@ -3978,7 +3834,7 @@
+             const first=((titleEl.innerText||'').split('\n')[0]||'');
+             if(norm(first)!==tgt) continue;
+             const pid=it.getAttribute('data-user-id')||it.getAttribute('data-peer-id')||'';
+-            if(peer&&pid&&peer!==pid) continue;
++            if(peer&&peer!==pid) continue;
+             if(!hit.includes(it)) hit.push(it);
+         }
+         if(hit.length===1) return hit[0];
+@@ -3995,7 +3851,7 @@
+             const id=row.getAttribute('data-user-id')||row.getAttribute('data-peer-id')||'';
+             const link=row.querySelector('a[href*="/user/"]');
+             const uid=id||(link?((link.href.match(/user\/([^/?]+)/)||[])[1]||''):'');
+-            if(peer&&uid&&peer!==uid)continue;
++            if(peer&&peer!==uid)continue;
+             if(!found.includes(row))found.push(row);
+         }
+         return found.length===1?found[0]:null;
+@@ -4021,6 +3877,8 @@
+     editor = handle.as_element()
+     if editor is None:
+         raise ValueError("会话已打开但目标标题/消息输入框无法唯一确认")
++    if peer_id:
++        await _require_peer(editor, peer_id)
+     return editor
+ 
+ 
+@@ -4108,18 +3966,58 @@
+     }""")
+ 
+ 
+-async def _send_chat_part(page, editor, part):
+-    before_items = await _message_snapshot(page)
+-    before = {m["messageId"] for m in before_items}
+-    try:
+-        before_emoji = await page.evaluate(r"""() => document.querySelectorAll('[class*="MessageItemEmojiemojiBox"]').length""")
+-    except Exception:
+-        before_emoji = 0
+-    before_out = sum(1 for m in before_items if m.get("direction") == "outbound")
+-    try:
+-        before_body = await page.evaluate("() => (document.body.innerText||'').replace(/\\s+/g,'')")
+-    except Exception:
+-        before_body = ""
++async def _require_peer(editor, peer_id):
++    if not peer_id or not await editor.evaluate("""(e, peer) => {
++        const box=e.closest('[data-peer-id],[data-user-id]');
++        return !!box && (box.getAttribute('data-peer-id') || box.getAttribute('data-user-id'))===peer;
++    }""", peer_id):
++        raise ValueError("无法确认当前会话稳定 ID，未发送")
++
++
++async def _known_message_ids(page):
++    # Read history and receipt baselines have different visibility semantics:
++    # revealing an existing hidden node must never manufacture a new receipt.
++    return set(await page.evaluate("""() => Array.from(
++        document.querySelectorAll('[data-message-id],[data-msg-id]')
++    ).flatMap(e => [e.getAttribute('data-message-id'),e.getAttribute('data-msg-id')])
++     .filter(id => id && !id.startsWith('dom:'))"""))
++
++
++async def _new_message_receipt(page, ctx, peer_id, known_ids, text=None, video_id=None):
++    cookies = await ctx.cookies("https://www.douyin.com")
++    self_id = next((c['value'] for c in cookies if c['name'] in ('uid_tt', 'uid_tt_ss')), '')
++    if not self_id or not peer_id:
++        return None
++    previous = set()
++    for _ in range(12):
++        matches = await page.evaluate(r"""({peer,self,text,video}) => {
++            const rows=[];
++            for(const e of document.querySelectorAll('[data-message-id],[data-msg-id]')){
++                if(!e.getClientRects().length || e.closest('[contenteditable=true],textarea,input'))continue;
++                const box=e.closest('[data-peer-id],[data-user-id]');
++                const id=e.getAttribute('data-message-id')||e.getAttribute('data-msg-id');
++                const sender=e.getAttribute('data-sender-id')||e.getAttribute('data-from-user-id');
++                const state=e.getAttribute('data-status')||e.getAttribute('data-message-status');
++                if(!id||id.startsWith('dom:')||!box||(box.getAttribute('data-peer-id')||box.getAttribute('data-user-id'))!==peer||sender!==self||state!=='sent')continue;
++                if(e.querySelector('[data-status="pending"],[data-status="failed"]'))continue;
++                const body=e.querySelector('[data-message-text]')||e;
++                if(text!==null && body.innerText!==text)continue;
++                if(video!==null && !Array.from(e.querySelectorAll('a[href]')).some(a=>new URL(a.href).pathname==='/video/'+video))continue;
++                rows.push(id);
++            }
++            return rows;
++        }""", {"peer":peer_id,"self":self_id,"text":text,"video":video_id})
++        current=set(matches)-known_ids
++        stable=current & previous
++        if stable:
++            return sorted(stable)[0]
++        previous=current
++        await page.wait_for_timeout(250)
++    return None
++
++
++async def _send_chat_part(page, editor, part, peer_id="", ctx=None):
++    before = await _known_message_ids(page)
+     kind = part.get("kind")
+     await editor.click()
+     await page.keyboard.press("Control+A")
+@@ -4129,7 +4027,9 @@
+         if not text or len(text) > 1000:
+             return _err("私信正文为空或过长", status="failed")
+         await page.keyboard.type(text, delay=20)
+-        _submitted()
++        await _require_peer(editor, peer_id)
++        await _submitted()
++        await _require_peer(editor, peer_id)
+         await page.keyboard.press("Enter")
+         expected_media = ""
+     elif kind == "sticker":
+@@ -4261,7 +4161,7 @@
+                 box.click();
+                 return true;
+             }""", {"idx": fav_pick, "sel": fav_sel})
+-            _submitted()
++            await _submitted()
+             await page.wait_for_timeout(300)
+             text = ""
+             fav = {"ok": True}
+@@ -4291,49 +4191,21 @@
+             if chosen is None:
+                 chosen = imgs.nth(max(0, min(pick_idx, total - 1)))
+             expected_media = await chosen.get_attribute("src") or ""
+-            _submitted()
++            await _submitted()
+             await chosen.click()
+             text = ""
+     else:
+         return _err("未知消息类型", status="failed")
+-    expected = "".join(text.split()) if kind == "text" else ""
+-    for _ in range(16):
+-        await page.wait_for_timeout(500)
+-        msgs = await _message_snapshot(page)
+-        for m in msgs:
+-            mt = "".join((m.get("text") or "").split())
+-            if m["messageId"] in before or m["direction"] != "outbound":
+-                continue
+-            if (kind == "text" and mt == expected) or \
+-               (kind == "sticker" and expected_media and expected_media in (m.get("media") or [])):
+-                return _ok(verified=True, messageId=m["messageId"], kind=kind, evidence="new-outbound-message")
+-        # 兜底 1：整页文本出现刚发的内容（发送前没有）
+-        if kind == "text" and expected:
+-            try:
+-                body = await page.evaluate("() => (document.body.innerText||'').replace(/\\s+/g,'')")
+-            except Exception:
+-                body = ""
+-            if expected in body and expected not in before_body:
+-                return _ok(verified=True, messageId="body-text", kind=kind, evidence="body-text-appears")
+-        # 兜底 2：出站气泡数量增加了（表情包/图片这类比文本更难精确比对）
+-        if kind == "sticker":
+-            now_out = sum(1 for m in msgs if m.get("direction") == "outbound")
+-            if now_out > before_out:
+-                return _ok(verified=True, messageId="outbound-count", kind=kind, evidence="outbound-count-increased")
+-            # 兜底 3：表情气泡数量增加了（收藏表情最稳的判据）
+-            try:
+-                now_emoji = await page.evaluate(r"""() => document.querySelectorAll('[class*="MessageItemEmojiemojiBox"]').length""")
+-                if now_emoji > before_emoji:
+-                    return _ok(verified=True, messageId="emoji-count", kind=kind, evidence="emoji-bubble-increased")
+-            except Exception:
+-                pass
+-            # （删掉了「按图片路径匹配」的兜底：它会把表情面板里的预览图当成已发送，误判成功）
+-    return _err("已操作但没有读取到新出站消息，停止自动重发", status="unknown", kind=kind)
++    if kind == "text" and ctx:
++        receipt = await _new_message_receipt(page, ctx, peer_id, before, text=text)
++        if receipt:
++            return _ok(verified=True, messageId=receipt, kind=kind, evidence="new-stable-sent-message")
++    return _err("已操作但没有读取到已确认的新出站消息，停止自动重发", status="unknown", kind=kind)
+ 
+ 
+ async def _chat_send_core(page, ctx, nickname: str, text: str, peer_id: str = "") -> dict:
+     editor = await _open_conversation(page, ctx, nickname, peer_id)
+-    return await _send_chat_part(page, editor, {"kind": "text", "text": text})
++    return await _send_chat_part(page, editor, {"kind": "text", "text": text}, peer_id, ctx)
+ 
+ 
+ @restricted_tool()
+@@ -4445,12 +4317,12 @@
+ 
+ 
+ @restricted_tool()
+-async def douyin_share_video(aweme_id: str, nickname: str) -> str:
++async def douyin_share_video(aweme_id: str, nickname: str, peer_id: str) -> str:
+     """把视频转发给某个人：视频页 → 分享 → 面板里点他那行的「分享」。"""
+     async def _impl():
+         ctx = await _browser.context()
+         page = await _browser.page()
+-        return await _share_core(page, ctx, aweme_id, nickname)
++        return await _share_core(page, ctx, aweme_id, nickname, peer_id)
+ 
+     return j(await _guard(_impl, 90))
+ 

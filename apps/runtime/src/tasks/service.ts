@@ -1,0 +1,39 @@
+import { randomUUID } from 'node:crypto';
+import type { DatabaseSync } from 'node:sqlite';
+import { setTimeout as delay } from 'node:timers/promises';
+import { InputError, object, string } from '../ai/types.js';
+import type { ChatService } from '../ai/chat.js';
+import type { Bilibili } from '../bilibili/service.js';
+import type { Douyin } from '../douyin/service.js';
+import { videoId } from '../douyin/input.js';
+import { TaskQueue } from './queue.js';
+interface Choice{platform:'bilibili'|'douyin';videoId?:string;query?:string;feed?:boolean}
+interface Schedule{id:string;enabled:boolean;nextAt:number;intervalMinutes:number;mode:'Scheduled'|'Autonomous';choices:Choice[]}
+export class Activities{
+ private timer?:ReturnType<typeof setInterval>;private closed=false;
+ constructor(private db:DatabaseSync,readonly queue:TaskQueue,private chat:ChatService,private bili:Bilibili,private douyin:Douyin){
+  // Missed runs are skipped; never replay a restart backlog.
+  for(const s of this.schedules())if(s.nextAt<Date.now())db.prepare('UPDATE activity_schedules SET next_at=? WHERE id=?').run(Date.now()+s.intervalMinutes*60000,s.id);
+  this.timer=setInterval(()=>this.tick(),1000);this.timer.unref();
+ }
+ status(){const queued=this.queue.list();return {paused:this.queue.paused,tasks:[...queued,...this.bili.tasks().filter(t=>!queued.some(q=>q.platform==='bilibili'&&(q.result?.videoTaskId===t.id||(['queued','running'].includes(q.status)&&q.input.videoId===t.bvid)))).map(t=>({...t,platform:'bilibili',kind:'watch',mode:'Activity',input:{videoId:t.bvid}}))].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100),schedules:this.schedules()};}
+ audit(){return this.db.prepare("SELECT event,at FROM audit WHERE event LIKE 'qq.%' OR event LIKE 'douyin.%' ORDER BY id DESC LIMIT 100").all();}
+ schedules():Schedule[]{return this.db.prepare('SELECT id,config,next_at,enabled FROM activity_schedules ORDER BY rowid DESC LIMIT 50').all().map(r=>({...JSON.parse(r.config as string),id:r.id,nextAt:r.next_at,enabled:!!r.enabled}));}
+ save(value:unknown){const b=object(value),intervalMinutes=Number(b.intervalMinutes);if(!Number.isInteger(intervalMinutes)||intervalMinutes<1||intervalMinutes>10080||!['Scheduled','Autonomous'].includes(String(b.mode))||typeof b.enabled!=='boolean'||!Array.isArray(b.choices)||!b.choices.length||b.choices.length>10)throw new InputError('INVALID_SCHEDULE');const choices:Choice[]=b.choices.map(v=>{const c=object(v);if(c.query!==undefined){if(!['douyin','bilibili'].includes(String(c.platform)))throw new InputError('INVALID_SCHEDULE');return {platform:c.platform as Choice['platform'],query:string(c.query,200)};}if(c.platform==='douyin'&&c.feed===true)return {platform:'douyin',feed:true};if(c.platform==='douyin')return {platform:'douyin',videoId:videoId(c.videoId)};if(c.platform==='bilibili'&&/^BV[0-9A-Za-z]{10}$/.test(String(c.videoId)))return {platform:'bilibili',videoId:String(c.videoId)};throw new InputError('INVALID_SCHEDULE');});const id=b.id===undefined?randomUUID():string(b.id,64);if(b.id&&!this.schedules().some(s=>s.id===id))throw new InputError('SCHEDULE_NOT_FOUND',404);if(b.id)this.cancelSchedule(id);this.db.prepare('INSERT INTO activity_schedules(id,config,next_at,enabled) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,next_at=excluded.next_at,enabled=excluded.enabled').run(id,JSON.stringify({intervalMinutes,mode:b.mode,choices}),Date.now()+intervalMinutes*60000,Number(b.enabled));return this.schedules().find(s=>s.id===id)!;}
+ private cancelSchedule(id:string){for(const task of this.queue.list().filter(t=>t.input.scheduleId===id)){if(['queued','running'].includes(task.status))this.queue.cancel(task.id);if(typeof task.result?.taskId==='string')this.cancel(task.result.taskId);}}
+ private assertSchedule(s:Schedule){if(!this.schedules().some(x=>x.id===s.id&&x.enabled&&x.mode===s.mode&&x.intervalMinutes===s.intervalMinutes&&JSON.stringify(x.choices)===JSON.stringify(s.choices)))throw new InputError('SCHEDULE_CHANGED',409);}
+ remove(id:string){this.cancelSchedule(id);this.db.prepare('DELETE FROM activity_schedules WHERE id=?').run(id);return {deleted:true};}
+ tick(){if(this.closed||this.queue.paused)return;for(const s of this.schedules()){if(!s.enabled||s.nextAt>Date.now())continue;const claimed=this.db.prepare('UPDATE activity_schedules SET next_at=? WHERE id=? AND next_at=?').run(Date.now()+s.intervalMinutes*60000,s.id,s.nextAt);if(!claimed.changes)continue;try{this.run(s,`schedule:${s.id}:${s.nextAt}`);}catch{/* No retry/burst: next due is already advanced; history records admitted jobs. */}}}
+ runSchedule(id:string){const s=this.schedules().find(s=>s.id===id);if(!s)throw new InputError('SCHEDULE_NOT_FOUND',404);if(!s.enabled)throw new InputError('SCHEDULE_DISABLED',409);return this.run(s,randomUUID());}
+ private run(s:Schedule,requestId:string){return this.queue.enqueue('scheduler','decision',{scheduleId:s.id,choices:s.choices},requestId,s.mode,async(signal,id)=>{this.assertSchedule(s);const budget=AbortSignal.any([signal,AbortSignal.timeout(90000)]);const candidates:Choice[]=[];let discoveryCalls=0;
+  for(const scope of s.choices){budget.throwIfAborted();this.assertSchedule(s);if(scope.videoId){candidates.push(scope);continue;}if(discoveryCalls>=2)break;discoveryCalls++;if(scope.platform==='douyin')candidates.push(...await this.douyin.discoverContent(scope.query,budget));else{const found=await this.bili.search({query:scope.query},budget);budget.throwIfAborted();candidates.push(...found.items.filter(item=>!this.bili.seen(item.bvid)).slice(0,10).map(item=>({platform:'bilibili' as const,videoId:item.bvid,title:item.title})));}}
+  const choices=candidates.slice(0,20);const decision=s.mode==='Autonomous'?await this.chat.chooseActivity(choices as unknown as Record<string,unknown>[],budget):{index:choices.length?0:-1,reason:choices.length?'用户设置的定时观看':'没有新的获准视频'};signal.throwIfAborted();this.assertSchedule(s);if(decision.index<0)return {status:'completed',decision,discovered:choices,discoveryCalls};const choice=choices[decision.index]!;const child=this.watch(choice,`schedule-child:${id}`,s.mode);this.chat.life.memories.record({id:`decision:${id}`,kind:s.mode==='Autonomous'?'autonomous.decision':'scheduled.decision',sourceId:id,summary:`${s.mode==='Autonomous'?'自主决定':'定时活动'}：${decision.reason}；任务 ${child.id}`,occurredAt:new Date().toISOString()});return {status:'completed',decision,discovered:choices,discoveryCalls,taskId:child.id};});}
+ watch(choice:Choice,requestId:string,mode='Activity'){
+  if(this.queue.paused)throw new InputError('ACTIVITIES_PAUSED',409);if(!choice.videoId)throw new InputError('INVALID_VIDEO_ID');
+  if(choice.platform==='douyin')return this.douyin.watch({videoId:choice.videoId,requestId},mode);
+  return this.queue.enqueue('bilibili','watch',{videoId:choice.videoId},requestId,mode,async signal=>{const task=this.bili.watch({bvid:choice.videoId,requestId});const cancel=()=>this.bili.cancel(task.id);signal.addEventListener('abort',cancel,{once:true});try{for(;;){if(signal.aborted)cancel();const current=this.bili.task(task.id);if(!['queued','running','understanding'].includes(current.status))return {status:current.status,videoTaskId:current.id,...current.result,error:current.error};await delay(100);}}finally{signal.removeEventListener('abort',cancel);}});
+ }
+ cancel(id:string){const task=this.queue.list().find(t=>t.id===id);if(task)return this.queue.cancel(id);return this.bili.cancel(id);}
+ async pause(value:boolean){if(typeof value!=='boolean')throw new InputError('INVALID_REQUEST');if(value){for(const task of this.bili.tasks())if(['queued','running','understanding'].includes(task.status))this.bili.cancel(task.id);}return this.queue.pause(value);}
+ async close(){this.closed=true;clearInterval(this.timer);await this.queue.close();}
+}

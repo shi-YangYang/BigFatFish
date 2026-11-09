@@ -1,0 +1,177 @@
+import { afterEach,expect,it,vi } from 'vitest';
+import { createServer } from 'node:http';
+import { WebSocketServer } from 'ws';
+import { createHash } from 'node:crypto';
+import { mkdtempSync,readFileSync,rmSync,writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { setTimeout as delay } from 'node:timers/promises';
+import { paths } from '../../apps/runtime/src/paths.js';
+import { startRuntime } from '../../apps/runtime/src/lifecycle.js';
+import { requestRuntime } from '../../apps/runtime/src/connection.js';
+import { ComponentPlatform } from '../../apps/runtime/src/channels/managed/platform.js';
+import { NapCatClient } from '../../apps/runtime/src/channels/managed/client.js';
+import type { ManagedState,ManagedQQStatus } from '../../apps/runtime/src/channels/managed/types.js';
+import type { ChannelStatus } from '../../apps/runtime/src/channels/types.js';
+const until=async<T>(read:()=>Promise<T>,test:(value:T)=>boolean)=>{let value=await read();for(let i=0;i<100&&!test(value);i++){await delay(50);value=await read();}expect(test(value),JSON.stringify(value)).toBe(true);return value;};
+afterEach(()=>vi.restoreAllMocks());
+it('WebUI authenticates and renews once, rejects logical failures without leaking upstream text',async()=>{
+ let logins=0,calls=0;const server=createServer(async(req,res)=>{let data='';for await(const chunk of req)data+=chunk;res.setHeader('Content-Type','application/json');
+  if(req.url==='/api/auth/login'){expect(JSON.parse(data).hash).toBe(createHash('sha256').update('test-token.napcat').digest('hex'));res.end(JSON.stringify({code:0,data:{Credential:`credential-${++logins}`}}));}
+  else{calls++;expect(req.headers.authorization).toBe(`Bearer credential-${logins}`);res.end(JSON.stringify(calls===1?{code:-1,message:'Unauthorized'}:calls===2?{code:0,data:{isLogin:false}}:{code:-1,message:'private-upstream-token'}));}
+ });await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ try{const client=new NapCatClient((server.address() as {port:number}).port,'test-token');expect(await client.call('QQLogin/CheckLoginStatus')).toEqual({isLogin:false});expect(logins).toBe(2);await expect(client.call('QQLogin/CheckLoginStatus')).rejects.toThrow('QQ_COMPONENT_REQUEST_FAILED');expect(logins).toBe(2);}finally{await new Promise<void>(r=>server.close(()=>r()));}
+});
+it('one-action connection prepares, logs in and resumes only the saved account and revision through real Runtime API',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-qq-')));let account='',server:ReturnType<typeof createServer>|undefined,ws:WebSocketServer|undefined;let state:ManagedState|undefined;const calls:string[]=[];let friends=[{user_id:'20002',nickname:'主人'}],groups=[{group_id:'30003',group_name:'测试群'}],contactsFail=false;let contactGate:Promise<void>|undefined,contactRequested:(()=>void)|undefined;let statusGate:Promise<void>|undefined,statusRequested:(()=>void)|undefined;
+ const install=vi.spyOn(ComponentPlatform.prototype,'install').mockRejectedValueOnce(new Error('fixture download unavailable')).mockImplementation(async()=>{await delay(20);});
+ vi.spyOn(ComponentPlatform.prototype,'check').mockResolvedValue();
+ vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async function(this:ComponentPlatform){
+  state=JSON.parse(readFileSync(join(this.directory,'manager.json'),'utf8'));
+  expect(JSON.parse(readFileSync(join(this.directory,'work','config','onebot11.json'),'utf8')).enableLocalFile2Url).toBe(true);
+  server=createServer(async(req,res)=>{let data='';for await(const chunk of req)data+=chunk;res.setHeader('Content-Type','application/json');
+   if(req.url==='/api/auth/login'){expect(JSON.parse(data).hash).toBe(createHash('sha256').update(state!.webToken+'.napcat').digest('hex'));res.end(JSON.stringify({code:0,data:{Credential:'fixture-credential'}}));return;}
+   expect(req.headers.authorization).toBe('Bearer fixture-credential');let result:unknown={};
+   if(req.url?.endsWith('CheckLoginStatus'))result={isLogin:!!account,coreReady:!!account,loginPhase:'qrcode',qrcodeurl:'https://example.invalid/fixture-qr'};
+   if(req.url?.endsWith('GetQQLoginInfo'))result={uin:account,nick:'测试QQ',online:true};
+   if(req.url?.endsWith('SetConfig')){const config=JSON.parse(JSON.parse(data).config);expect(config.network.websocketServers[0].token).toBe(state!.botToken);expect(config.network.websocketClients).toEqual([]);expect(config.enableLocalFile2Url).toBe(true);}
+   res.end(JSON.stringify({code:0,data:result}));
+  });await new Promise<void>(r=>server!.listen(state!.webPort,'127.0.0.1',r));
+  ws=new WebSocketServer({port:state!.botPort,host:'127.0.0.1'});await new Promise<void>(r=>ws!.once('listening',r));
+  ws.on('connection',(socket,req)=>{expect(req.headers.authorization).toBe(`Bearer ${state!.botToken}`);socket.on('message',async raw=>{const request=JSON.parse(raw.toString());calls.push(request.action);if(request.action==='get_status'&&statusGate){statusRequested?.();await statusGate;}const data=request.action==='get_login_info'?{user_id:account}:request.action==='get_status'?{online:true}:request.action==='get_friend_list'?friends:request.action==='get_group_list'?groups:{};if(request.action==='get_friend_list'&&contactGate){const gate=contactGate;contactGate=undefined;contactRequested?.();await gate;}const failed=contactsFail&&request.action==='get_friend_list';if(socket.readyState===1)socket.send(JSON.stringify({echo:request.echo,status:failed?'failed':'ok',retcode:failed?1200:0,data}));});});
+ });
+ const stop=vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{if(ws){for(const client of ws.clients)client.terminate();await new Promise<void>(r=>ws!.close(()=>r()));ws=undefined;}if(server){await new Promise<void>(r=>server!.close(()=>r()));server=undefined;}});
+ const runtime=await startRuntime(p);const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body),base='/v1/channels/qq/component',status=()=>call<ManagedQQStatus>(base);
+ try{
+  expect((await status()).phase).toBe('missing');await call(base+'/connect','POST');await until(status,s=>s.phase==='error'&&!s.busy);
+  await call(base+'/connect','POST');const qr=await until(status,s=>s.phase==='login'&&!s.busy);expect(qr.qr).toMatch(/^data:image\/png;base64,/);expect(JSON.stringify(qr)).not.toContain(state!.webToken);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();
+  expect(install).toHaveBeenCalledTimes(2);account='10001';await call(base+'/refresh','POST');await until(status,s=>s.phase==='online'&&!s.busy);const list=await call<{friends:unknown[];groups:unknown[]}>(base+'/contacts');expect(list.friends).toHaveLength(1);expect(list.groups).toHaveLength(1);
+  const settings={accountId:account,ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],replyEnabled:true,proactiveEnabled:false,revision:''};
+  await expect(call(base+'/settings','PUT',{...settings,accountId:'99999'})).rejects.toThrow('QQ_ACCOUNT_CHANGED');
+  await expect(call(base+'/settings','PUT',{...settings,ownerId:account})).rejects.toThrow('QQ_OWNER_IS_BOT');
+  // Pause a first-time asynchronous save before health verification completes.
+  let releaseStatus!:()=>void;statusGate=new Promise<void>(resolve=>{releaseStatus=resolve;});const enteredStatus=new Promise<void>(resolve=>{statusRequested=resolve;});
+  await call(base+'/settings','PUT',settings);await enteredStatus;await call('/v1/channels/qq/stop','POST');releaseStatus();statusGate=undefined;
+  await until(status,s=>!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();expect((await status()).operationError).toBe('CANCELLED');
+  await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  await call(base+'/settings','PUT',settings);await until(status,s=>!s.busy);const channel=await call<ChannelStatus>('/v1/channels/qq');expect(channel.config).toMatchObject({mode:'managed',accountId:'10001',ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],enabled:true});expect(JSON.stringify(channel)).not.toContain(state!.botToken);
+  // Explicit refresh reads new contacts without changing saved scope; concurrent clicks share the read.
+  const contactList=()=>call<{friends:{id:string;name:string}[];groups:{id:string;name:string}[];accountId?:string;error?:string}>(base+'/contacts');
+  const scopeBefore={config:channel.config,revision:channel.revision};
+  friends=[...friends,{user_id:'20005',nickname:'新好友'}];groups=[...groups,{group_id:'30005',group_name:'新群聊'}];
+  expect((await contactList()).friends).toHaveLength(1);
+  let releaseContacts!:()=>void;contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});let reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const readsBefore=calls.filter(x=>x==='get_friend_list').length;
+  const firstRefresh=call(base+'/contacts/refresh','POST');await reachedContacts;const duplicateRefresh=call(base+'/contacts/refresh','POST');
+  await delay(25);expect(calls.filter(x=>x==='get_friend_list')).toHaveLength(readsBefore+1);releaseContacts();
+  const [firstList,duplicateList]=await Promise.all([firstRefresh,duplicateRefresh]);expect(firstList).toEqual(duplicateList);
+  expect(await contactList()).toMatchObject({accountId:'10001',friends:[{id:'20002'},{id:'20005'}],groups:[{id:'30003'},{id:'30005'}]});
+  const afterRefresh=await call<ChannelStatus>('/v1/channels/qq');expect({config:afterRefresh.config,revision:afterRefresh.revision}).toEqual(scopeBefore);
+  contactsFail=true;await expect(call(base+'/contacts/refresh','POST')).rejects.toThrow('QQ_CONTACTS_UNAVAILABLE');
+  expect(await contactList()).toMatchObject({accountId:'10001',error:'QQ_CONTACTS_UNAVAILABLE'});expect((await contactList()).friends).toHaveLength(2);
+  contactsFail=false;friends=[];groups=[];await call(base+'/contacts/refresh','POST');expect(await contactList()).toEqual({accountId:'10001',friends:[],groups:[]});
+  friends=[{user_id:'20002',nickname:'主人'}];groups=[{group_id:'30003',group_name:'测试群'}];await call(base+'/contacts/refresh','POST');
+  // An account switch while contacts are in flight cannot publish the old account's response.
+  contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const switchedRefresh=call(base+'/contacts/refresh','POST');const switchedResult=expect(switchedRefresh).rejects.toThrow(/QQ_ACCOUNT_CHANGED|CANCELLED/);await reachedContacts;account='40004';releaseContacts();await switchedResult;
+  expect(await contactList()).toEqual({friends:[],groups:[]});account='10001';await call(base+'/contacts/refresh','POST');
+  await expect(call(base+'/settings','PUT',settings)).rejects.toThrow('CHANNEL_VERSION_CONFLICT');
+  await expect(call('/v1/channels/qq','PUT',{...channel.config,revision:channel.revision})).rejects.toThrow('QQ_MANAGED_CONFIGURATION_REQUIRED');
+  // An already logged-in paused account reconnects without a second settings save.
+  await call('/v1/channels/qq/stop','POST');await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(true);
+  // Explicit pause while waiting for QR revokes pending automatic activation, even if already disabled.
+  await call(base+'/stop','POST');await until(status,s=>s.phase==='ready'&&!s.busy);account='';
+  await call(base+'/connect','POST');await until(status,s=>s.phase==='login'&&!s.busy);await call('/v1/channels/qq/stop','POST');
+  account='10001';await call(base+'/refresh','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(false);
+  await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(true);
+  // A replacement configuration during QR must not be overwritten by a late login.
+  await call(base+'/stop','POST');await until(status,s=>s.phase==='ready'&&!s.busy);account='';
+  await call(base+'/connect','POST');await until(status,s=>s.phase==='login'&&!s.busy);
+  const beforeReplacement=await call<ChannelStatus>('/v1/channels/qq');
+  await call('/v1/channels/qq','PUT',{...beforeReplacement.config,mode:'external',enabled:true,revision:beforeReplacement.revision});
+  await expect(call(base+'/connect','POST')).rejects.toThrow('QQ_EXTERNAL_ACTIVE');
+  account='10001';await call(base+'/refresh','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  const replacement=await call<ChannelStatus>('/v1/channels/qq');expect(replacement.config?.mode).toBe('external');
+  await call('/v1/channels/qq/stop','POST');
+  const stopped=await call<ChannelStatus>('/v1/channels/qq');await call(base+'/settings','PUT',{...settings,revision:stopped.revision});await until(status,s=>!s.busy);
+  account='40004';await call(base+'/refresh','POST');await until(status,s=>s.account?.id==='40004'&&!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(false);
+  expect(calls.some(x=>x.startsWith('send_'))).toBe(false);
+  await call(base+'/stop','POST');await until(status,s=>s.phase==='ready'&&!s.busy);expect(stop).toHaveBeenCalled();account='10001';await call('/v1/channels/qq/start','POST');await until(status,s=>s.phase==='online'&&!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(true);expect((await call<{state:string}>('/v1/status')).state).toBe('running');
+  contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
+  const stoppingRefresh=call(base+'/contacts/refresh','POST'),cancelledRefresh=expect(stoppingRefresh).rejects.toThrow('CANCELLED');await reachedContacts;
+  await call(base+'/stop','POST');releaseContacts();await cancelledRefresh;await until(status,s=>s.phase==='ready'&&!s.busy);expect(await contactList()).toEqual({friends:[],groups:[]});
+ }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
+},25000);
+it('confirms the scanned account once the listener is ready and rechecks after transient WebUI loss',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-qq-handover-')));
+ let login=false,accepted=false,webDown=false,applies=0,rejectHandshake=false,observedId='10001',clockOffset=0,loginPhase='';
+ let healthReads=0;
+ const now=Date.now.bind(Date);vi.spyOn(Date,'now').mockImplementation(()=>now()+clockOffset);
+ vi.spyOn(ComponentPlatform.prototype,'install').mockResolvedValue();
+ let ws:WebSocketServer|undefined;
+ const serve=async()=>{
+  const state:ManagedState=JSON.parse(readFileSync(join(p.data,'qq-component','manager.json'),'utf8'));
+  ws=new WebSocketServer({port:state.botPort,host:'127.0.0.1'});
+  await new Promise<void>(r=>ws!.once('listening',r));
+  ws.on('connection',socket=>{
+   if(rejectHandshake){socket.send(JSON.stringify({status:'failed',retcode:1403}));socket.close();return;}
+   socket.on('message',raw=>{
+   const req=JSON.parse(raw.toString());
+   // The first handshake succeeds, then the contact check briefly sees an offline account.
+   const data=req.action==='get_login_info'?{user_id:observedId}:req.action==='get_status'?{online:++healthReads!==2}:[];
+   socket.send(JSON.stringify({echo:req.echo,status:'ok',retcode:0,data}));
+   });
+  });
+ };
+ vi.spyOn(ComponentPlatform.prototype,'start').mockResolvedValueOnce(undefined).mockImplementation(serve);
+ vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{if(ws){for(const s of ws.clients)s.terminate();await new Promise<void>(r=>ws!.close(()=>r()));ws=undefined;}});
+ const {InputError}=await import('../../apps/runtime/src/ai/types.js');
+ vi.spyOn(NapCatClient.prototype,'call').mockImplementation(async(action)=>{
+  if(webDown)throw new InputError('QQ_WEBUI_UNAVAILABLE',409);
+  if(action==='QQLogin/CheckLoginStatus')return {isLogin:login&&!loginPhase,coreReady:login&&!loginPhase,loginPhase,loginError:loginPhase?'upstream detail':'',qrLoginAccepted:accepted,qrcodeurl:'https://example.invalid/fixed-test-qr'};
+  if(action==='QQLogin/GetQQLoginInfo')return {uin:'10001',online:true};
+  if(action==='OB11Config/SetConfig')applies++;
+  return {};
+ });
+ const runtime=await startRuntime(p),base='/v1/channels/qq/component';
+ const status=()=>requestRuntime<ManagedQQStatus>(runtime.connection,base);
+ const act=(action:string)=>requestRuntime(runtime.connection,base+'/'+action,'POST');
+ try{
+  await act('connect');const qr=(await until(status,s=>s.phase==='login'&&!s.busy)).qr;expect(qr).toBeTruthy();
+  // A read interruption must not lose an unchanged QR if the upstream is still waiting for a scan.
+  webDown=true;await until(status,s=>s.phase==='verifying');webDown=false;
+  expect((await until(status,s=>s.phase==='login')).qr).toBe(qr);
+  accepted=true;await until(status,s=>s.phase==='verifying');expect(await status()).toMatchObject({loginPhase:'checking_login'});expect((await status()).qr).toBeUndefined();
+  login=true;await until(status,s=>s.loginPhase==='message_service');expect((await status()).error).toBeUndefined();expect(applies).toBe(1);
+  await serve();
+  await until(status,s=>healthReads>=2&&s.phase==='verifying'&&s.loginPhase==='message_service'&&!s.error);
+  expect((await until(status,s=>s.phase==='online')).account?.id).toBe('10001');expect(applies).toBe(1);
+  webDown=true;await until(status,s=>s.phase==='verifying');expect((await status()).account).toBeUndefined();
+  webDown=false;rejectHandshake=true;
+  expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_COMPONENT_AUTH');
+  rejectHandshake=false;observedId='20002';await act('connect');expect((await until(status,s=>s.phase==='error'&&!s.busy)).error).toBe('QQ_ACCOUNT_CHANGED');
+  observedId='10001';await act('connect');await until(status,s=>s.phase==='online'&&!s.busy);
+  loginPhase='reconnecting';expect((await until(status,s=>s.phase==='verifying')).loginPhase).toBe('reconnecting');
+  loginPhase='offline';expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_ACCOUNT_OFFLINE');
+  loginPhase='';await act('connect');await until(status,s=>s.phase==='online'&&!s.busy);
+  webDown=true;await until(status,s=>s.phase==='verifying');clockOffset=61000;
+  expect((await until(status,s=>s.phase==='error')).error).toBe('QQ_WEBUI_UNAVAILABLE');
+  await act('stop');expect((await until(status,s=>!s.busy)).phase).toBe('ready');
+ }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
+},50000);
+it('stop cancels a pending install without late success and invalid component state does not prevent local Runtime',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-cancel-')));vi.spyOn(ComponentPlatform.prototype,'install').mockImplementation(async signal=>{await delay(10000,undefined,{signal});});vi.spyOn(ComponentPlatform.prototype,'stop').mockResolvedValue();const start=vi.spyOn(ComponentPlatform.prototype,'start').mockResolvedValue();
+ let runtime=await startRuntime(p);
+ try{let call=<T>(route:string,method='GET')=>requestRuntime<T>(runtime.connection,route,method);const base='/v1/channels/qq/component';await call(base+'/connect','POST');await expect(call(base+'/connect','POST')).rejects.toThrow('QQ_COMPONENT_BUSY');await call(base+'/stop','POST');await until(()=>call<ManagedQQStatus>(base),s=>!s.busy);expect((await call<ManagedQQStatus>(base)).phase).toBe('missing');expect(start).not.toHaveBeenCalled();await runtime.stop();writeFileSync(join(p.data,'qq-component','manager.json'),'invalid');runtime=await startRuntime(p);call=<T>(route:string,method='GET')=>requestRuntime<T>(runtime.connection,route,method);expect((await call<ManagedQQStatus>(base)).error).toBe('QQ_COMPONENT_STATE_INVALID');expect((await call<{state:string}>('/v1/status')).state).toBe('running');}finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
+});
+it('Runtime shutdown during component creation waits and cleans the late-created resource',async()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-start-cancel-')));
+ vi.spyOn(ComponentPlatform.prototype,'install').mockResolvedValue();let started!:()=>void;const entering=new Promise<void>(r=>{started=r;});let release!:()=>void;const blocked=new Promise<void>(r=>{release=r;});let resource=false;
+ vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async()=>{started();await blocked;resource=true;});
+ vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{resource=false;});
+ const runtime=await startRuntime(p);const base='/v1/channels/qq/component',call=<T>(route:string,method='GET')=>requestRuntime<T>(runtime.connection,route,method);
+ try{await call(base+'/connect','POST');await entering;const stopping=runtime.stop();await delay(20);release();await stopping;expect(resource).toBe(false);}finally{release();await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
+});

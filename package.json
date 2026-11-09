@@ -1,0 +1,76 @@
+{
+  "name": "bigfatfish",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.9.0 <25"
+  },
+  "bin": {
+    "bigfatfish": "dist/cli/src/main.js",
+    "bigfatfishd": "dist/runtime/src/main.js"
+  },
+  "scripts": {
+    "build": "npm run build:node && npm run build:desktop && npm run build:web",
+    "build:node": "tsc -p tsconfig.node.json && node scripts/copy-runtime-assets.mjs",
+    "build:desktop": "vite build --config apps/desktop/vite.config.ts",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "npm run build:node && vitest run",
+    "test:platform": "npm run build:node && vitest run apps/runtime/src/windows-acl.test.ts tests/integration/lifecycle.test.ts tests/integration/cli-input.test.ts tests/integration/stop-completion.test.ts tests/integration/desktop-dev.test.ts tests/integration/maintenance-cli.test.ts tests/integration/update.test.ts",
+    "cli": "node dist/cli/src/main.js",
+    "runtime": "node dist/runtime/src/main.js",
+    "desktop:dev": "node scripts/desktop-dev.mjs",
+    "desktop:build": "npm run release:prepare && cd apps/desktop && tauri build",
+    "frontend:dev": "vite --config apps/desktop/vite.config.ts",
+    "release:prepare": "npm run build:node && npm run build:web && node scripts/prepare-release.mjs",
+    "build:web": "vite build --config apps/web/vite.config.ts"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-sdk-client": "0.2.2-alpha.2",
+    "@fastify/websocket": "11.2.0",
+    "@huggingface/tokenizers": "0.2.0",
+    "@tauri-apps/api": "2.12.4",
+    "fastify": "5.12.7",
+    "onnxruntime-web": "1.31.1",
+    "playwright-core": "1.58.2",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "sharp": "0.35.5",
+    "tar": "7.5.22",
+    "ws": "8.22.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@floating-ui/dom": "1.8.0",
+    "@tailwindcss/vite": "4.3.4",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/ws": "8.18.1",
+    "clsx": "2.1.1",
+    "eslint": "10.14.0",
+    "lucide-react": "1.67.0",
+    "motion": "14.9.0",
+    "tailwind-merge": "3.7.0",
+    "tailwindcss": "4.3.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "minimatch": "11.0.1",
+    "zod": "4.6.6",
+    "undici": "8.12.2",
+    "@deepseek-ai/dsh-mcp-client@0.2.2-alpha.2": {
+      "@modelcontextprotocol/client": "2.3.0"
+    },
+    "@deepseek-ai/libreoffice-kit@0.1.5": {
+      "fflate": "0.8.3"
+    }
+  }
+}

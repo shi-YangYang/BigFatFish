@@ -1,0 +1,48 @@
+{
+  "protocol": 1,
+  "id": "hello-fish",
+  "name": "问候鱼",
+  "version": "1.0.0",
+  "author": "BigFatFish contributors",
+  "license": "MIT",
+  "source": "BigFatFish examples/hello-fish",
+  "runtime": "^0.1.0",
+  "platforms": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "kind": "extension",
+  "permissions": [
+    "tools.execute",
+    "events.emit"
+  ],
+  "entry": "index.mjs",
+  "dependencies": [],
+  "extensions": [
+    "Tool",
+    "Integration"
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "tools": [
+    {
+      "name": "greet",
+      "description": "向主人问好",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+import { afterEach, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { paths, preparePaths } from '../paths.js';
+import { openDatabase, migrate, migrations } from '../storage/database.js';
+import { Configuration } from './configuration.js';
+let cleanup = () => {};
+afterEach(()=>cleanup());
+it('migrates version 1, encrypts model secrets, validates routes and keeps persona versions',()=>{
+ const p=paths(mkdtempSync(join(tmpdir(),'bff config ')));preparePaths(p);
+ const v1=new DatabaseSync(p.database);migrate(v1,[migrations[0]!]);v1.prepare('INSERT INTO settings VALUES(?,?)').run('old','kept');v1.close();
+ const db=openDatabase(p.database);cleanup=()=>{db.close();rmSync(p.root,{recursive:true,force:true});};
+ const config=new Configuration(db,p);
+ const model={id:'local',label:'本地',provider:'openai',baseURL:'http://127.0.0.1:9999/v1',model:'test',contextWindow:8192,maxTokens:512,timeoutMs:30000,vision:false,apiKey:'fixture-secret-123'};
+ expect(config.saveModel(model).hasKey).toBe(true);expect(JSON.stringify(config.models())).not.toContain(model.apiKey);expect(db.prepare('SELECT secret FROM models').get()!.secret).not.toContain(model.apiKey);
+ expect(config.model('local').key).toBe(model.apiKey);expect(config.model('local').config).not.toHaveProperty('apiKey');
+ expect(()=>config.saveModel({...model,baseURL:'https://user:password@example.com'})).toThrow('INVALID_MODEL_URL');
+ expect(()=>config.saveModel({...model,baseURL:'http://example.com'})).toThrow('INVALID_MODEL_URL');
+ expect(()=>config.saveRoutes({chat:'missing'})).toThrow('MODEL_NOT_CONFIGURED');expect(config.saveRoutes({chat:'local'})).toEqual({chat:'local'});
+ const original=config.persona();expect(config.savePersona({...original,name:'测试鱼'}).version).toBe(2);expect(()=>config.savePersona(original)).toThrow('PERSONA_VERSION_CONFLICT');expect(config.history()).toHaveLength(2);
+ expect(db.prepare("SELECT value FROM settings WHERE key='old'").get()?.value).toBe('kept');
+ expect(readFileSync(join(p.config,'master.key')).length).toBe(32);if(process.platform!=='win32')expect(statSync(join(p.config,'master.key')).mode&0o077).toBe(0);
+});
