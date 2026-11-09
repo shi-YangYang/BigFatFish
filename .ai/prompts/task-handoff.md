@@ -4,7 +4,15 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec060 跨平台运行与编译 CI
+## 当前任务：Spec061 Windows Runtime ACL
+
+2026-11-09 用户随后明确要求「commit and push」，授权提交已验收的 Spec061 并推送 origin/dev。提交前 fetch 确认本地与 origin/dev 一致且已包含 origin/main；PR #2（dev → main）为 OPEN，推送会触发新 CI。沿用已有验证，不重复检查；实际提交/推送以 Git 记录为准，不扩大为合并或后续自动提交授权。
+
+用户报告新版 Windows Runtime CI 大量 WINDOWS_ACL_UNSAFE，按 [Spec061](../../specs/spec-061-windows-acl/spec.md)/[Plan](../../specs/spec-061-windows-acl/plan.md) 修复。当前 dev / 9a58fdf，前序 Spec059/060 已按用户要求 commit+push，本轮开始干净。新云端 run 42552721204 为 PR，Windows 出错；日志用户附件已读。S3 权限边界，保留拒绝不安全访问，不用跳过检查通过；单实施与新独立验收。没有本轮 commit/push 授权，不操作真实数据或权限。根协调负责读取云端现有日志，实施者负责 ACL 源码/官方契约/定向验证。
+
+实施与新的独立 [验收 PASS](../../specs/spec-061-windows-acl/acceptance.md) 已完成，root 已完整读取报告，无待返工。修复隐藏进程写 Console.InputEncoding 的无控制台兼容缺陷，改为UTF-8管道Reader；restrict仅持久化DACL，原因码固定白名单且保留原公开错误类别。6项本机协议测试、Node构建、单测试文件类型通过；3项真实Windows场景本机跳过，不能称Windows已恢复。旧云端完整日志在 /tmp/bff-spec061-windows-job-clean.log：仅WindowsRuntime失败26项，其余5个job成功；底层错误先前被隐藏，源码证据与实机结论需区分。未提交/推送；满足本轮代码交付停止条件，不追加测试，后续Windows实际重跑需新Git授权。
+
+## 上一任务：Spec060 跨平台运行与编译 CI
 
 2026-11-09 用户明确要求「commit and push」，授权将已验收的 Spec059/060 一并提交，并连同此前 Spec058 的本地提交推送至 origin/dev；不包含 PR 创建/重开/合并。提交前 fetch 确认 dev 比 origin/dev 领先 1 个提交、无落后，已包含 origin/main；GitHub PR #1 当前 CLOSED。沿用已有检查，不重复测试；确切提交与推送结果以 Git 记录为准，此次授权不恢复后续自动提交。
 

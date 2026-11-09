@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,16 +6,25 @@ import { join } from 'node:path';
 import { paths, preparePaths, privateFile } from './paths.js';
 import { readConnection } from './connection.js';
 import { windowsAcl, type AclEntry } from './windows-acl.js';
+vi.mock('node:child_process', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
+});
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+afterEach(() => {
+  Object.defineProperty(process, 'platform', platform); vi.unstubAllEnvs(); vi.mocked(execFileSync).mockReset();
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 function powershell(script: string, input: unknown) {
+  // Match hidden production processes: decode stdin without a console/code page.
+  script = `[Console]::SetIn([System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false, $true), $false))\n` + script;
   return execFileSync(join(process.env.SystemRoot!, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
     ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
     { input: JSON.stringify(input), encoding: 'utf8', windowsHide: true });
 }
 function widen(entries: AclEntry[]) {
   powershell(`$ErrorActionPreference = 'Stop'
-[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 $entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
 foreach ($entry in $entries) {
   $acl = Get-Acl -LiteralPath $entry.path
@@ -28,11 +37,65 @@ foreach ($entry in $entries) {
       [System.Security.AccessControl.FileSystemRights]::FullControl, $inherit,
       [System.Security.AccessControl.PropagationFlags]::None, [System.Security.AccessControl.AccessControlType]::Allow))
   }
-  Set-Acl -LiteralPath $entry.path -AclObject $acl
+  if ($entry.directory) { [System.IO.Directory]::SetAccessControl($entry.path, $acl) }
+  else { [System.IO.File]::SetAccessControl($entry.path, $acl) }
 }`, entries);
 }
+// These check the child-process protocol, not Windows ACL semantics.
+describe('Windows ACL process protocol', () => {
+  function pretendWindows() {
+    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+    vi.stubEnv('SystemRoot', 'C:\\Windows');
+  }
+  it('passes Unicode and shell-looking paths only through UTF-8 stdin to the hidden process', () => {
+    pretendWindows(); vi.mocked(execFileSync).mockReturnValueOnce('OK');
+    const entries = [{ path: "C:\\私有目录\\fish ' $() [1]", directory: true }];
+    windowsAcl('restrict', entries);
+    const [, args, options] = vi.mocked(execFileSync).mock.calls.at(-1)!;
+    expect(args).not.toContain(entries[0]!.path);
+    expect(options).toMatchObject({ input: JSON.stringify({ operation: 'restrict', entries }), encoding: 'utf8', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const script = Buffer.from((args as string[]).at(-1)!, 'base64').toString('utf16le');
+    expect(script).toContain('[Console]::OpenStandardInput()');
+    expect(script).not.toContain('[Console]::InputEncoding =');
+  });
+  it.each([
+    ['WINDOWS_ACL_UNSAFE:ACL_WRITE', 'ACL_WRITE'],
+    ['WINDOWS_ACL_UNSAFE:UNSAFE_OWNER', 'UNSAFE_OWNER'],
+    ['WINDOWS_ACL_UNSAFE:SECRET_ACCOUNT', 'EXECUTION_FAILED'],
+    ['WINDOWS_ACL_UNSAFE:ACL_READ\nC:\\private\\token', 'EXECUTION_FAILED'],
+  ])('accepts only bounded failure reasons from stdout (%s)', (stdout, reason) => {
+    pretendWindows();
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw Object.assign(new Error('secret account/path'), { stdout, stderr: 'secret stderr' }); });
+    try { windowsAcl('verify', []); throw new Error('expected rejection'); }
+    catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('WINDOWS_ACL_UNSAFE');
+      expect((error as Error).cause).toEqual(new Error(`WINDOWS_ACL_${reason}`));
+      expect(JSON.stringify(error)).not.toContain('secret');
+    }
+  });
+  it('fails closed for malformed success, timeouts and a missing SystemRoot', () => {
+    pretendWindows(); vi.mocked(execFileSync).mockReturnValueOnce('OK\nextra');
+    expect(() => windowsAcl('verify', [])).toThrow(expect.objectContaining({ message: 'WINDOWS_ACL_UNSAFE', cause: new Error('WINDOWS_ACL_INVALID_RESPONSE') }));
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw Object.assign(new Error('secret'), { code: 'ETIMEDOUT' }); });
+    expect(() => windowsAcl('verify', [])).toThrow(expect.objectContaining({ cause: new Error('WINDOWS_ACL_TIMEOUT') }));
+    vi.stubEnv('SystemRoot', '');
+    expect(() => windowsAcl('verify', [])).toThrow(expect.objectContaining({ cause: new Error('WINDOWS_ACL_SYSTEM_ROOT_MISSING') }));
+  });
+});
 // These exercise real Windows ACLs on Windows CI, never a mocked platform/mode bit.
 describe.skipIf(process.platform !== 'win32')('Windows DACL boundary', () => {
+  it('restricts a Unicode path from hidden PowerShell repeatedly without changing owner or group', () => {
+    const root = mkdtempSync(join(tmpdir(), "bff ACL 中文 ' $() [1] ")); roots.push(root);
+    const file = join(root, 'credential.json'); writeFileSync(file, 'isolated fixture');
+    const entries = [{ path: root, directory: true }, { path: file, directory: false }];
+    const identities = `$entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
+@($entries | ForEach-Object { $acl = Get-Acl -LiteralPath $_.path; $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $acl.GetGroup([System.Security.Principal.SecurityIdentifier]).Value }) | ConvertTo-Json -Compress`;
+    const before = powershell(identities, entries);
+    for (let i = 0; i < 2; i++) { windowsAcl('restrict', entries); windowsAcl('verify', entries); }
+    expect(powershell(identities, entries)).toBe(before);
+    expect(readFileSync(file, 'utf8')).toBe('isolated fixture');
+  });
   it('removes explicit broad ACEs, repairs protected product files, and rejects unsafe reads', () => {
     const root = mkdtempSync(join(tmpdir(), "bigfatfish ACL 中文 ' $() ")); roots.push(root);
     const p = paths(root); preparePaths(p);
@@ -49,15 +112,13 @@ describe.skipIf(process.platform !== 'win32')('Windows DACL boundary', () => {
     // A protected unrelated sibling file must not be changed by preparePaths.
     const unrelated = join(root, 'user-owned.txt'); writeFileSync(unrelated, 'keep');
     widen([{ path: unrelated, directory: false }]);
-    const inspect = `[Console]::InputEncoding = [System.Text.Encoding]::UTF8
-$path = [Console]::In.ReadToEnd() | ConvertFrom-Json
+    const inspect = `$path = [Console]::In.ReadToEnd() | ConvertFrom-Json
 [Console]::Out.Write((Get-Acl -LiteralPath $path).Sddl)`;
     const originalAcl = powershell(inspect, unrelated);
     preparePaths(p);
     windowsAcl('verify', entries);
     // Independently inspect ACE SIDs instead of relying only on the production verifier.
-    const aclSummary = powershell(`[Console]::InputEncoding = [System.Text.Encoding]::UTF8
-$entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
+    const aclSummary = powershell(`$entries = [Console]::In.ReadToEnd() | ConvertFrom-Json
 @($entries | ForEach-Object { (Get-Acl -LiteralPath $_.path).GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } }) | ConvertTo-Json -Compress`, entries);
     expect(aclSummary).not.toContain('S-1-1-0'); expect(aclSummary).not.toContain('S-1-5-32-545');
     expect(readConnection(p)).toEqual(value);
