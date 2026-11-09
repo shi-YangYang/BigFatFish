@@ -103,4 +103,4 @@
 - [Spec 058：CI 触发去重](spec-058-ci-trigger/spec.md)：[独立验收 PASS](spec-058-ci-trigger/acceptance.md)；限制 push 为 main，PR 保留一次 checks，已本地提交 1a837de，未推送。
 - [Spec 059：CI 类型检查](spec-059-ci-typecheck/spec.md)：[独立验收 PASS](spec-059-ci-typecheck/acceptance.md)；同步测试与夹具类型，完整 typecheck 及定向场景通过，未提交/推送。
 - [Spec 060：跨平台运行与编译 CI](spec-060-platform-ci/spec.md)：[独立验收 PASS](spec-060-platform-ci/acceptance.md)；CI 专注系统运行与编译，安装包改由用户手动生成；未提交/推送。
-- [Spec 061：Windows Runtime 权限初始化](spec-061-windows-acl/spec.md)：[R1 独立复验 PASS](spec-061-windows-acl/acceptance-r1.md)；移除 Get-Acl 模块读取依赖，Windows CI 重跑待推送。
+- [Spec 061：Windows Runtime 权限初始化](spec-061-windows-acl/spec.md)：[R2 独立验收 PASS](spec-061-windows-acl/acceptance-r2.md)；修复退出竞态与强杀恢复测试，本机平台检查 47 passed / 5 skipped，新 Windows CI 待验证。

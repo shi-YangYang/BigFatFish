@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync, statSync } from 'node:fs';
 import { assertRegular, type DataPaths } from './paths.js';
 import { windowsAcl } from './windows-acl.js';
 export interface Connection { version: 1; pid: number; port: number; token: string; instanceId: string; startedAt: string }
@@ -9,9 +9,22 @@ export function readConnection(p: DataPaths): Connection {
   assertRegular(p.connection);
   const stat = statSync(p.connection);
   if (process.platform !== 'win32' && (stat.mode & 0o077)) throw new Error('INSECURE_CONNECTION_FILE');
-  if (process.platform === 'win32') windowsAcl('verify', [
-    { path: p.root, directory: true }, { path: p.runtime, directory: true }, { path: p.connection, directory: false },
-  ]);
+  if (process.platform === 'win32') {
+    try {
+      windowsAcl('verify', [
+        { path: p.root, directory: true }, { path: p.runtime, directory: true }, { path: p.connection, directory: false },
+      ]);
+    } catch (error) {
+      // Shutdown can unlink the connection while PowerShell starts or reads its ACL.
+      // Only a confirmed absence has ENOENT semantics; keep explicit security refusals.
+      if (error instanceof Error && error.message === 'WINDOWS_ACL_UNSAFE' && error.cause instanceof Error
+          && ['WINDOWS_ACL_PATH_CHECK', 'WINDOWS_ACL_ACL_READ'].includes(error.cause.message)) {
+        try { lstatSync(p.connection); }
+        catch (missing) { if ((missing as NodeJS.ErrnoException).code === 'ENOENT') throw missing; }
+      }
+      throw error;
+    }
+  }
   const value = JSON.parse(readFileSync(p.connection, 'utf8')) as Connection;
   if (value.version !== 1 || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535 || !Number.isInteger(value.pid) || typeof value.token !== 'string' || !/^[a-f0-9]{64}$/.test(value.token) || typeof value.instanceId !== 'string') throw new Error('INVALID_CONNECTION_FILE');
   return value;

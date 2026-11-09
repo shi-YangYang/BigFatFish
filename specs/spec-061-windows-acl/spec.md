@@ -1,6 +1,6 @@
 # Spec061：Windows Runtime 权限初始化失败
 
-状态：R1 代码完成，[独立复验 PASS](acceptance-r1.md)；Windows CI 实际重跑待推送。首轮之后发现的 Get-Acl 模块加载阻断及修复见 [返工要求](rework.md)。风险 S3：本机凭据与数据目录权限边界。
+状态：R2 实施完成，[独立验收 PASS](acceptance-r2.md)。本机 `npm run test:platform` 实际 exit 0，47 passed / 5 平台条件 skipped；修复前 3 项确定性竞态回归已复现同类失败。新 Windows CI 尚未运行，不代表 Windows 全链路已通过。R1 的 10 项 Windows ACL 测试通过及剩余 8 项失败证据见 [返工要求](rework.md)。风险 S3：本机凭据与数据目录权限边界及 Runtime 生命周期。
 
 ## 背景与当前行为
 
@@ -17,6 +17,9 @@
 - 若原日志不足定位，补充固定枚举诊断，不输出任意 PowerShell 错误、路径、SID、配置内容。
 - 定向回归必须覆盖实际 Windows ACL 操作及故障边界；本机可以验证调用协议和错误清洗，但不能将 Mac 测试称作 Windows 通过。
 - ACL 读取与测试辅助读取不得依赖当前环境无法加载的 PowerShell Security 模块；通过 .NET Framework 文件/目录 API 获取 Owner/Group/Access，维持同一权限校验。
+- Runtime 正常退出期间连接文件消失应走既有文件不存在及内核锁等待流程；真实权限错误仍必须拒绝，不能把所有 PATH_CHECK 或 ACL 错误当成停止成功。
+- 强制结束进程与优雅退出分别验证；跨平台崩溃测试不得依赖 Windows 不支持的 POSIX 信号处理行为。
+- 修复后本地实际执行与 CI 相同的 Runtime 平台检查并保留明确退出码；增加可在本机确定复现退出竞态的回归，说明哪些 Windows 原生部分尚未实测。
 
 ## 非目标
 
@@ -30,7 +33,7 @@ Windows PowerShell 5.1、Node 24；既有公开 WINDOWS_ACL_UNSAFE 错误类别�
 
 - [x] 解释有证据的根因及修复职责，不把推测或本机 mock 当成 Windows 实测。
 - [x] 合法路径处理符合平台 API 契约，危险权限和链接继续拒绝，错误诊断受限。
-- [x] 必要定向检查通过，独立验收 PASS；Windows 未实测范围明确。
+- [x] R2 本地 Runtime 平台检查及确定性竞态回归通过，新的独立验收完成；Windows 原生未实测范围明确。
 - [x] 无无关业务/CI 变化，未提交/推送。
 
 ## 待确认问题

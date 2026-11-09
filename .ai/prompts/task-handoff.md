@@ -6,6 +6,12 @@
 
 ## 当前任务：Spec061 Windows Runtime ACL
 
+2026-11-09 用户明确要求「commit and push」，授权保存本轮已独立验收的 R2 修复并推送 origin/dev。沿用本机 47 passed / 5 skipped 的实际验证，不重复测试。当前 PR #3 为 dev → main；实际提交和推送结果以 Git 为准。本次授权不包含合并或后续自动提交。
+
+2026-11-09 R2：用户报告 Windows 再次失败并要求修后本地先跑。本次 CI 42557851484 的全部 10 项 ACL 测试已通过，8 项剩余失败集中退出文件消失被误报 PATH_CHECK，以及 Windows 强制结束被当成优雅 SIGTERM。按 rework.md 的 R2 修复并实跑 test:platform；当前 dev/654a71e、开始干净，没有本轮 commit/push 授权。此前 R1 已提交推送完成，下方待推送表述为历史。本机未发现 Windows PowerShell 或常见虚拟机命令；不能把 Mac 结果称为 Windows 实测。
+
+R2 已完成且新的 [独立验收 PASS](../../specs/spec-061-windows-acl/acceptance-r2.md)，root 已完整读取实施与验收报告，无返工项。生产仅修改 readConnection：PATH_CHECK/ACL_READ 时用 lstat 确认 ENOENT，明确权限拒绝和悬空链接保持拒绝。新增真实文件删除/锁等待回归、SIGKILL 崩溃后恢复测试。修复前 3 项回归实际失败，修复后 `npm run test:platform` 实际 exit 0：7 files、47 passed / 5 条件 skipped、32.97s；含 Node 编译/资源复制，日志 /tmp/bff-spec061-r2-platform.log。5 skipped 为既有 4 Windows ACL + 1 Windows 安装器，本机 Mac，新 Windows CI 仍待验证。未改真实数据、CI 或生产清理策略，未提交推送。必要验证已满足，不重复检查；后续 Git 操作需要新授权。
+
 2026-11-09 用户再次明确要求「commit and push」，本次授权保存已独立验收的 R1 修复并推送 origin/dev。提交前 fetch 确认 dev 与 origin/dev 一致并已包含 origin/main；当前打开的是 PR #3（dev → main）。沿用已有验收，不重复测试；本次不包含 PR 合并或后续自动提交，实际提交与推送结果以 Git 记录为准。
 
 当前为 R1 返工：首轮已提交推送 b4d4658，用户提供新Windows日志（附件5389009f-2cba-47a9-bf65-859066921173/已粘贴的文本.txt），27真实场景仍失败，cause均为WINDOWS_ACL_ACL_READ；测试直接输出Get-Acl无法加载Microsoft.PowerShell.Security。按[返工要求](../../specs/spec-061-windows-acl/rework.md)去掉生产与测试辅助的Security模块读取依赖，使用.NET Framework ACL API；不放宽安全边界、不猜测模块具体失败原因。当前dev与origin/dev一致、开始干净；新实施+新独立验收。没有R1 commit/push授权，上一条授权已用于首轮。

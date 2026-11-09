@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { paths, preparePaths, privateFile } from './paths.js';
@@ -89,6 +89,48 @@ describe('Windows ACL process protocol', () => {
     expect(() => windowsAcl('verify', [])).toThrow(expect.objectContaining({ cause: new Error('WINDOWS_ACL_TIMEOUT') }));
     vi.stubEnv('SystemRoot', '');
     expect(() => windowsAcl('verify', [])).toThrow(expect.objectContaining({ cause: new Error('WINDOWS_ACL_SYSTEM_ROOT_MISSING') }));
+  });
+  function connectionFixture() {
+    const root = mkdtempSync(join(tmpdir(), 'bff connection ACL race ')); roots.push(root);
+    const p = paths(root); preparePaths(p);
+    privateFile(p.connection);
+    writeFileSync(p.connection, JSON.stringify({ version: 1, pid: 1, port: 12345, token: 'a'.repeat(64), instanceId: 'race', startedAt: new Date().toISOString() }));
+    pretendWindows();
+    return p;
+  }
+  it.each(['PATH_CHECK', 'ACL_READ'])('reports ENOENT when the connection disappears during ACL %s', reason => {
+    const p = connectionFixture();
+    vi.mocked(execFileSync).mockImplementationOnce(() => {
+      unlinkSync(p.connection);
+      throw Object.assign(new Error('fixture failure'), { stdout: `WINDOWS_ACL_UNSAFE:${reason}` });
+    });
+    expect(() => readConnection(p)).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+  });
+  it.each(['PATH_CHECK', 'ACL_READ'])('preserves ACL %s when the connection still exists', reason => {
+    const p = connectionFixture();
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw Object.assign(new Error('fixture failure'), { stdout: `WINDOWS_ACL_UNSAFE:${reason}` }); });
+    expect(() => readConnection(p)).toThrow(expect.objectContaining({ message: 'WINDOWS_ACL_UNSAFE', cause: new Error(`WINDOWS_ACL_${reason}`) }));
+    expect(lstatSync(p.connection).isFile()).toBe(true);
+  });
+  it.each(['UNSAFE_OWNER', 'UNSAFE_DACL', 'REPARSE_POINT', 'UNSAFE_INHERITANCE', 'UNPROTECTED_DIRECTORY', 'WRONG_PATH_TYPE'])('preserves explicit ACL %s even if the connection disappears', reason => {
+    const p = connectionFixture();
+    vi.mocked(execFileSync).mockImplementationOnce(() => {
+      unlinkSync(p.connection);
+      throw Object.assign(new Error('fixture failure'), { stdout: `WINDOWS_ACL_UNSAFE:${reason}` });
+    });
+    expect(() => readConnection(p)).toThrow(expect.objectContaining({ message: 'WINDOWS_ACL_UNSAFE', cause: new Error(`WINDOWS_ACL_${reason}`) }));
+  });
+  it('preserves ACL failure when the connection becomes a dangling link', () => {
+    const p = connectionFixture();
+    vi.mocked(execFileSync).mockImplementationOnce(() => {
+      unlinkSync(p.connection);
+      // A directory junction needs no symlink privilege on Windows; neither kind may be treated as absence.
+      symlinkSync(join(p.root, 'missing-target'), p.connection, 'junction');
+      expect(lstatSync(p.connection).isSymbolicLink()).toBe(true);
+      expect(() => statSync(p.connection)).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+      throw Object.assign(new Error('fixture failure'), { stdout: 'WINDOWS_ACL_UNSAFE:PATH_CHECK' });
+    });
+    expect(() => readConnection(p)).toThrow(expect.objectContaining({ message: 'WINDOWS_ACL_UNSAFE', cause: new Error('WINDOWS_ACL_PATH_CHECK') }));
   });
 });
 // These exercise real Windows ACLs on Windows CI, never a mocked platform/mode bit.

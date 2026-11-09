@@ -1,12 +1,17 @@
-import { expect, it } from 'vitest';
-import { fork } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { expect, it, vi } from 'vitest';
+import { execFileSync, fork } from 'node:child_process';
+import { mkdtempSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { stop } from '../../apps/cli/src/runtime/process.js';
 import { paths } from '../../apps/runtime/src/paths.js';
 import { acquireInstance } from '../../apps/runtime/src/instance.js';
+
+vi.mock('node:child_process', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
+});
 
 async function fixture(mode: string) {
   const root = mkdtempSync(join(tmpdir(), 'bff stop completion '));
@@ -50,6 +55,35 @@ for (const [mode, error] of [['auth', 'UNAUTHORIZED'], ['changed', 'INSTANCE_CHA
     } finally { await f.cleanup(); }
   });
 }
+
+it('waits for the kernel lock when the connection disappears during ACL verification', async () => {
+  const f = await fixture('refused');
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  let stopping: ReturnType<typeof stop> | undefined;
+  let removed!: () => void;
+  const removal = new Promise<void>(resolve => { removed = resolve; });
+  try {
+    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+    vi.stubEnv('SystemRoot', 'C:\\Windows');
+    vi.mocked(execFileSync).mockReturnValueOnce('OK').mockImplementationOnce(() => {
+      unlinkSync(f.p.connection);
+      removed();
+      throw Object.assign(new Error('fixture failure'), { stdout: 'WINDOWS_ACL_UNSAFE:PATH_CHECK' });
+    });
+    stopping = stop(f.p);
+    // Keep a rejection observed even while waiting for the synchronous ACL boundary.
+    void stopping.catch(() => {});
+    await Promise.race([removal, stopping.then(() => { throw new Error('STOP_COMPLETED_BEFORE_ACL_RACE'); })]);
+    expect(() => acquireInstance(f.p.lock)).toThrow('ALREADY_RUNNING');
+    expect(await Promise.race([stopping.then(() => 'early-success'), delay(200, 'waiting')])).toBe('waiting');
+    await f.release();
+    expect(await stopping).toEqual({ state: 'stopped', alreadyStopped: true });
+    const release = acquireInstance(f.p.lock); release();
+  } finally {
+    Object.defineProperty(process, 'platform', platform); vi.unstubAllEnvs(); vi.mocked(execFileSync).mockReset();
+    await f.cleanup(); await stopping?.catch(() => {});
+  }
+});
 
 it('times out while a shutting-down instance still holds the lock', async () => {
   const f = await fixture('deleted');

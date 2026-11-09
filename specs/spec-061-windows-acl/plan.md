@@ -83,3 +83,37 @@ Risk Level：S3（权限边界），验证限制在改动的 ACL 子系统与生
 本机没有 Windows PowerShell 与 Windows 文件系统，新的 Security cmdlet 隔离回归和 Windows Runtime 全链路仍须 Windows CI 实测；目前只交付明确针对已捕获读取失败的修复，不声称 Windows 全链路已经通过。没有新产品决策、schema 变更或数据迁移。
 
 本轮只修改上述两个源码/测试文件和本报告。未改用户数据/真实文件权限，未调用模型或账号，未 stage、commit、push 或触发云端执行。
+
+## R2 Implementation Report
+
+实施者 `/root/rework_windows_stop_race`。基线 `dev/654a71e`；实施完成，待新的独立验收。协调者已修改的 Spec、Rework、索引及交接完整保留。
+
+### Summary / 根因与职责
+
+新 Windows CI 的全部 10 项 ACL 测试已通过；8 项剩余失败集中于关闭流程以及强制结束测试。正常 Runtime shutdown 先删除 `connection.json`，随后释放 SQLite 实例锁；`readConnection` 的 Node 文件检查与 PowerShell 验权之间存在时间窗口。连接在子进程检查路径或读取 ACL 时被正常删除，固定诊断会成为 `WINDOWS_ACL_PATH_CHECK` / `WINDOWS_ACL_ACL_READ`，而 CLI stop 的既有缺失处理只识别 `ENOENT`。本轮先通过真实临时文件删除重现了这条错误链，包括 stop 在已发送 shutdown 后的锁等待循环。
+
+修复位于共享连接读取层：仅上述两个读取阶段错误允许以 `lstatSync` 复查连接路径，且仅复查确实返回 `ENOENT` 时交回该原生缺失错误。文件仍存在、悬空链接、其他读取失败及明确的 owner/DACL/reparse/type/继承拒绝都继续保留原 ACL 错误。使用 lstat 避免把目标缺失的链接误作连接文件不存在。没有修改 PowerShell 协议或权限策略；CLI、维护、开发桌面继续复用既有缺失/真实内核锁等待和实例替换保护，无需各自补丁。
+
+另一处失败是测试将 Windows `child.kill('SIGTERM')` 的强制结束当作优雅退出，错误要求遗留连接已删除。[Node 子进程文档](https://nodejs.org/api/child_process.html#subprocesskillsignal)明确 Windows 的 SIGTERM/SIGINT/SIGKILL 均强制结束。本轮改用各平台一致的 SIGKILL 验证崩溃：桌面关闭、会话失败、旧连接遗留、内核锁释放，随后新会话能够恢复并在正常停止后清理。生产崩溃清理逻辑未修改；正常退出测试仍要求删除连接。
+
+### Files Changed
+
+- `apps/runtime/src/connection.ts`：在 Windows ACL 读取失败处确认连接是否确实缺失，保留全部其他错误。
+- `apps/runtime/src/windows-acl.test.ts`：增加 11 项跨平台进程边界回归，实际删除临时连接，覆盖 PATH_CHECK/ACL_READ 缺失、文件仍存在、六类明确安全拒绝以及悬空链接。只有 ACL 子进程被替换为确定性协议夹具，文件系统操作是真实操作；原有四项 Windows DACL 实测不变。
+- `tests/integration/stop-completion.test.ts`：增加一项真实 SQLite 锁夹具测试，在 stop 的关闭后读取循环删除连接并返回 PATH_CHECK，确认 stop 在 IPC 释放锁前不能完成、释放后可立即获取维护锁。原有鉴权失败、替换实例和超时用例保留。
+- `tests/integration/desktop-dev.test.ts`：用 SIGKILL 区分崩溃与正常退出，并补齐锁释放及后续会话恢复断言。
+- 本文件追加实施证据；没有新增独立测试文件或修改 `test:platform` / CI 范围。
+
+### Validation
+
+Risk Level：**S3**，限共享本机凭据读取与 Runtime 生命周期，按用户要求执行与 CI 完全相同的平台检查；不运行全仓业务套件、全量 lint/typecheck、桌面构建或远端作业。
+
+- 修复前 `npx vitest run apps/runtime/src/windows-acl.test.ts tests/integration/stop-completion.test.ts -t 'connection disappears during ACL'`：实际 **exit 1**，3 failed / 25 按筛选跳过。三项都捕获原始 ACL 错误而非预期缺失语义，stop 堆栈位于关闭后的 `readCurrent`。日志 `/tmp/bff-spec061-r2-race-red.log`。
+- 修复后 **`npm run test:platform`：实际 exit 0**（工具会话 42284 的最终返回已保留），Node 生产编译与资源复制完成，**7 test files passed，47 passed / 5 skipped / 52 total，32.97s**。日志 `/tmp/bff-spec061-r2-platform.log`。包含上述全部新增回归，以及 CLI 生命周期、开发桌面、备份与更新现有检查；不是只运行 mock 的结果。
+- 本机为 macOS，5 项条件跳过包含 4 项 Windows 原生 ACL 用例与 1 项 Windows 安装器边界用例；没有新增 skip。已审阅实际 diff，`git diff --check` 实际 exit 0。测试通过后没有再改源码或重复执行测试。
+
+### Known Limitations / Remaining Questions
+
+本机没有 Windows PowerShell/Windows 系统，不能将 47 项本地通过称作 Windows 全链路通过。四项真实 Windows ACL 在先前 654a71e CI 已通过，但本轮的 Windows 停止/崩溃恢复仍待新的 Windows 运行；本机新增协议边界测试仅确定验证实际文件删除与错误分类，不替代原生 ACL。
+
+无 schema、公开 API 或权限白名单变更，不修改真实用户数据或 QQ，也没有 stage、commit、push 或触发 CI。本轮没有产品问题待确认；按既有边界交由新的独立验收者审查，不追加已通过的检查。

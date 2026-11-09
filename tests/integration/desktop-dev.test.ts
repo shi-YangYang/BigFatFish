@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:http';
 import { readConnection, getStatus, requestRuntime } from '../../apps/runtime/src/connection.js';
 import { paths } from '../../apps/runtime/src/paths.js';
+import { acquireInstance } from '../../apps/runtime/src/instance.js';
 const root = resolve('.');
 const sessionModule = pathToFileURL(join(root, 'scripts/desktop-dev-session.mjs')).href;
 const processModule = pathToFileURL(join(root, 'scripts/desktop-dev-processes.mjs')).href;
@@ -107,12 +108,23 @@ test('Ctrl+C equivalent abort and desktop normal exit both clean the session', a
   expect(existsSync(paths(dataDir).connection)).toBe(false);
 }));
 
-test('unexpected runtime termination closes desktop and fails the session', async () => temporary(async dataDir => {
+test('forced runtime termination closes desktop, reports failure and permits recovery', async () => temporary(async dataDir => {
   const session = await startDevelopment({ ...options, dataDir });
-  session.runtime.child.kill('SIGTERM');
-  await expect(session.finished).rejects.toThrow('DEV_RUNTIME_EXITED');
-  expect(session.desktop.child.exitCode !== null || session.desktop.child.signalCode !== null).toBe(true);
-  expect(existsSync(paths(dataDir).connection)).toBe(false);
+  let next;
+  try {
+    // Windows SIGTERM also forces termination; use the same crash contract everywhere.
+    session.runtime.child.kill('SIGKILL');
+    await expect(session.finished).rejects.toThrow('DEV_RUNTIME_EXITED');
+    expect(session.desktop.child.exitCode !== null || session.desktop.child.signalCode !== null).toBe(true);
+    const p = paths(dataDir);
+    expect(readConnection(p).instanceId).toBe(session.connection.instanceId);
+    const release = acquireInstance(p.lock); release();
+    next = await startDevelopment({ ...options, dataDir });
+    expect(next.connection.instanceId).not.toBe(session.connection.instanceId);
+    expect((await getStatus(p)).instanceId).toBe(next.connection.instanceId);
+    await next.stop();
+    expect(existsSync(p.connection)).toBe(false);
+  } finally { await next?.stop().catch(() => {}); await session.stop().catch(() => {}); }
 }));
 
 test('expected-instance shutdown refuses a replacement before sending shutdown', async () => temporary(async dataDir => {
