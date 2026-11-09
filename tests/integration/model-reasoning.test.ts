@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,6 +29,7 @@ it('applies real DSH reasoning to resumed sessions and restores provider default
         const output = await engine.run({ conversationId: conversation.id, sessionId, resume: turn > 0, model: loaded.config, key: loaded.key, persona: chat.config.persona(), prompt: `reasoning-turn-${turn++}`, signal: AbortSignal.timeout(15000), onText: () => {}, onSessionReady: () => {} });
         expect(output).toContain('回复');
         const actual = fixture.requests.slice(before).find(req => req.url.includes('messages') || req.url.includes('completions'))!;
+        assert(actual.body, 'expected a JSON model request');
         if (provider === 'openai') {
           expect(actual.body.reasoning_effort).toBe(effort);
           expect(actual.body).not.toHaveProperty('max_completion_tokens');

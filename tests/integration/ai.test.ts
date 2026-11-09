@@ -27,11 +27,11 @@ it('runs real DSH through Runtime/CLI: streams, isolates sessions, resumes acros
   const first=await call<ChatMessage>(`/v1/conversations/${conversation.id}/messages`,'POST',{requestId:'first',content:'你好，记住蓝色标记'});
   expect((await call<ChatMessage>(`/v1/conversations/${conversation.id}/messages`,'POST',{requestId:'first',content:'你好，记住蓝色标记'})).id).toBe(first.id);
   const result=await wait(first.id);expect(result.status,result.error??'').toBe('completed');expect(result.content).toBe('测试模型回复');expect(events.some(e=>e.content==='测试')).toBe(true);
-  expect(fixture.requests[0]?.body.tools??[]).toHaveLength(0);expect(JSON.stringify(fixture.requests[0]?.body)).toContain('栗子鱼');
+  expect(fixture.requests[0]?.body?.tools??[]).toHaveLength(0);expect(JSON.stringify(fixture.requests[0]?.body)).toContain('栗子鱼');
   socket.close();socket=undefined;
   expect((await cli(root,['restart'])).code).toBe(0);connection=readConnection(p);
   const second=await cli(root,['chat'],{conversationId:conversation.id,content:'继续谈蓝色标记',requestId:'second'});expect(second.code,second.stdout+second.stderr).toBe(0);
-  expect(JSON.stringify(fixture.requests.at(-1)?.body.messages)).toContain('你好，记住蓝色标记');expect(JSON.stringify(fixture.requests.at(-1)?.body.messages)).toContain('测试模型回复');
+  expect(JSON.stringify(fixture.requests.at(-1)?.body?.messages)).toContain('你好，记住蓝色标记');expect(JSON.stringify(fixture.requests.at(-1)?.body?.messages)).toContain('测试模型回复');
   const other=await call<Conversation>('/v1/conversations','POST',{});
   const cancelled=await call<ChatMessage>(`/v1/conversations/${other.id}/messages`,'POST',{requestId:'cancel',content:'SLOW_NOW'});
   for(let i=0;i<80;i++){await delay(80);if((await call<ChatMessage>('/v1/messages/'+cancelled.id)).content)break;}

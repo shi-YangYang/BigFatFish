@@ -18,7 +18,7 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     // The image encodes only this fixture string.
     const qr = await createRequire(import.meta.url)('qrcode').toDataURL('BigFatFish login feedback fixture');
     const config = { mode: 'managed' as const, url: 'ws://127.0.0.1:3001', accountId: '10001', ownerId: '10002', enabled: true, groups: [], replyEnabled: true, proactiveEnabled: false };
-    const channel: ChannelStatus = { config, revision: 'fixture', manifest: {}, hasToken: true, health: { state: 'reconnecting', error: 'CONNECTION_LOST' } };
+    const channel: ChannelStatus = { config, revision: 'fixture', builtin: true, hasToken: true, health: { state: 'reconnecting', error: 'CONNECTION_LOST' } };
     const component: ManagedQQStatus = { phase: 'login', supported: true, engine: 'docker', busy: false, version: 'fixture', qr };
     const bili = { enabled: true, revision: 'fixture', health: { ffmpeg: true }, accountState: 'expired-or-unavailable',
       connection: { phase: 'login', login: { status: 'waiting', image: qr }, error: '' } };

@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "npm run build:node && vitest run",
+    "test:platform": "npm run build:node && vitest run apps/runtime/src/windows-acl.test.ts tests/integration/lifecycle.test.ts tests/integration/cli-input.test.ts tests/integration/stop-completion.test.ts tests/integration/desktop-dev.test.ts tests/integration/maintenance-cli.test.ts tests/integration/update.test.ts",
     "cli": "node dist/cli/src/main.js",
     "runtime": "node dist/runtime/src/main.js",
     "desktop:dev": "node scripts/desktop-dev.mjs",

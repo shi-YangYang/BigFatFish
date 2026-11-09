@@ -73,7 +73,7 @@ it('real DSH sees actual tool image pixels and sends separate image and text QQ 
   bot.event({...incoming('1'),message:[{type:'text',data:{text:'今天真开心'}}]});const deliveries=await wait(()=>call<{id:string;status:string;error:string}[]>('/v1/channels/qq/deliveries'),ds=>ds.some(d=>d.id==='10001:private:20002:1'&&!['queued','generating','sending'].includes(d.status)));expect(deliveries[0]).toMatchObject({status:'sent'});
   const sends=bot.requests.filter(r=>r.action.startsWith('send_'));expect(sends).toHaveLength(2);expect(sends[0]!.params.message).toEqual([{type:'text',data:{text:'好耶，给你看看我的表情！'}}]);expect(sends[1]!.params.message).toEqual([{type:'image',data:{file:'base64://'+data}}]);
   expect(JSON.stringify(fixture.requests)).toContain('data:image/png;base64,');expect(fixture.requests.filter(r=>r.body?.tools?.length)).toHaveLength(3);
-  const firstRequest=fixture.requests[0]!.body.messages as {role:string;content:unknown}[];
+  const firstRequest=fixture.requests[0]!.body?.messages as {role:string;content:unknown}[];
   expect(JSON.stringify(firstRequest.filter(message=>message.role==='system'))).toContain('日常闲聊经常主动配一张贴切表情');
   expect(JSON.stringify(firstRequest.filter(message=>message.role==='user'))).toContain('今天真开心');
   expect(JSON.stringify(firstRequest.filter(message=>message.role==='user'))).not.toContain('QQ 本轮表情表达');

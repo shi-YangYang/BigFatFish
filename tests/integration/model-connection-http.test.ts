@@ -88,7 +88,7 @@ it('keeps real diagnostic sockets open beyond five seconds, returns service dead
       deadline('/v1/models/discover'),
       deadline('/v1/models/test'),
     ]);
-    expect(app.initialConfig.requestTimeout).toBe(5000);
+    expect(app.server.requestTimeout).toBe(5000);
     expect(app.initialConfig.connectionTimeout).toBe(5000);
     console.log(JSON.stringify(calls));
   } finally {

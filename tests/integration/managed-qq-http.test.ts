@@ -71,7 +71,7 @@ it('keeps contact refresh sockets open beyond five seconds and restores timeouts
     expect(restored).toEqual([{ status: 200, timeout: 5000 }, { status: 409, timeout: 5000 }]);
     expect(ordinaryTimeouts).toEqual([5000, 5000]);
     expect(app.initialConfig.connectionTimeout).toBe(5000);
-    expect(app.initialConfig.requestTimeout).toBe(5000);
+    expect(app.server.requestTimeout).toBe(5000);
   } finally {
     agent.destroy();
     await app.close();

@@ -1,6 +1,6 @@
 # CI 触发去重
 
-状态：Done，[独立验收 PASS](acceptance.md)。EXISTING，dev / ea620dd。S1：单一 workflow 事件过滤；不改变构建内容、权限、产物或发布行为。本地修改尚未提交/推送。
+状态：Done，[独立验收 PASS](acceptance.md)。EXISTING，实施基线 dev / ea620dd，已按用户指令本地提交 1a837de、未推送。S1：单一 workflow 事件过滤；不改变构建内容、权限、产物或发布行为。
 
 ## 背景与当前行为
 

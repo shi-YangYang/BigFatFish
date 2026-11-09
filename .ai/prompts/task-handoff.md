@@ -4,7 +4,23 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec058 PR CI 触发去重
+## 当前任务：Spec060 跨平台运行与编译 CI
+
+2026-11-09 用户明确要求「commit and push」，授权将已验收的 Spec059/060 一并提交，并连同此前 Spec058 的本地提交推送至 origin/dev；不包含 PR 创建/重开/合并。提交前 fetch 确认 dev 比 origin/dev 领先 1 个提交、无落后，已包含 origin/main；GitHub PR #1 当前 CLOSED。沿用已有检查，不重复测试；确切提交与推送结果以 Git 记录为准，此次授权不恢复后续自动提交。
+
+用户确认「让我手动生成，ci只测试运行和编译啊」。按 [Spec060](../../specs/spec-060-platform-ci/spec.md)、[Plan](../../specs/spec-060-platform-ci/plan.md) 和 [Decision029](../decisions/029-platform-ci.md) 精简工作流。S3 构建改动，单实施 + 新独立验收；保留三系统平台运行、Mac/Windows 原生编译、Linux 容器，不生成/上传发行包，不在云端重复完整业务套件。只做必要的新入口验证，不操作真实实例。
+
+当前 dev / 1a837de，Spec059 已独立 PASS 但未提交，必须完整保留；尤其 desktop-dev.test.ts 有前序类型修复。没有本轮 commit/push 授权。旧远端 ea620dd Windows 编译已完成但停留于 MSI/WiX，非 unused 警告导致编译失败；未证明 candle 原因，不取消其运行。
+
+Spec060 已完成并获新的独立 [验收 PASS](../../specs/spec-060-platform-ci/acceptance.md)，root 已完整读取实施/验收报告，无待返工。新平台入口本机 29 passed/3 条件 skip、前端构建及 Mac debug 原生编译通过、Rust 8 项通过；不重复已过检查。桌面仅 CI 资源覆盖 + custom-protocol 嵌入真实前端，独立 target/ci 缓存；本地打包保持原样。新 Windows/Linux 云端未运行，不声称通过。当前 dev 相对本地 origin/dev 跟踪引用 ahead 1，Spec059/060 未提交/推送；满足停止条件，不追加验证或远端操作。
+
+## 上一任务：Spec059 CI typecheck 报错
+
+用户要求「local commit；CI测试报错」，已先将 Spec058 本地提交为 1a837de（dev），未推送；授权不自动延伸到新修复。当前按 [Spec059](../../specs/spec-059-ci-typecheck/spec.md) / [Plan](../../specs/spec-059-ci-typecheck/plan.md) 修复附件中的 TypeScript 错误。S2，完整 npm run typecheck + 直接必要的定向行为检查；不缩小类型检查、不删除行为断言，不处理其它无关 CI 阶段。单实施和新独立验收，不重启真实实例或操作账号。
+
+Spec059 已完成，新独立 [验收 PASS](../../specs/spec-059-ci-typecheck/acceptance.md)，全部报告已完整读取，无待返工。完整 typecheck、首批6个定向场景和最终联合工具类型修改后的QQ2个场景通过；不降低 strict、不排除 tests、不改依赖或 CI。修复仅同步夹具与使用处类型、保持原行为断言、补充 QQ 查询返回类型。未提交/推送、未运行云端后续阶段或操作真实实例；满足停止条件，不追加检查。
+
+## 上一任务：Spec058 PR CI 触发去重
 
 用户要求 PR 两个 CI 合为一个；当前 dev/ea620dd，与 origin/dev 同步，工作区起初干净。GitHub PR #1 未合并，同一提交确有 push 与 pull_request 两次 checks。按 [Spec058](../../specs/spec-058-ci-trigger/spec.md) 和 [Plan](../../specs/spec-058-ci-trigger/plan.md) 仅限制 push 为 main，保留 PR 默认事件及全部原任务。S1，最多一次直接相关检查，不跑全仓测试/build。此前 commit/push 授权已用于 Spec057，本轮不提交/推送，不取消云端运行。单实施 + 新独立验收。
 

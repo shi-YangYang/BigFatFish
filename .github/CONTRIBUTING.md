@@ -24,4 +24,8 @@
 
 `npm run typecheck`、`npm run lint` 和 `npm test` 是仓库级检查，按改动风险选择所需范围。历史平台与安装验证见 [P0–P7 验证记录](../docs/progress/development.md#p0p7-验证范围)，后续行为及验证见[规格索引](../specs/README.md)。
 
+PR 和 main 的 CI 只做跨平台运行与编译：Linux、macOS、Windows 执行 `npm run test:platform`，覆盖进程生命周期、CLI 输入、文件权限和维护边界；macOS、Windows 编译桌面前端及 Rust 宿主并运行原生单元测试；Linux 容器编译 Web/Runtime 并做启动、重启、停止检查。通用业务测试、全仓类型与 lint 检查留在本地按改动风险执行。
+
+桌面 CI 使用 debug 编译并启用 `tauri/custom-protocol` 嵌入实际前端，只在 job 内关闭随包 Runtime 资源复制；它不生成可分发的安装包，也不启动图形窗口。安装器、随包依赖和签名由手动 `npm run desktop:build` 验证，CI 不打包或上传产物。
+
 不要提交真实 API Key、密码、Cookie、浏览器会话、个人记忆或备份。`.env.example` 和 `.env.*.example` 仅可包含安全的占位值；依赖落地后应跟踪相应 lockfile。

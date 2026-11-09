@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -223,6 +224,8 @@ pub fn desktop_restart(app: AppHandle) -> Result<(), String> {
 }
 
 async fn preflight(app: &AppHandle, bytes: &[u8], schema: u64) -> Result<(), String> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, bytes, schema);
     #[cfg(target_os = "macos")]
     {
         let path = super::data_dir()?.join("runtime/desktop-verified.tar.gz");

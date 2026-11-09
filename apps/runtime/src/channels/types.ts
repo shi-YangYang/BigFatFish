@@ -6,6 +6,7 @@ export interface QQHost {event:(value:unknown)=>void;status:(state:ConnectionHea
 export interface QQConnection {action?(name:QQAction,params:Record<string,unknown>,guard:()=>void):Promise<unknown>;poke?(kind:string,id:string,userId:string,guard:()=>void):Promise<void>;media?(kind:string,file:string,guard:()=>void):Promise<string>;initialize(host:QQHost):void;start(config:QQConfig&{token:string}):void;stop():void;dispose():void;health():ConnectionHealth;send(kind:string,id:string,message:Segment[],guard:()=>void):Promise<{messageId:string}>}
 export interface ChannelStatus {config:QQConfig|null;hasToken:boolean;revision:string;health:ConnectionHealth;builtin:true}
 export interface SendResult {id:string;status:string}
+export interface QQDelivery {id:string;target:string;author:string;status:string;messageId:string|null;error:string|null;createdAt:string;proactive:boolean}
 export interface QQMessageIssue {
   id: number;
   kind: 'reply_failed' | 'send_failed' | 'partial' | 'partial_unknown' | 'unknown' | 'offline' | 'queue_full';

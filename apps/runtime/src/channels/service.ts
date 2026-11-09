@@ -16,7 +16,7 @@ import { InputError, object, string, type ChatEvent, type ChatMessage } from '..
 import { configuration, inbound, segments, target, allowsTarget } from './protocol.js';
 import {QQClient} from './onebot/client.js';
 import {migrateQQOwnership} from './builtin.js';
-import type { SendResult, ChannelStatus, QQConnection, QQConfig, Segment, Target } from './types.js';
+import type { SendResult, ChannelStatus, QQConnection, QQConfig, QQDelivery, Segment, Target } from './types.js';
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'proactive';assertScope:()=>void};
 export class Channels {
@@ -159,7 +159,7 @@ export class Channels {
       }
       const status=error instanceof Error&&error.message==='ACTION_REJECTED'?'failed':'unknown';this.state(id,status,status==='unknown'?'SEND_UNKNOWN':'ACTION_REJECTED');this.audit(`send.${status}`,id);return status;}
   }
-  deliveries(){return this.db.prepare("SELECT id,target,author,status,message_id AS messageId,error,created_at AS createdAt,author='local-owner' AS proactive FROM channel_deliveries ORDER BY rowid DESC LIMIT 100").all().map(row=>({...row,proactive:!!row.proactive}));}
+  deliveries():QQDelivery[]{const rows=this.db.prepare("SELECT id,target,author,status,message_id AS messageId,error,created_at AS createdAt,author='local-owner' AS proactive FROM channel_deliveries ORDER BY rowid DESC LIMIT 100").all() as (Omit<QQDelivery,'proactive'>&{proactive:number})[];return rows.map(row=>({...row,proactive:!!row.proactive}));}
   async send(input:unknown,assertScope:()=>void=()=>{}):Promise<SendResult>{
     const b=object(input),to=target(b.target),parts=segments(b.segments,true),revision=this.revision;
     assertScope();if(!this.allowed(to,revision,true))throw new InputError('PERMISSION_REVOKED',403);

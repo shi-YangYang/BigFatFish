@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,11 +30,12 @@ it('resumes a legacy DeepSeek session and clears its persisted explicit output c
   const engine = new DSHAdapter(p);
   try {
     await old.run('remember legacy marker',{sessionId}); await old.close();
-    expect(fixture.requests.find(req=>req.url.includes('messages'))?.body.max_tokens).toBe(512);
+    expect(fixture.requests.find(req=>req.url.includes('messages'))?.body?.max_tokens).toBe(512);
     const before = fixture.requests.length;
     const result = await engine.run({conversationId,sessionId,resume:true,model:{id:'ds',label:'DS',provider:'deepseek',baseURL:fixture.url.replace('/v1','/anthropic'),model:'deepseek-v4-flash'},key:'fixture',persona:defaultPersona,prompt:'continue',signal:AbortSignal.timeout(20000),onText:()=>{},onSessionReady:()=>{}});
     expect(result).toContain('回复');
     const request = fixture.requests.slice(before).find(req=>req.url.includes('messages'))!;
+    assert(request.body, 'expected a JSON model request');
     expect(request.body.max_tokens).toBeGreaterThan(512); expect(JSON.stringify(request.body.messages)).toContain('remember legacy marker');
   } finally { await old.close(); await engine.close(); await fixture.close(); rmSync(root,{recursive:true,force:true}); }
 },60000);

@@ -100,4 +100,6 @@
 - [Spec 055：QQ 互动工具与自主账号生活](spec-055-qq-self-tools/spec.md)：已完成，补充聊天互动、自身资料、头像与自主说说；[返工独立验收 PASS](spec-055-qq-self-tools/acceptance-r1.md)。
 - [Spec 056：QQ 内置能力](spec-056-builtin-qq/spec.md)：已将自有 QQ 适配并入 Runtime，取消独立插件安装及升级；[独立验收 PASS](spec-056-builtin-qq/acceptance.md)。
 - [Spec 057：QQ 回复耗时与连接反馈](spec-057-qq-response-and-loading/spec.md)：[独立复验 PASS](spec-057-qq-response-and-loading/acceptance-r1.md)；减少工具收尾与网络表情等待、修复旧后台反馈并补连接 loading。用户授权后新版后台已启用，QQ 已扫码在线。
-- [Spec 058：CI 触发去重](spec-058-ci-trigger/spec.md)：[独立验收 PASS](spec-058-ci-trigger/acceptance.md)；限制 push 为 main，PR 保留一次 checks，未提交/推送。
+- [Spec 058：CI 触发去重](spec-058-ci-trigger/spec.md)：[独立验收 PASS](spec-058-ci-trigger/acceptance.md)；限制 push 为 main，PR 保留一次 checks，已本地提交 1a837de，未推送。
+- [Spec 059：CI 类型检查](spec-059-ci-typecheck/spec.md)：[独立验收 PASS](spec-059-ci-typecheck/acceptance.md)；同步测试与夹具类型，完整 typecheck 及定向场景通过，未提交/推送。
+- [Spec 060：跨平台运行与编译 CI](spec-060-platform-ci/spec.md)：[独立验收 PASS](spec-060-platform-ci/acceptance.md)；CI 专注系统运行与编译，安装包改由用户手动生成；未提交/推送。

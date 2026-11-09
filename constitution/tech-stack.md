@@ -43,6 +43,9 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 | 构建桌面前端或 Web | `npm run build:desktop`、`npm run build:web`；`npm run build` 构建 Node 和两个前端。 |
 | 生成便携目录或原生安装包 | `npm run release:prepare`、`npm run desktop:build` |
 | 工程检查 | `npm run typecheck`、`npm run lint`、`npm test`；按变更风险选择相关检查，纯文档改动通常只核对 diff。 |
+| CI 平台运行检查 | `npm run test:platform` 编译 Node 并运行进程、CLI、权限及维护边界测试；Linux、macOS、Windows 均执行。 |
+
+CI 只做运行与编译：macOS/Windows 还编译真实桌面前端、以 debug 和 `tauri/custom-protocol` 编译 Rust 宿主并运行原生单元测试；Linux Docker job 编译 Runtime/Web 并运行隔离 smoke。桌面 job 通过仅 CI 的 `TAURI_CONFIG` 关闭资源复制，使用独立 Cargo 缓存；不生成安装器/便携包、不归档上传，也不重复全仓业务测试/typecheck/lint。本地打包命令保持不变。决策见 [CI 边界](../.ai/decisions/029-platform-ci.md)。
 
 Linux 可运行便携包里的 `bin/bigfatfishd`，也可使用非 root Docker/Compose 或 systemd 用户服务。管理 API 仅监听回环；浏览器远程管理须单独配置并启动 HTTPS 网关。安装和备份步骤见 [安装与迁移](../docs/install-and-migrate.md)，插件协议和网关设置见 [开发者指南](../docs/developer.md)。
 

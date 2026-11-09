@@ -136,11 +136,11 @@ it("backs up a drained real DSH fish, restores without hidden engine context, re
     const resumed = await chat("迁移后继续");
     expect(resumed.status).toBe("completed");
     expect(resumed.error).toMatch(/^RESTORED_CONTEXT_100_9903_0$/);
-    const request = JSON.stringify(fixture.requests.at(-1)?.body.messages);
+    const request = JSON.stringify(fixture.requests.at(-1)?.body?.messages);
     expect(request).toContain("latest-history");
     expect(request).not.toContain("old-history-0");
     expect(request.match(/迁移后继续/g)?.length).toBe(1);
-    expect(JSON.stringify(fixture.requests.at(-1)?.body.messages)).toContain(
+    expect(JSON.stringify(fixture.requests.at(-1)?.body?.messages)).toContain(
       "迁移前蓝色标记",
     );
     await runtime.stop();

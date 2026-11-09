@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import type { ChildProcess } from 'node:child_process';
 import { test, expect } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,7 +34,7 @@ async function temporary(run: (dir: string) => Promise<void>) {
 }
 
 test('data override and exact process boundaries include spaces without accepting lookalikes', () => {
-  expect(resolveDevDataDir({ BIGFATFISH_DATA_DIR: '/tmp/data one', APPDATA: '/tmp/app' }, 'win32', '/tmp/home')).toBe('/tmp/data one');
+  expect(resolveDevDataDir({ BIGFATFISH_DATA_DIR: '/tmp/data one', APPDATA: '/tmp/app' }, 'win32', '/tmp/home')).toBe(resolve('/tmp/data one'));
   expect(commandMatchesEntry('/node /repo one/dist/runtime/src/main.js --data-dir /data --port 0', '/node', '/repo one/dist/runtime/src/main.js', 'darwin')).toBe(true);
   expect(commandMatchesEntry('/node /repo one/dist/runtime/src/main.js.evil --data-dir /data', '/node', '/repo one/dist/runtime/src/main.js', 'darwin')).toBe(false);
   expect(commandMatchesEntry('"C:\\Node Tools\\node.exe" "C:\\Fish App\\dist\\runtime\\src\\main.js" --data-dir "C:\\Data"', 'C:\\Node Tools\\node.exe', 'C:\\Fish App\\dist\\runtime\\src\\main.js', 'win32')).toBe(true);
@@ -124,11 +126,13 @@ test('expected-instance shutdown refuses a replacement before sending shutdown',
 }));
 
 test('abort while preparing terminates owned build process and allows a retry', async () => temporary(async dataDir => {
-  const controller = new AbortController(); let build;
+  type BuildProcess = { child: ChildProcess; exited: Promise<unknown> };
+  const controller = new AbortController(); let build: BuildProcess | undefined;
   await expect(startDevelopment({ ...options, dataDir, signal: controller.signal, prepare: async (_root: string, track: (value: unknown) => unknown) => {
-    build = launch(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached: process.platform !== 'win32', stdio: 'ignore' });
-    track(build); controller.abort(new Error('DEV_INTERRUPTED')); await build.exited;
+    const launched: BuildProcess = launch(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached: process.platform !== 'win32', stdio: 'ignore' });
+    build = launched; track(launched); controller.abort(new Error('DEV_INTERRUPTED')); await launched.exited;
   } })).rejects.toThrow('DEV_INTERRUPTED');
+  assert(build, 'preparation must have launched the owned process');
   expect(build.child.exitCode !== null || build.child.signalCode !== null).toBe(true);
   const next = await startDevelopment({ ...options, dataDir }); await next.stop();
 }));

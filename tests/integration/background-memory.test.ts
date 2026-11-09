@@ -79,7 +79,7 @@ it('extracts a source through the configured chat provider using an isolated DSH
     await vi.waitFor(() => expect(chat.life.memories.list({ status: 'confirmed' })).toEqual([
       expect.objectContaining({ role: 'owner', sources: [expect.objectContaining({ quote })] }),
     ]), { timeout: 15000 });
-    const analysis = fixture.requests.filter(r => JSON.stringify(r.body.messages).includes('BFF_MEMORY_TURN_ANALYSIS'));
+    const analysis = fixture.requests.filter(r => JSON.stringify(r.body?.messages).includes('BFF_MEMORY_TURN_ANALYSIS'));
     expect(analysis).toHaveLength(1);
   } finally {
     await chat.close();

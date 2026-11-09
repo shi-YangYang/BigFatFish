@@ -44,7 +44,7 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
   preparePaths(p);
   const db = openDatabase(p.database), fixture = await fixtureModel();
   const chat = new ChatService(db, p);
-  const lastSystem = () => JSON.stringify(fixture.requests.at(-1)?.body.messages.filter((item: {role: string}) => item.role === 'system'));
+  const lastSystem = () => JSON.stringify(fixture.requests.at(-1)?.body?.messages?.filter(item => item.role === 'system'));
   try {
     expect(chat.config.persona()).toEqual(defaultPersona);
     chat.config.saveModel({ id: 'fixture', provider: 'openai', baseURL: fixture.url, model: 'fixture-model' });
@@ -63,7 +63,7 @@ it('sends current persona on real DSH resume, distinguishes friends and keeps me
     expect(reply.personaVersion).toBe(cheeky.version);
     expect(lastSystem()).toContain(cheeky.traits);
     expect(lastSystem()).not.toContain(defaultPersona.traits);
-    const wire = JSON.stringify(fixture.requests.at(-1)?.body.messages);
+    const wire = JSON.stringify(fixture.requests.at(-1)?.body?.messages);
     expect(wire).toContain('你好，我喜欢茉莉花茶，记住蓝色标记');
     expect(wire).toContain('测试模型回复');
 
@@ -100,7 +100,7 @@ it('keeps conversational persona out of activity-selection requests while retain
 
     const result = await chat.chooseActivity(choices, new AbortController().signal);
     expect(result).toEqual({ index: 0, reason: '已确认兴趣与允许的视频相符', modelId: 'fixture' });
-    const messages = fixture.requests.at(-1)!.body.messages as { role: string; content: string | { type: string; text?: string }[] }[];
+    const messages = fixture.requests.at(-1)!.body?.messages as { role: string; content: string | { type: string; text?: string }[] }[];
     const textOf = (message: typeof messages[number]) => typeof message.content === 'string'
       ? message.content : message.content.filter(part => part.type === 'text').map(part => part.text ?? '').join('\n');
     const wireText = messages.map(textOf).join('\n');

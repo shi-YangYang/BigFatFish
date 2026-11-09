@@ -38,7 +38,7 @@ it.skipIf(!ffmpeg)('real upstream → DSH image request → candidate/activity/d
   const initial=await call<VideoTask>('/v1/bilibili/tasks','POST',{bvid:'BV1234567890',requestId:'first'});
   const wait=async(id:string)=>{let t=await call<VideoTask>('/v1/bilibili/tasks/'+id);for(let i=0;i<800&&['queued','running','understanding'].includes(t.status);i++){await delay(100);t=await call('/v1/bilibili/tasks/'+id);}return t;};
   const task=await wait(initial.id);expect(task.status,JSON.stringify(task)).toBe('completed');expect(task.result?.evidence.frames).toBe(9);expect(task.result?.summary).toContain('海洋');
-  const imageRequest=fixture.requests.find(r=>JSON.stringify(r.body).includes('BFF_VIDEO_UNDERSTAND'));expect(JSON.stringify(imageRequest)).toContain('data:image/jpeg;base64,');expect(imageRequest?.body.tools??[]).toHaveLength(0);
+  const imageRequest=fixture.requests.find(r=>JSON.stringify(r.body).includes('BFF_VIDEO_UNDERSTAND'));expect(JSON.stringify(imageRequest)).toContain('data:image/jpeg;base64,');expect(imageRequest?.body?.tools??[]).toHaveLength(0);
   expect((await call<VideoTask>('/v1/bilibili/tasks','POST',{bvid:'BV1234567890',requestId:'again'})).id).toBe(task.id);
   expect((await cli(['tasks']))[0].status).toBe('completed');
   const memories=await call<{id:string;status:string;kind:string}[]>('/v1/memories');expect(memories.find(m=>m.kind==='interest')?.status).toBe('candidate');

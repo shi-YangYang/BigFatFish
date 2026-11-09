@@ -11,13 +11,14 @@ let nextStatus:number|undefined,responses:PassThrough[]=[];
 beforeEach(()=>{
  address='8.8.8.8';status=200;length='2';body=Buffer.from('ok');usedAddress='';location='https://127.0.0.1/secret';nextStatus=undefined;responses=[];
  vi.mocked(lookup).mockImplementation(((_host:unknown,_options:unknown,done:(e:Error|null,addresses:unknown[])=>void)=>done(null,[{address,family:4}])) as typeof lookup);
+ // This partial EventEmitter implements only the URL/options/callback overload exercised here.
  vi.mocked(request).mockImplementation(((_url:unknown,options:{signal:AbortSignal;lookup:(host:string,options:unknown,done:(err:Error|null,ip:string)=>void)=>void;headers:Record<string,string>},callback:(res:PassThrough&{statusCode:number;headers:Record<string,string>})=>void)=>{
   const req=new EventEmitter() as EventEmitter&{end:()=>void};req.end=()=>queueMicrotask(()=>{
    if(options.signal.aborted){req.emit('error',options.signal.reason);return;}
    expect(options.headers.authorization).toBeUndefined();
    options.lookup('img.aigengtu.com',{},(error,ip)=>{if(error){req.emit('error',error);return;}usedAddress=ip;const res=Object.assign(new PassThrough(),{statusCode:status,headers:{'content-length':length,'content-type':'text/html',...(status===302?{location}:{})}});responses.push(res);if(nextStatus!==undefined){status=nextStatus;nextStatus=undefined;}callback(res);if(!res.destroyed)res.end(body);});
   });return req;
- }) as typeof request);
+ }) as unknown as typeof request);
 });
 it('rejects malformed redirect callbacks without crashing and preserves redirect guards',async()=>{
  const get=()=>readWeb('https://public.example/article',new AbortController().signal);
