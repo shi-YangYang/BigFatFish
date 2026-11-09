@@ -4,7 +4,15 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec057 QQ 回复耗时与连接 loading
+## 当前任务：Spec058 PR CI 触发去重
+
+用户要求 PR 两个 CI 合为一个；当前 dev/ea620dd，与 origin/dev 同步，工作区起初干净。GitHub PR #1 未合并，同一提交确有 push 与 pull_request 两次 checks。按 [Spec058](../../specs/spec-058-ci-trigger/spec.md) 和 [Plan](../../specs/spec-058-ci-trigger/plan.md) 仅限制 push 为 main，保留 PR 默认事件及全部原任务。S1，最多一次直接相关检查，不跑全仓测试/build。此前 commit/push 授权已用于 Spec057，本轮不提交/推送，不取消云端运行。单实施 + 新独立验收。
+
+实施完成，新独立 [验收 PASS](../../specs/spec-058-ci-trigger/acceptance.md)，报告均已完整读取，无待返工。一次 YAML 解析/语义对比证实除 on 外完整 workflow 不变，diff 检查通过；未重复测试/build。当前本地改动待用户指示提交/推送，未改云端既有运行。已满足停止条件。
+
+用户随后要求「local commit；CI测试报错」，本地提交授权用于保存已验收的 Spec058；随后单独修复用户提供的 typecheck 日志。此次不含推送，也不自动提交后续修复。
+
+## 上一任务：Spec057 QQ 回复耗时与连接 loading
 
 Spec056已提交 dev / 6d6652c，未推送，当前任务开始干净。用户反馈两卡报错并澄清QQ能回复但变慢，要求连接耗时状态loading。已只读证实旧后台仍运行、self-options/action-issues返回404；近期文本需两次模型请求约11–12秒，send_message后多4–6秒收尾，网络表情逐回合10秒超时，投递仅几百毫秒。按[Spec057](../../specs/spec-057-qq-response-and-loading/spec.md)、[Plan](../../specs/spec-057-qq-response-and-loading/plan.md)、[Decision028](../decisions/028-qq-response-latency.md)进行。只单实施串行+新独立验收；不改完整人设/记忆结构，不收费调用/真实外发/自动commit。实施只用隔离数据，真实实例诊断/启用由根协调处理。
 
