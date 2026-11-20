@@ -85,9 +85,9 @@ node dist/cli/src/main.js channels stop --json
 
 ## 实际验证
 
-`npx vitest run apps/runtime/src/channels/protocol.test.ts tests/integration/qq.test.ts` 使用隔离 OneBot 夹具、真实 DSH 和本地 HTTP 测试模型；`node scripts/smoke-qq.mjs` 使用构建后 CLI/Runtime/内置 QQ完成配置、直接发送和停用，临时数据自动清理。`--desktop` 保持夹具运行供原生 UI 验证，Ctrl-C 清理。
+`npx vitest run apps/runtime/src/channels/protocol.test.ts tests/integration/qq/qq.test.ts` 使用隔离 OneBot 夹具、真实 DSH 和本地 HTTP 测试模型；`node scripts/smoke/smoke-qq.mjs` 使用构建后 CLI/Runtime/内置 QQ完成配置、直接发送和停用，临时数据自动清理。`--desktop` 保持夹具运行供原生 UI 验证，Ctrl-C 清理。
 
-`tests/integration/qq-rework.test.ts` 另用确定性模型桩验证生成后健康检查挂起期间撤销共享、未撤销发送对照、主人/直接发送语义，以及非法凭据不改变配置、旧异常凭据重启后的本地聊天和修正恢复。
+`tests/integration/qq/qq-rework.test.ts` 另用确定性模型桩验证生成后健康检查挂起期间撤销共享、未撤销发送对照、主人/直接发送语义，以及非法凭据不改变配置、旧异常凭据重启后的本地聊天和修正恢复。
 
 用户已在真实 QQ 上确认扫码登录和文字回复。多好友与群触发策略、主动发送、图片与语音处理、文件和表情投递的验证依据是隔离夹具。真实账号的媒体效果、Windows 原生运行和云模型表现仍需分别验证。
 

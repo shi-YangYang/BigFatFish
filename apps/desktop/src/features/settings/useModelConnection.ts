@@ -1,7 +1,7 @@
 import { dismissError } from '../../components/Notifications';
 import { useEffect, useRef, useState } from 'react';
 import type { ModelConfig } from '../../../../runtime/src/ai/types';
-import type { ModelDiscovery, ModelTestResult } from '../../../../runtime/src/ai/model-connection';
+import type { ModelDiscovery, ModelTestResult } from '../../../../runtime/src/ai/models/model-connection';
 import { api } from "../../api/client";
 type Action = 'discover' | 'test';
 interface Result { stamp: string; kind: Action; message: string; error?: boolean }

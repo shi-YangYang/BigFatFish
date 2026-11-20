@@ -2,9 +2,9 @@ import { mkdtempSync,rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach,expect,it,vi } from 'vitest';
-import type { ChatService } from '../ai/chat.js';
+import type { ChatService } from '../ai/chat/service.js';
 import type { Channels } from '../channels/service.js';
-import { paths } from '../paths.js';
+import { paths } from '../storage/paths.js';
 import { openDatabase } from '../storage/database.js';
 import { Bilibili } from './service.js';
 

@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws';
-import { readConnection, requestRuntime } from '../../../runtime/src/connection.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import { readConnection, requestRuntime } from '../../../runtime/src/host/connection.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 
 export function createRuntimeClient(paths: DataPaths) {
   const connection = readConnection(paths);

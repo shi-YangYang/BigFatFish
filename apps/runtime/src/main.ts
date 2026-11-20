@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { parseOptions, publicError } from './arguments.js';
-import { dataRoot, paths } from './paths.js';
-import { startRuntime } from './lifecycle.js';
-import { reportStartup } from './startup.js';
+import { parseOptions, publicError } from './host/arguments.js';
+import { dataRoot, paths } from './storage/paths.js';
+import { startRuntime } from './host/lifecycle.js';
+import { reportStartup } from './host/startup.js';
 try {
   const options = parseOptions(process.argv.slice(2));
   if (options.help) console.log('bigfatfishd [--data-dir PATH] [--port PORT]');

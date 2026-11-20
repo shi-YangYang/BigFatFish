@@ -1,4 +1,4 @@
-import {acquireInstance} from '../instance.js';
+import {acquireInstance} from '../host/instance.js';
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import WebSocket from 'ws';
@@ -7,9 +7,9 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkPassword, type WebConfig } from './config.js';
-import { readConnection } from '../connection.js';
-import { publicError } from '../arguments.js';
-import type { DataPaths } from '../paths.js';
+import { readConnection } from '../host/connection.js';
+import { publicError } from '../host/arguments.js';
+import type { DataPaths } from '../storage/paths.js';
 import { exportArchive, inspectArchive, restoreArchive, type Scope } from '../maintenance/archive.js';
 export async function createWeb(p:DataPaths,c:WebConfig,processes:{stop:()=>Promise<unknown>;start:()=>Promise<unknown>;update?:(action:string)=>Promise<unknown>}){
  const app=Fastify({logger:false,https:{key:readFileSync(c.key),cert:readFileSync(c.cert)},bodyLimit:180*1024*1024,requestTimeout:15000,forceCloseConnections:true,trustProxy:false});

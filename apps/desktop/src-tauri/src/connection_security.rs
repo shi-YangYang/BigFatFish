@@ -1,7 +1,7 @@
 #[cfg(target_os = "windows")]
 pub fn verify(root: &std::path::Path, file: &std::path::Path) -> Result<(), String> {
     use std::{io::Write, os::windows::process::CommandExt, process::{Command, Stdio}};
-    let script = include_str!("../../../runtime/src/windows-acl.ps1");
+    let script = include_str!("../../../runtime/src/permissions/windows-acl.ps1");
     // Constant script on the command line, data only on stdin. No path interpolation.
     let executable = std::env::var_os("SystemRoot").map(std::path::PathBuf::from)
         .ok_or("INSECURE_CONNECTION")?

@@ -13,6 +13,8 @@ node_modules/
 .pnpm-store/
 dist/
 build/
+# Version-controlled build scripts, not generated output.
+!/scripts/build/
 .cache/
 .vite/
 .turbo/

@@ -1,7 +1,7 @@
 import {readInput as input} from '../io/input.js';
 import { randomUUID } from 'node:crypto';
 import { createRuntimeClient } from '../runtime/client.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 export async function bilibiliCommand(p:DataPaths,args:string[],output:(value:unknown)=>void){
  const [, action = 'status', id] = args;
  const { request: call } = createRuntimeClient(p);

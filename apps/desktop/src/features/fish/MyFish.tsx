@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Tabs } from "../../components/UI";
-import { Home, Life } from "./Life";
-import { Memories } from "./Memories";
+import { Home, Life } from "./life/Life";
+import { Memories } from "./memory/Memories";
 import { Personality } from "./Personality";
-import { Activities } from "./Activities";
+import { Activities } from "./activities/Activities";
 
 export function MyFish({ fail }: { fail: (error: unknown) => void }) {
   const [tab, setTab] = useState("概览");

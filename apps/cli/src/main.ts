@@ -9,8 +9,8 @@ import { bilibiliCommand } from './commands/bilibili.js';
 import { channelCommand } from './commands/channels.js';
 import { lifeCommand } from './commands/life.js';
 import { aiCommand } from './commands/ai.js';
-import { parseOptions, publicError } from '../../runtime/src/arguments.js';
-import { dataRoot, paths } from '../../runtime/src/paths.js';
+import { parseOptions, publicError } from '../../runtime/src/host/arguments.js';
+import { dataRoot, paths } from '../../runtime/src/storage/paths.js';
 import { runtimeCommand } from './commands/runtime.js';
 let json = process.argv.includes('--json');
 function output(value: unknown) { console.log(json ? JSON.stringify(value) : JSON.stringify(value, null, 2)); }

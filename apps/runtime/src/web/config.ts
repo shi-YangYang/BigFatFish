@@ -1,8 +1,8 @@
-import {acquireInstance} from '../instance.js';
+import {acquireInstance} from '../host/instance.js';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { preparePaths, privateFile, assertRegular, type DataPaths } from '../paths.js';
+import { preparePaths, privateFile, assertRegular, type DataPaths } from '../storage/paths.js';
 export interface WebConfig { origin:string; host:string; port:number; cert:string; key:string; salt:string; hash:string; sessionMs:number }
 // Local operator only. The separate web config lives outside movable config/data and is never exported.
 export function configureWeb(p:DataPaths,input:Record<string,unknown>){

@@ -2,12 +2,12 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, readdirSync, lstatSync, readFileSync, chmodSync } from 'node:fs';
 import { join, resolve, sep, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertRegular, privateFile, type DataPaths } from '../paths.js';
-import { windowsAcl } from '../windows-acl.js';
+import { assertRegular, privateFile, type DataPaths } from '../storage/paths.js';
+import { windowsAcl } from '../permissions/windows-acl.js';
 import { InputError } from '../ai/types.js';
-import type { EngineImage } from '../ai/engine.js';
-const built=new URL('../../../plugins/bilibili/',import.meta.url),source=new URL('../../../../plugins/bilibili/',import.meta.url);
-const adapterURL=existsSync(built)?built:source;
+import type { EngineImage } from '../ai/engine/contract.js';
+const sourceAdapter = new URL('./adapter/', import.meta.url);
+const adapterURL = existsSync(sourceAdapter) ? sourceAdapter : new URL('../../../plugins/bilibili/', import.meta.url);
 export async function loadBilibili(){return import(new URL('index.mjs',adapterURL).href);}
 export type Credentials={sessdata:string;bili_jct:string;buvid3:string};
 export interface Evidence {title:string;url:string;bvid:string;subtitles:string;frames:number;sample:string;warnings:string[];metadataCached:boolean;observedAt:string}

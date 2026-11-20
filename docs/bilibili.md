@@ -44,7 +44,7 @@ npm run cli -- bilibili share TASK_ID --json < .local/share.json
 
 ## 来源和数据边界
 
-固定来源为 [whale 0.4.6 / 8b0009f](https://github.com/Alterssss/dsh-bili-whale/tree/8b0009f8ce2ebdc421afcb2e727b19ac18912ec6)。`plugins/bilibili/upstream/` 保存 MIT LICENSE、原 NOTICE、UPSTREAM.json 和 bff.patch。没有独立 package.json 或安装步骤；qrcode 1.5.4 由根依赖管理。未加载其 lib/index.js、大脑、调度器或社交写命令。comments 所需 ai-share 库仅用于上游评论缓存，无模型/分享调用。
+固定来源为 [whale 0.4.6 / 8b0009f](https://github.com/Alterssss/dsh-bili-whale/tree/8b0009f8ce2ebdc421afcb2e727b19ac18912ec6)。`apps/runtime/src/bilibili/adapter/upstream/` 保存 MIT LICENSE、原 NOTICE、UPSTREAM.json 和 bff.patch。没有独立 package.json 或安装步骤；qrcode 1.5.4 由根依赖管理。未加载其 lib/index.js、大脑、调度器或社交写命令。comments 所需 ai-share 库仅用于上游评论缓存，无模型/分享调用。
 
 补丁明确指定 `BFF_BILI_DATA_DIR` 工作目录和 `BFF_BILI_STATE_DIR` 持久缓存/风控目录，使用当前 Node、不探测其他应用运行时或剪映，字幕语言名验证防止生成越界文件，缓存命中标记对宿主可见。HOME/USERPROFILE 不变，也不读取既有 `.bili-ai`。凭据统一加密存于 plugin_config；仅执行时写入 `runtime/bilibili/run-*/.bili-ai/credentials.json`，目录 0700、文件 0600（Windows 使用既有 ACL），结束/取消清理，重启清理残留。缓存和请求保护位于 `data/bilibili/`，保留上游风控退避，不绕过限制。
 
@@ -55,7 +55,7 @@ npm run cli -- bilibili share TASK_ID --json < .local/share.json
 本机夹具运行原始 CLI/认证库、真实 ffmpeg 和真实 DSH，替代的仅是网络响应与测试账号，不代表真实 B站账户或模型语义质量。定向测试可复现：
 
 ```sh
-BFF_TEST_FFMPEG=/absolute/path/to/ffmpeg npx vitest run apps/runtime/src/bilibili tests/integration/bilibili.test.ts
+BFF_TEST_FFMPEG=/absolute/path/to/ffmpeg npx vitest run apps/runtime/src/bilibili tests/integration/bilibili/bilibili.test.ts
 ```
 
 未指定测试 ffmpeg 时，实际视频抽样的两项测试跳过。上述验证覆盖本机夹具；真实 B站账号扫码、观看后分享到 QQ、Windows 和云模型效果仍待验证。用户已确认的 QQ 扫码及文字回复记录见 [QQ 渠道](qq.md#实际验证)。

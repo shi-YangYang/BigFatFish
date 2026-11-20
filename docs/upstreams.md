@@ -4,7 +4,7 @@
 
 ## 中文记忆检索
 
-使用智源 BGE small zh v1.5（MIT）的 INT8 量化权重和配套分词器。首次启用时按固定版本下载并逐文件校验 SHA-256。在本机对检索问题加中文检索指令，取 CLS 并归一化。文件版本、大小与摘要见[下载清单](../apps/runtime/src/memory/bge-assets.ts)。[原始模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5) · [固定的 ONNX 转换版本](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
+使用智源 BGE small zh v1.5（MIT）的 INT8 量化权重和配套分词器。首次启用时按固定版本下载并逐文件校验 SHA-256。在本机对检索问题加中文检索指令，取 CLS 并归一化。文件版本、大小与摘要见[下载清单](../apps/runtime/src/memory/recall/bge-assets.ts)。[原始模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5) · [固定的 ONNX 转换版本](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
 
 ## DSH Harness
 

@@ -4,12 +4,12 @@ import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { FastifyInstance } from 'fastify';
-import {assertRegular,type DataPaths} from '../paths.js';
+import {assertRegular,type DataPaths} from '../storage/paths.js';
 import { InputError, object, string } from '../ai/types.js';
 import { validateBundle, validateConfig, hash, type Manifest, validateArguments } from './package.js';
 import { PluginProcess } from './process.js';
 import { assertExtensionId, isBuiltinPlatform } from './builtin.js';
-import type { EngineTool } from '../ai/engine.js';
+import type { EngineTool } from '../ai/engine/contract.js';
 interface State {manifest:Manifest;directory:string;enabled:boolean;granted:string[];config:Record<string,unknown>;storage:Record<string,unknown>;installed:boolean;generation:string}
 export class Plugins {
  private closing=false;private management=new Set<Promise<unknown>>();

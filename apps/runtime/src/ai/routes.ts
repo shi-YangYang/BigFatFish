@@ -1,9 +1,9 @@
-import { discoverModels, testModelConnection, MODEL_CONNECTION_TIMEOUT_MS } from './model-connection.js';
-import {transcribe,synthesize} from './media.js';
+import { discoverModels, testModelConnection, MODEL_CONNECTION_TIMEOUT_MS } from './models/model-connection.js';
+import {transcribe,synthesize} from './media/media.js';
 import type { FastifyInstance, RouteShorthandOptions } from 'fastify';
 import websocket from '@fastify/websocket';
-import type { ChatService } from './chat.js';
-import { registerChatEvents } from './events.js';
+import type { ChatService } from './chat/service.js';
+import { registerChatEvents } from './chat/events.js';
 export async function registerAi(app: FastifyInstance, chat: ChatService) {
   await app.register(websocket, { options: { maxPayload: 1024 } });
   app.post('/v1/media/transcribe',async req=>transcribe(chat.config,req.body as {data:string;mimeType:string},AbortSignal.timeout(60000)));

@@ -1,5 +1,5 @@
 import { useModelConnection } from "./useModelConnection";
-import { reasoningEfforts } from "../../../../runtime/src/ai/model-options";
+import { reasoningEfforts } from "../../../../runtime/src/ai/models/model-options";
 import type { ReasoningEffort } from "../../../../runtime/src/ai/types";
 import { Card } from "../../components/Surfaces";
 import {

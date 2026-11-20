@@ -101,8 +101,11 @@ docker run --rm bigfatfish:local node scripts/smoke.mjs
 | 桌面与 Web 共用的业务页面 | `apps/desktop/src/features/` 下的 [聊天](apps/desktop/src/features/chat/)、[连接](apps/desktop/src/features/connections/)、[我的鱼](apps/desktop/src/features/fish/) 和 [设置](apps/desktop/src/features/settings/) |
 | 通用组件和样式 | [组件](apps/desktop/src/components/)、[beUI](apps/desktop/src/components/beui/)、[样式](apps/desktop/src/styles/) |
 | 界面如何访问后台 | [前端 API](apps/desktop/src/api/)、[Runtime 服务](apps/runtime/src/) |
+| 聊天、人格与记忆 | [对话](apps/runtime/src/ai/chat/)、[人设](apps/runtime/src/ai/persona/)、[模型配置](apps/runtime/src/ai/models/)、[记忆学习](apps/runtime/src/memory/learning/)、[回忆检索](apps/runtime/src/memory/recall/) |
+| 内置平台接入 | [QQ](apps/runtime/src/channels/)、[B站](apps/runtime/src/bilibili/)、[抖音](apps/runtime/src/douyin/)；外部插件使用单独的 [SDK](plugins/sdk/) |
 | CLI 子命令 | [命令入口](apps/cli/src/main.ts)、[命令处理](apps/cli/src/commands/)、[输入](apps/cli/src/io/input.ts)、[Runtime 请求与进程控制](apps/cli/src/runtime/) |
 | 桌面与浏览器各自的入口 | [Tauri 原生宿主](apps/desktop/src-tauri/)、[Web 入口](apps/web/src/) |
+| 开发、构建与验证 | [工程脚本](scripts/)、[分业务集成测试](tests/integration/)、[测试夹具](tests/fixtures/)、[部署配置](infra/) |
 
 插件、辅助服务、部署与测试等目录见 [技术栈与工程边界](constitution/tech-stack.md#目录与职责)。
 

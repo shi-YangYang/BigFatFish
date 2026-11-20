@@ -5,11 +5,11 @@ import { mkdtempSync, rmSync, writeFileSync, statSync, symlinkSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate, migrations, openDatabase, SCHEMA_VERSION } from '../storage/database.js';
-import { preparePaths, paths } from '../paths.js';
-import { Configuration } from '../ai/configuration.js';
+import { preparePaths, paths } from '../storage/paths.js';
+import { Configuration } from '../ai/models/configuration.js';
 import { MemoryStore } from './store.js';
-import { LifeService, dayAt, diaryDate } from './life.js';
-import { privateCopy } from './files.js';
+import { LifeService, dayAt, diaryDate } from './life/service.js';
+import { privateCopy } from '../storage/private-copy.js';
 const roots:string[]=[];afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true,force:true});});
 const temp=()=>{const p=paths(mkdtempSync(join(tmpdir(),'bff-memory-unit-')));roots.push(p.root);preparePaths(p);return p;};
 const candidate=(content='主人喜欢茶',subject='主人饮品偏好',id='manual')=>({kind:'preference',content,subject,importance:3,sources:[{type:'user',id,quote:content}]});

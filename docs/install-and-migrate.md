@@ -6,7 +6,7 @@
 
 P6/P7 曾构建并验证本地 ad-hoc 签名的 macOS arm64 安装产物。后续源码改动需重新打包才能进入安装版。正式签名、公证、发布及 Windows 实机安装仍待验。安装器平台签名、公证和更新签名是不同的操作。CI 只验证跨平台运行与编译，不生成或上传安装包、便携包及更新归档；需要安装产物时，在目标系统手动执行上述构建命令。
 
-`npm run release:prepare` 在 `build/portable` 准备当前系统独立发行目录。Node 24.20.0 来自 nodejs.org 官方发行，固定平台 SHA-256 已写入构建脚本；`NODE-LICENSE`、根 `LICENSE`、`release.json` 中依赖版本/许可清单及各依赖原许可随包携带。生产依赖由根 lockfile 在目标系统重新安装。`node scripts/release-archive.mjs` 生成 `build/artifacts/*.tar.gz` 与校验文件。不要把运行数据放进安装目录。
+`npm run release:prepare` 在 `build/portable` 准备当前系统独立发行目录。Node 24.20.0 来自 nodejs.org 官方发行，固定平台 SHA-256 已写入构建脚本；`NODE-LICENSE`、根 `LICENSE`、`release.json` 中依赖版本/许可清单及各依赖原许可随包携带。生产依赖由根 lockfile 在目标系统重新安装。`node scripts/release/release-archive.mjs` 生成 `build/artifacts/*.tar.gz` 与校验文件。不要把运行数据放进安装目录。
 
 ## 桌面首次运行
 
@@ -104,7 +104,7 @@ macOS新程序启动失败时，按以下顺序人工回退（没有后台自动
 
 P6 曾在 macOS 上验证候选缺少内置 Node 时数据库保持原状，并从旧 .app 和原数据快照恢复。正式签名/公证与Windows实机验收仍是外部条件。
 
-正式更新发行需要离线保管签名私钥。`scripts/release-archive.mjs` 仅在显式设置 `BFF_RELEASE_PRIVATE_KEY` 和 `BFF_RELEASE_URL` 时生成portable签名清单，不上传、不发布。macOS构建后运行 `node scripts/desktop-update-archive.mjs`，生成只有一层 `.app` 根目录的更新归档与校验文件，明确禁用AppleDouble元数据。然后使用 `npx tauri signer sign -f /安全位置/私钥 --app-version 版本号 更新归档` 签名；清单版本须与实际应用及签名版本一致。Tauri安装器/更新包使用其官方signer；未提供正式钥时只交付本地未签名产物。不要提交临时私钥、测试信任配置或真实账号凭据。
+正式更新发行需要离线保管签名私钥。`scripts/release/release-archive.mjs` 仅在显式设置 `BFF_RELEASE_PRIVATE_KEY` 和 `BFF_RELEASE_URL` 时生成portable签名清单，不上传、不发布。macOS构建后运行 `node scripts/release/desktop-update-archive.mjs`，生成只有一层 `.app` 根目录的更新归档与校验文件，明确禁用AppleDouble元数据。然后使用 `npx tauri signer sign -f /安全位置/私钥 --app-version 版本号 更新归档` 签名；清单版本须与实际应用及签名版本一致。Tauri安装器/更新包使用其官方signer；未提供正式钥时只交付本地未签名产物。不要提交临时私钥、测试信任配置或真实账号凭据。
 
 卸载程序不会自动删除用户数据。重新安装或更换安装目录后仍使用原数据目录；跨机器迁移用逻辑备份。保留的回滚目录和更新快照可能含原始秘密，只在确认恢复/升级稳定后由用户清理。
 

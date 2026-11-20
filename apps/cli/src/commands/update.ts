@@ -10,7 +10,7 @@ import {
   loadTrust,
 } from "../../../runtime/src/maintenance/update.js";
 import { readInput } from "../io/input.js";
-import { acquireInstance } from "../../../runtime/src/instance.js";
+import { acquireInstance } from "../../../runtime/src/host/instance.js";
 import { stop } from "../runtime/process.js";
 import {
   writeFileSync,
@@ -27,7 +27,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { preparePaths, type DataPaths } from "../../../runtime/src/paths.js";
+import { preparePaths, type DataPaths } from "../../../runtime/src/storage/paths.js";
 export async function updateCommand(p: DataPaths, args: string[]) {
   const action = args[1] ?? "check";
   if (action === "trust") {

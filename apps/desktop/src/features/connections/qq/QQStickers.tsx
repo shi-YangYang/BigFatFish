@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import { api } from "../../../api/client";
 import { ContentScroll, Card,Loading} from '../../../components/Surfaces';
 import {ActionRow,Button,Checkbox,Field,FormGrid,Input} from '../../../components/Controls';
-import type {StickerInfo} from '../../../../../runtime/src/channels/stickers';
+import type {StickerInfo} from '../../../../../runtime/src/channels/stickers/library';
 const endpoint='/v1/channels/qq/stickers';
 type Options={networkEnabled:boolean;revision:string};
 export function QQStickers({fail}:{fail:(e:unknown)=>void}){

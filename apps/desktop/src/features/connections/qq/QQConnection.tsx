@@ -1,11 +1,11 @@
-import { ConnectionStatus } from '../ConnectionStatus';
+import { ConnectionStatus } from '../shared/ConnectionStatus';
 import {QQSelfActivity} from './QQSelfActivity';
 import {RefreshCw} from 'lucide-react';
 import {QQStickers} from './QQStickers';
 import {Tabs} from '../../../components/UI';
 import { useCallback,useEffect,useRef,useState,type ReactNode } from 'react';
-import { activeQQMode, qqStatus } from '../connection-status';
-import { ConnectionReadError } from '../ConnectionReadError';
+import { activeQQMode, qqStatus } from '../shared/connection-status';
+import { ConnectionReadError } from '../shared/ConnectionReadError';
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
 import { ContentScroll, Menu, Card,Alert } from '../../../components/Surfaces';

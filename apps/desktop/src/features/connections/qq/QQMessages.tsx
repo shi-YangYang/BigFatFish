@@ -1,4 +1,4 @@
-import {connectionReadMessage} from '../connection-errors';
+import {connectionReadMessage} from '../shared/connection-errors';
 import type { QQMessageIssue } from "../../../../../runtime/src/channels/types";
 import { ContentScroll, Card, Alert, Loading } from "../../../components/Surfaces";
 import { Button } from "../../../components/Controls";

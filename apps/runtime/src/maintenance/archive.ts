@@ -1,8 +1,8 @@
 import { isBuiltinPlatform } from '../plugins/builtin.js';
-import {classifyLegacyMemories, validAttribution} from '../memory/attribution.js';
+import {classifyLegacyMemories, validAttribution} from '../memory/identity/attribution.js';
 import {canShareMemory, type MemoryAttribution} from '../memory/types.js';
-import {ConversationNotes} from '../memory/notes.js';
-import {StickerLibrary} from '../channels/stickers.js';
+import {ConversationNotes} from '../memory/notes/notes.js';
+import {StickerLibrary} from '../channels/stickers/library.js';
 import {validateBundle,hash as pluginHash} from '../plugins/package.js';
 import { backup, DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
@@ -31,15 +31,15 @@ import {
   paths,
   preparePaths,
   type DataPaths,
-} from "../paths.js";
-import { acquireInstance } from "../instance.js";
-import { rebuildScenarios } from "../memory/scenario-store.js";
-import { rebuildPersonProfiles } from "../memory/person-profile.js";
+} from "../storage/paths.js";
+import { acquireInstance } from "../host/instance.js";
+import { rebuildScenarios } from "../memory/scenes/scenario-store.js";
+import { rebuildPersonProfiles } from "../memory/identity/person-profile.js";
 import { openDatabase, SCHEMA_VERSION } from "../storage/database.js";
-import { privateCopy } from "../memory/files.js";
-import { Configuration } from "../ai/configuration.js";
+import { privateCopy } from "../storage/private-copy.js";
+import { Configuration } from "../ai/models/configuration.js";
 import { configuration as parseConfig } from "../channels/protocol.js";
-import { SecretStore } from "../ai/secrets.js";
+import { SecretStore } from "../ai/models/secrets.js";
 
 export const groups = {
   persona: ["personas"],

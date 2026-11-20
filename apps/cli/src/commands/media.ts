@@ -1,4 +1,4 @@
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 import { readInput } from '../io/input.js';
 import { createRuntimeClient } from '../runtime/client.js';
 

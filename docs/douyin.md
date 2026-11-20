@@ -83,12 +83,12 @@ node dist/cli/src/main.js schedules run SCHEDULE_ID --json
 
 ## 来源与验证边界
 
-固定版本与完整来源在 `plugins/douyin/SOURCES.json`、NOTICE、两份 LICENSE 和 `bff.patch`。LockyBee 只裁剪宿主无需的独立应用部分，保留原始采样/证明算法；kdcadmin 实际 Python FastMCP 完成 initialize/initialized/list/call。安装包不依赖研究用 `/tmp` 源码。
+固定版本与完整来源在 `apps/runtime/src/douyin/adapter/SOURCES.json`、NOTICE、两份 LICENSE 和 `bff.patch`。LockyBee 只裁剪宿主无需的独立应用部分，保留原始采样/证明算法；kdcadmin 实际 Python FastMCP 完成 initialize/initialized/list/call。安装包不依赖研究用 `/tmp` 源码。
 
 既有隔离测试使用专用 Chrome、Python、DSH 和 Runtime，以夹具替代抖音页面、账号和 HTTP 模型端点。真实抖音登录、视频理解及点赞或评论收据仍待账号实测。可按以下命令复现隔离测试。
 
 ```sh
-BFF_TEST_PYTHON=/absolute/path/venv/bin/python BFF_TEST_FFMPEG=/absolute/path/ffmpeg npx vitest run tests/integration/douyin.test.ts tests/integration/douyin-crash.test.ts
+BFF_TEST_PYTHON=/absolute/path/venv/bin/python BFF_TEST_FFMPEG=/absolute/path/ffmpeg npx vitest run tests/integration/douyin/douyin.test.ts tests/integration/douyin/douyin-crash.test.ts
 npx vitest run apps/runtime/src/douyin/boundaries.test.ts apps/runtime/src/tasks
 ```
 

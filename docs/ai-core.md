@@ -30,7 +30,7 @@ Desktop 通过认证的原生宿主通道接收回复，Web 通过认证 WebSock
 
 ## 人设
 
-在「我的鱼 → 设定」可选女儿版或傲娇版，分别基于梗鲸的「女儿版 · 孺慕」和「QQ 群友版（官方默认人设）」。工具契约、身份和称呼由 Runtime 适配。完整原文、作者、日期及 SHA256 见[人设卡源码](../apps/runtime/src/ai/persona-cards.ts)，版权归原作者。[梗鲸人设页](https://aigengtu.com/persona)
+在「我的鱼 → 设定」可选女儿版或傲娇版，分别基于梗鲸的「女儿版 · 孺慕」和「QQ 群友版（官方默认人设）」。工具契约、身份和称呼由 Runtime 适配。完整原文、作者、日期及 SHA256 见[人设卡源码](../apps/runtime/src/ai/persona/cards.ts)，版权归原作者。[梗鲸人设页](https://aigengtu.com/persona)
 
 新安装默认女儿版，旧自定义设定可继续使用。「我的鱼 → 设定」可修改名字、选择性格，也可编辑完整人设。切换预设保留名字及已有头像、行为边界、作息和自主活动偏好；这些零散字段不再单独展示。点「保存设定」后，原会话下一轮即使用新设定。后台整理只使用任务所需信息。设定页只编辑当前版本；CLI 的 `persona history` 和 Runtime 的 `GET /v1/persona/history` 可查看最近 100 个版本。
 

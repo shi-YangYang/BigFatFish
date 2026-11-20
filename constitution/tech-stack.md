@@ -20,14 +20,20 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 
 | 位置 | 职责 |
 | --- | --- |
-| `apps/runtime/src/` | `server.ts`、`lifecycle.ts` 等负责本机 API、实例与生命周期；`ai/`、`memory/`、`tasks/` 负责引擎、养成和调度。QQ 内置客户端和业务在 `channels/`（`onebot/` 为传输与动作适配），B站与抖音在 `bilibili/`、`douyin/`；存储、维护、插件与 Web 网关有独立模块。 |
+| `apps/runtime/src/` | `main.ts` 是后台入口。`host/` 管本机 HTTP、进程与生命周期，`storage/` 管数据库和数据目录，`permissions/` 管本机文件权限。`tasks/`、`maintenance/`、`plugins/`、`web/` 分别负责调度、维护、第三方扩展和浏览器网关。 |
+| `apps/runtime/src/ai/` | `chat/` 处理对话，`models/` 管模型配置和连接，`engine/` 对接推理引擎；人设在 `persona/`，音频输入与朗读在 `media/`。 |
+| `apps/runtime/src/memory/` | 从对话学习在 `learning/`，会话笔记在 `notes/`；人物、场景、回忆检索分别在 `identity/`、`scenes/`、`recall/`，心情与日记在 `life/`。 |
+| `apps/runtime/src/channels/` | QQ 自动回复、群互动、账号操作和表情分别在 `replies/`、`groups/`、`account/`、`stickers/`；`onebot/` 负责传输，`managed/` 管理本机 QQ 组件。 |
 | `apps/cli/src/` | `main.ts` 分派命令，`commands/` 处理子命令，`io/input.ts` 读取输入，`runtime/` 负责客户端请求和进程控制。 |
-| `apps/desktop/src/` | React 入口和双端业务界面。`features/` 按聊天、连接、我的鱼、设置分区；`components/` 放通用组件和 beUI，`api/` 封装请求及事件传输，`hooks/`、`styles/`、`assets/` 放共享钩子、样式及资源。 |
+| `apps/desktop/src/features/` | 桌面和 Web 共用聊天、连接、我的鱼、设置四块业务界面。`connections/` 下按 QQ、B站、抖音分目录，通用连接状态与操作记录在 `connections/shared/`；`fish/` 下按记忆（`memory/`）、经历（`life/`）、活动（`activities/`）归档。 |
+| `apps/desktop/src/components/`、`apps/desktop/src/api/` | 前者是跨页面通用控件和 beUI，后者封装请求与事件传输。共享钩子、样式和静态资源分别放在同级的 `hooks/`、`styles/`、`assets/`。 |
 | `apps/desktop/src-tauri/src/`、`apps/web/src/` | 前者是 Rust 宿主，后者提供浏览器登录及 Web 管理设置，复用桌面业务组件。HTTPS 网关位于 `apps/runtime/src/web/`。 |
-| `plugins/`、`services/douyin/` | 尚未内置的 B站/抖音适配代码、普通源码 SDK 和抖音 Python 辅助服务。第三方插件示例在 `examples/hello-fish/`。 |
-| `third_party/napcat/` | 原样保存的 NapCat 固定源码、许可和预编译资源；独立上游 workspace 仅用于第三方构建，不属于大肥鱼业务分包。自有构建入口为 `scripts/build-napcat.mjs`。 |
-| `infra/docker/`、`infra/systemd/`、`scripts/` | Linux 部署配置；构建资源复制、开发进程管理、独立发行及签名归档脚本。 |
-| `tests/integration/`、`tests/fixtures/` | Vitest 跨模块检查、协议与界面夹具。模块级测试随源码存放。 |
+| `apps/runtime/src/bilibili/adapter/`、`apps/runtime/src/douyin/adapter/` | B站和抖音的内置适配脚本、固定上游资源与许可证。抖音独立运行的 Python 辅助服务位于 `services/douyin/`。 |
+| `plugins/sdk/`、`examples/hello-fish/` | 第三方扩展的源码 SDK 与示例，不用于安装内置平台。 |
+| `third_party/napcat/` | 原样保存的 NapCat 固定源码、许可和预编译资源；独立上游 workspace 仅用于第三方构建，不属于大肥鱼业务分包。自有构建入口为 `scripts/napcat/build-napcat.mjs`。 |
+| `scripts/` | `dev/` 管开发进程，`build/` 处理共用构建资源，`napcat/` 构建内置 QQ 组件，`release/` 准备发行与更新，`smoke/` 是专项冒烟检查。常用入口仍通过根 npm 命令运行。 |
+| `tests/integration/`、`tests/fixtures/` | 跨模块测试按业务分组；测试用的桌面页面、平台响应和本机进程等夹具另放在 `fixtures/`。模块级测试与实现放在一起。 |
+| `infra/docker/`、`infra/systemd/` | Linux 容器、Compose 和用户级 systemd 部署，不放应用业务代码。 |
 | `docs/`、`.github/` | 使用与开发指南、设计资料、阶段记录；贡献指南、安全问题报告和 CI 工作流。 |
 | `constitution/`、`specs/`、`.ai/` | 长期项目约束、各项规格及验收、决策与协作规则。 |
 
@@ -53,6 +59,6 @@ Linux 可运行便携包里的 `bin/bigfatfishd`，也可使用非 root Docker/C
 
 ## 数据与协作约束
 
-安装目录与用户数据分离。数据目录按 `--data-dir`、`BIGFATFISH_DATA_DIR`、操作系统默认目录依次选择，包含 `config/`、`data/`、`runtime/`、`logs/`。开发可显式选用 `.local/bigfatfish/`；自动化使用隔离临时目录。Runtime 管理 SQLite 事务、迁移、凭据和账号权限，前端与插件通过其公开能力访问数据。[数据路径实现](../apps/runtime/src/paths.ts)
+安装目录与用户数据分离。数据目录按 `--data-dir`、`BIGFATFISH_DATA_DIR`、操作系统默认目录依次选择，包含 `config/`、`data/`、`runtime/`、`logs/`。开发可显式选用 `.local/bigfatfish/`；自动化使用隔离临时目录。Runtime 管理 SQLite 事务、迁移、凭据和账号权限，前端与插件通过其公开能力访问数据。[数据路径实现](../apps/runtime/src/storage/paths.ts)
 
 工程变更按 [项目协作规范](../.ai/AGENTS.md) 和 [当前交接](../.ai/prompts/task-handoff.md) 处理。Git 提交需要用户就相应任务明确授权；旧阶段记录中的持续提交授权已撤销。

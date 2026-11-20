@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { createServer } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { InputError,object } from '../../ai/types.js';
-import { assertRegular,type DataPaths } from '../../paths.js';
+import { assertRegular,type DataPaths } from '../../storage/paths.js';
 import { Channels } from '../service.js';
 import { configuration, stableId } from '../protocol.js';
 import { NapCatClient,onebotRead,contacts } from './client.js';

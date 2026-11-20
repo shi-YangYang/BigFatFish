@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loading } from "../../components/Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "../../components/Controls";
 import type { Persona } from "../../../../runtime/src/ai/types";
-import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../../runtime/src/ai/persona-presets";
+import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../../runtime/src/ai/persona/presets";
 import { api } from "../../api/client";
 import { Drawer } from "../../components/UI";
 

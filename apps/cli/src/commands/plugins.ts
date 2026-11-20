@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import { createRuntimeClient } from '../runtime/client.js';
-import type {DataPaths} from '../../../runtime/src/paths.js';
+import type {DataPaths} from '../../../runtime/src/storage/paths.js';
 import {readInput} from '../io/input.js';
 export async function pluginCommand(p:DataPaths,args:string[]) {
  const { request } = createRuntimeClient(p);

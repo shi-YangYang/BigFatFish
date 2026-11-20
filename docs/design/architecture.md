@@ -10,24 +10,24 @@
 | Web | 与桌面共用业务页面，通过独立 HTTPS 网关访问 `/api/v1/…`。浏览器登录后使用有期限的 HttpOnly Cookie，写操作需 CSRF token；聊天经同源 WebSocket `/events` 转入 Runtime。网关单独启停，维护期间可报告进度并重新启动核心服务。 |
 | CLI | `bigfatfish` 使用私有连接文件调用同一本机 API。`start` 等待服务就绪，`stop` 通过认证接口提出停机请求并等待实例锁释放。离线备份、恢复和更新调用 Runtime 的维护模块。 |
 
-本机 Fastify 服务只监听 `127.0.0.1`，校验 Host 和请求来源。`GET /health` 只返回健康标志，`/v1/` 管理接口需要随机 Bearer token，凭据保存在受限的 `runtime/connection.json`。Web 网关默认关闭，由 CLI 的 `web configure` 和 `web serve` 显式启用。[本机认证](../../apps/runtime/src/server.ts) · [网关](../../apps/runtime/src/web/server.ts)
+本机 Fastify 服务只监听 `127.0.0.1`，校验 Host 和请求来源。`GET /health` 只返回健康标志，`/v1/` 管理接口需要随机 Bearer token，凭据保存在受限的 `runtime/connection.json`。Web 网关默认关闭，由 CLI 的 `web configure` 和 `web serve` 显式启用。[本机认证](../../apps/runtime/src/host/server.ts) · [网关](../../apps/runtime/src/web/server.ts)
 
 Desktop 与 Web 共用「聊天」「我的鱼」「连接」和「设置」。设置页的「模型」「扩展」「声音」调用同一业务接口。「通用」「数据」在桌面提供本机运行设置与备份，在 Web 展示服务器更新与备份；桌面的软件更新在「关于」，「高级」显示运行日志。托管桌面开发模式限制会打断当前进程的维护操作，离线维护可退出后用独立 CLI 执行。[共享设置页](../../apps/desktop/src/features/settings/Settings.tsx) · [Web 管理设置](../../apps/web/src/Settings.tsx)
 
 ## 聊天、模型与会话隔离
 
-1. 双端聊天页通过 `GET /v1/conversations/local` 取历史。Runtime 先按 `principal = 'local-owner'` 过滤，再排序取最近 500 条。旧 Runtime 缺少此路由时，客户端才从全量列表筛选明确可写的会话。`GET /v1/conversations` 仍按原契约返回本地与平台会话，外部会话由所属渠道继续收发。即使同一个人是 QQ 主人，其 QQ 会话也与本机聊天分开。[会话服务](../../apps/runtime/src/ai/chat.ts) · [前端请求](../../apps/desktop/src/api/chat.ts)
+1. 双端聊天页通过 `GET /v1/conversations/local` 取历史。Runtime 先按 `principal = 'local-owner'` 过滤，再排序取最近 500 条。旧 Runtime 缺少此路由时，客户端才从全量列表筛选明确可写的会话。`GET /v1/conversations` 仍按原契约返回本地与平台会话，外部会话由所属渠道继续收发。即使同一个人是 QQ 主人，其 QQ 会话也与本机聊天分开。[会话服务](../../apps/runtime/src/ai/chat/service.ts) · [前端请求](../../apps/desktop/src/api/chat.ts)
 2. 创建本地会话时绑定聊天模型，发送时 Runtime 记录消息、请求 ID 和人格版本，再按可信会话身份选择可见记忆与可用工具。模型用途为 `chat`、`asr`、`tts`；聊天、图像理解、记忆提取、日记和活动决策共用聊天模型，音频走各自的转写或合成接口。模型发现与短生成诊断独立于配置保存。默认女儿版和可选傲娇版保留原卡来源，完整卡进入闲聊提示，后台结构化任务使用自己的提示。设定页保存时校验版本，历史仍可经人格 API 查询。[模型与聊天指南](../ai-core.md)
-3. `DSHAdapter` 为每轮准备受控 profile 和子进程，按会话恢复引擎上下文，桥接模型流、工具和取消。默认 shell 和通用文件工具被禁用。Runtime 按身份提供有界的公开网页读取、范围记忆和平台回合工具。身份、可见记忆或授权变化会触发上下文隔离和相应检查。完成、取消、失败及重启中断记录在 Runtime，平台投递结果另行保存。[引擎适配](../../apps/runtime/src/ai/dsh.ts) · [人格与工具决策](../../.ai/decisions/020-source-persona-cards.md)
+3. `DSHAdapter` 为每轮准备受控 profile 和子进程，按会话恢复引擎上下文，桥接模型流、工具和取消。默认 shell 和通用文件工具被禁用。Runtime 按身份提供有界的公开网页读取、范围记忆和平台回合工具。身份、可见记忆或授权变化会触发上下文隔离和相应检查。完成、取消、失败及重启中断记录在 Runtime，平台投递结果另行保存。[引擎适配](../../apps/runtime/src/ai/engine/dsh.ts) · [人格与工具决策](../../.ai/decisions/020-source-persona-cards.md)
 
 ## 哪些数据会留下
 
 SQLite 是人格、配置、会话、消息、记忆、活动、插件状态与平台记录的权威数据源。模型和平台凭据使用受本机文件权限保护的主密钥加密；模型列表只返回密钥是否存在。引擎可以恢复同一 Session，跨会话记忆由以下两套记录控制。
 
 - **长期记忆**按真实发言人及原场合存储。回合完成后将来源加入 SQLite 队列，后台按顺序处理。明确单句走本机规则，复杂表述由聊天模型结合有限前文、原话和当前可见的旧记录整理。主人私聊可读取主人本人在群里的记忆；好友私聊与不同群分别隔离。手动回顾旧对话产生的候选可在管理页确认。关键词与可选的本机向量召回共用同一权限条件。公开回复投递前复核已披露记录，日记按实际活动生成。[记忆存储](../../apps/runtime/src/memory/store.ts)
-- **会话自动笔记**保存在独立的 `conversation_notes` 表。追加内容与引用须来自当前消息原文；查询和删除按可信范围执行。本地按会话隔离，QQ 按账号及私聊或群目标隔离。笔记不会覆盖主人确认记忆，逻辑备份可按 memories 范围携带笔记。[笔记工具](../../apps/runtime/src/memory/notes.ts)
+- **会话自动笔记**保存在独立的 `conversation_notes` 表。追加内容与引用须来自当前消息原文；查询和删除按可信范围执行。本地按会话隔离，QQ 按账号及私聊或群目标隔离。笔记不会覆盖主人确认记忆，逻辑备份可按 memories 范围携带笔记。[笔记工具](../../apps/runtime/src/memory/notes/notes.ts)
 
-当前 `SCHEMA_VERSION = 12`，启动时在事务中应用 SQLite 迁移并写入 `PRAGMA user_version`。第 7 版增加 QQ 表情，第 8 版增加会话自动笔记，第 9 版记录个人角色、身份和范围，第 10 版记录待整理的新回合，第 11 版增加关联已确认记忆的人物资料字段，第 12 版保存场景摘要及其关联事实。原话保存在消息中，场景和人物资料均能追溯到重要事实。逻辑归档写入当前数据库版本，可恢复 schema 6 至 12 的归档。便携发行的 `release.json` 和签名更新清单仍写 `schema: 6`，更新清单同时写 `minSchema: 6`。查询运行库版本可用 `GET /v1/status` 的 `schemaVersion`。[迁移](../../apps/runtime/src/storage/database.ts) · [逻辑归档](../../apps/runtime/src/maintenance/archive.ts) · [发行准备](../../scripts/prepare-release.mjs) · [更新清单](../../scripts/release-archive.mjs)
+当前 `SCHEMA_VERSION = 12`，启动时在事务中应用 SQLite 迁移并写入 `PRAGMA user_version`。第 7 版增加 QQ 表情，第 8 版增加会话自动笔记，第 9 版记录个人角色、身份和范围，第 10 版记录待整理的新回合，第 11 版增加关联已确认记忆的人物资料字段，第 12 版保存场景摘要及其关联事实。原话保存在消息中，场景和人物资料均能追溯到重要事实。逻辑归档写入当前数据库版本，可恢复 schema 6 至 12 的归档。便携发行的 `release.json` 和签名更新清单仍写 `schema: 6`，更新清单同时写 `minSchema: 6`。查询运行库版本可用 `GET /v1/status` 的 `schemaVersion`。[迁移](../../apps/runtime/src/storage/database.ts) · [逻辑归档](../../apps/runtime/src/maintenance/archive.ts) · [发行准备](../../scripts/release/prepare-release.mjs) · [更新清单](../../scripts/release/release-archive.mjs)
 
 ## 平台如何执行操作
 

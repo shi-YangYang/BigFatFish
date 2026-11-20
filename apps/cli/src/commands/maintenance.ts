@@ -5,7 +5,7 @@ import {
   type Scope,
 } from "../../../runtime/src/maintenance/archive.js";
 import { createRuntimeClient } from "../runtime/client.js";
-import type { DataPaths } from "../../../runtime/src/paths.js";
+import type { DataPaths } from "../../../runtime/src/storage/paths.js";
 import { start, stop } from "../runtime/process.js";
 import {readInput} from '../io/input.js';
 export async function maintenanceCommand(p: DataPaths, args: string[]) {

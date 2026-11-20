@@ -1,13 +1,13 @@
-import { ConnectionStatus } from './ConnectionStatus';
+import { ConnectionStatus } from './shared/ConnectionStatus';
 import { useEffect, useState } from "react";
 import { Card } from "../../components/Surfaces";
 import { Button } from "../../components/Controls";
 import { api } from "../../api/client";
-import { Bilibili } from "./Bilibili";
-import { Douyin } from "./Douyin";
+import { Bilibili } from "./bilibili/Bilibili";
+import { Douyin } from "./douyin/Douyin";
 import { QQConnection } from "./qq/QQConnection";
 import { QQMessages } from "./qq/QQMessages";
-import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
+import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./shared/connection-status";
 import type { ChannelStatus } from "../../../../runtime/src/channels/types";
 import type { ManagedQQStatus } from "../../../../runtime/src/channels/managed/types";
 

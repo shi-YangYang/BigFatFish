@@ -1,10 +1,10 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import type { ChatService } from '../ai/chat.js';
+import type { ChatService } from '../ai/chat/service.js';
 import { InputError, object, string } from '../ai/types.js';
 import type { Channels } from '../channels/service.js';
-import type { DataPaths } from '../paths.js';
+import type { DataPaths } from '../storage/paths.js';
 import { Upstream, loadBilibili, type Credentials, type Evidence } from './upstream.js';
 export interface VideoTask {id:string;bvid:string;status:string;result:{evidence:Evidence;summary?:string;modelId?:string}|null;error:string|null;createdAt:string}
 interface AuthState {id?:string;status:string;image?:string;expiresAt?:number;account?:{mid:string;name:string};error?:string}

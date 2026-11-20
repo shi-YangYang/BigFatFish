@@ -24,7 +24,7 @@ node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 
 开发脚本使用本机 Node 与当前 `dist`；原生托管分支只在 debug 构建且收到 supervisor 环境时启用，发行包和独立 CLI daemon 行为不变。Unix 只清理自己的进程组；Windows 使用系统 PowerShell 运行仓库内 Job Object 包装，限定 Tauri 子树，并沿用已有 ACL 工具的 EncodedCommand 方式，不修改系统执行策略。Windows 原生行为仍需实机验证。
 
-定向验证（先 `npm run build:node`）：`npx vitest run tests/integration/desktop-dev.test.ts`。测试使用临时目录和受控子进程，不依赖真实模型账号。
+定向验证（先 `npm run build:node`）：`npx vitest run tests/integration/runtime/desktop-dev.test.ts`。测试使用临时目录和受控子进程，不依赖真实模型账号。
 
 ## 启用 HTTPS 控制台
 
@@ -135,8 +135,8 @@ MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥
 
 ## 验证与诊断
 
-定向用例：`tests/integration/web.test.ts` 使用实际TLS与隔离Chrome；`tests/integration/plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`apps/runtime/src/plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`tests/integration/p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
+定向用例：`tests/integration/runtime/web.test.ts` 使用实际TLS与隔离Chrome；`tests/integration/runtime/plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`apps/runtime/src/plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`tests/integration/ai/p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
 
 常见问题：WEB_LOGIN_REQUIRED重新登录；WEB_ORIGIN_DENIED核对实际origin/Host及代理头；WEB_STOP_REQUIRED先停网关再换口令；PLUGIN_PERMISSION_REQUIRED查看权限清单并明确授权；PLUGIN_DISABLED查看停用/恢复后状态；PLUGIN_STOPPED检查崩溃、超时或取消；PLUGIN_DEPENDENCY_UNSUPPORTED不能自动装未知依赖；MEDIA_BYTES_UNAVAILABLE在NapCat检查所需返回字节配置。不要用关掉权限、忽略签名或扩大网络访问来消除报错。
 
-macOS独立安装新增能力复现：完成`release:prepare`与Tauri bundle后运行`node scripts/smoke-p7.mjs`。它复制.app到外部临时目录，只用随包Node验证SDK/DSH/媒体/Web，并清理自有临时实例；`--native`保留隔离原生窗口供人工操作，Ctrl+C后清理其配置。默认要求原生desktop.json不存在，存在时会拒绝覆盖。无秘密运行证据写入build/p7-evidence。
+macOS独立安装新增能力复现：完成`release:prepare`与Tauri bundle后运行`node scripts/smoke/smoke-p7.mjs`。它复制.app到外部临时目录，只用随包Node验证SDK/DSH/媒体/Web，并清理自有临时实例；`--native`保留隔离原生窗口供人工操作，Ctrl+C后清理其配置。默认要求原生desktop.json不存在，存在时会拒绝覆盖。无秘密运行证据写入build/p7-evidence。

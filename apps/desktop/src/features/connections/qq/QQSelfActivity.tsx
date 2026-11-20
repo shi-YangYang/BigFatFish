@@ -2,8 +2,8 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {api} from '../../../api/client';
 import {Alert,Card,Loading} from '../../../components/Surfaces';
 import {ActionRow,Button,Checkbox,Field,Select} from '../../../components/Controls';
-import type {SelfOptions} from '../../../../../runtime/src/channels/action-state';
-import {connectionErrorCode,connectionReadMessage} from '../connection-errors';
+import type {SelfOptions} from '../../../../../runtime/src/channels/account/action-state';
+import {connectionErrorCode,connectionReadMessage} from '../shared/connection-errors';
 export function QQSelfActivity(){
  const [value,setValue]=useState<SelfOptions>(),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false),[unconfigured,setUnconfigured]=useState(false),[loading,setLoading]=useState(true);
  const alive=useRef(true),pending=useRef(false);

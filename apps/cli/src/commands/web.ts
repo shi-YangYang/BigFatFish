@@ -1,7 +1,7 @@
 import {updateCommand} from './update.js';
 import { configureWeb, webConfig } from '../../../runtime/src/web/config.js';
 import { createWeb } from '../../../runtime/src/web/server.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 import { readInput } from '../io/input.js';
 import { start, stop } from '../runtime/process.js';
 export async function webCommand(p:DataPaths,args:string[]){

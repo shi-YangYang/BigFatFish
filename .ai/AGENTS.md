@@ -21,9 +21,10 @@ multi_agent: AUTO
 | 改动内容 | 应修改的位置 |
 | --- | --- |
 | 桌面和 Web 的业务界面 | `apps/desktop/src/features/`；通用控件在 `components/`，请求和事件传输在 `api/`，均相对于 `apps/desktop/src/`。Web 入口为 `apps/web/src/`，复用同一套页面。 |
-| 本机进程和命令 | `apps/runtime/src/` 管理服务、AI、记忆和数据；`apps/cli/src/` 负责命令与进程控制，`apps/desktop/src-tauri/` 是桌面原生宿主。 |
-| 平台接入 | QQ、B站、抖音均为内置能力；Runtime 中分别由 `channels/`、`bilibili/`、`douyin/` 管理。部分平台适配代码仍在 `plugins/`，并不代表用户需要安装插件。第三方扩展使用 `plugins/sdk/`；内置 NapCat 的固定上游源码与许可保存在 `third_party/napcat/`。 |
+| 后台业务与本机进程 | `apps/runtime/src/` 下，聊天、模型和人格归 `ai/`，记忆与经历归 `memory/`，启动与本机 HTTP 服务归 `host/`，存储与本机权限分别归 `storage/`、`permissions/`。CLI 和桌面原生宿主各自保留入口。 |
+| 平台接入 | QQ、B站、抖音均为内置能力，在 `apps/runtime/src/` 下分别由 `channels/`、`bilibili/`、`douyin/` 管理。B站和抖音随包资源放在各自的 `adapter/`；NapCat 的固定上游源码与许可在 `third_party/napcat/`。`plugins/sdk/` 只用于第三方扩展。 |
 | 说明与设计 | 根目录只保留一份 Markdown，即面向用户的 `README.md`。使用指南和设计资料在 `docs/`，协作规则在 `.ai/`，长期约定与功能规格分别在 `constitution/`、`specs/`。 |
+| 工程工具与验证 | 开发、构建、NapCat 和发行脚本在 `scripts/` 按用途归类；模块测试与源码同目录，跨模块用例归入 `tests/integration/` 下的对应业务目录，测试数据在 `tests/fixtures/`。 |
 
 日常开发使用 Node.js 24.x（至少 24.9）和根锁文件；桌面原生宿主还需 Rust 1.90+ 及对应平台的 Tauri 环境。在仓库根目录运行 `npm ci`、`npm run desktop:dev` 可启动完整开发版。`npm run frontend:dev` 仅预览前端，不能代替原生验证。使用独立 CLI 前先运行 `npm run build:node`；托管 QQ 还需 `npm run build:napcat`。
 
