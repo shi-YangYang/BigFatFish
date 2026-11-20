@@ -1,6 +1,7 @@
 import {connectionReadMessage} from '../shared/connection-errors';
 import type { QQMessageIssue } from "../../../../../runtime/src/channels/types";
-import { ContentScroll, Card, Alert, Loading } from "../../../components/Surfaces";
+import { OperationRecords } from "../shared/OperationRecords";
+import { Alert } from "../../../components/Surfaces";
 import { Button } from "../../../components/Controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../../api/client";
@@ -53,29 +54,13 @@ export function QQMessages() {
   }, [refresh]);
 
   const rows=[...issues.map(issue=>({id:String(issue.id),at:issue.at,label:issueLabels[issue.kind],target:issue.target})),...actions.map(a=>({id:a.id,at:a.at,label:({post:"说说发布",profile:"资料更新",avatar:"头像更新",space_profile:"空间资料更新",recall:"消息撤回",group_card:"群名片更新",like:"名片点赞",reaction:"表情回应"}[a.kind]??"QQ操作")+(a.status==='unknown'?"结果待核实":"未完成"),target:undefined}))].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,20);
-  return (
-    <Card>
-      <h3>操作记录</h3>
-      {historyError.length>0 && (
-        <Alert>
-          {historyError.join(" ")}
-          <Button size="compact" busy={refreshing} onClick={() => void refresh(true)}>重试</Button>
-        </Alert>
-      )}
-      {loading && <Loading />}
-      {rows.length > 0 && <ContentScroll label="操作记录" className="operation-record-list">
-        {rows.map(issue => (
-          <div key={issue.id} className="operation-record">
-            <div className="operation-record-heading">
-              <span>{issue.label}</span>
-              {issue.target && <span className="operation-record-status">{issue.target.kind === "group" ? "群聊" : "私聊"} · {issue.target.id}</span>}
-            </div>
-            <time dateTime={issue.at}>{new Date(issue.at).toLocaleString()}</time>
-          </div>
-        ))}
-      </ContentScroll>}
-      {!loading && !historyError.length && !rows.length && <p className="muted">暂无需要处理的问题</p>}
-      {rows.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}
-    </Card>
-  );
+  return <OperationRecords
+    records={loading && !rows.length ? undefined : rows.map(issue => ({
+      id: issue.id, action: issue.label, createdAt: issue.at,
+      status: issue.target && `${issue.target.kind === "group" ? "群聊" : "私聊"} · ${issue.target.id}`,
+    }))}
+    empty="暂无需要处理的问题"
+    error={historyError.length > 0 && <Alert>{historyError.join(" ")}
+      <Button size="compact" busy={refreshing} onClick={() => void refresh(true)}>重试</Button></Alert>}
+    footer={rows.length === 20 && <p className="muted">仅显示最近 20 条异常记录</p>}/>;
 }

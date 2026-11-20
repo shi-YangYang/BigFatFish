@@ -1,4 +1,7 @@
 import { copyFileSync, mkdirSync, cpSync, rmSync } from 'node:fs';
+// tsc does not delete JavaScript left behind by an older installation.
+for (const obsolete of ['dist/web', 'dist/runtime/src/web', 'dist/cli/src/commands/web.js', 'dist/cli/src/web.js'])
+  rmSync(obsolete, { recursive: true, force: true });
 copyFileSync('apps/runtime/src/permissions/windows-acl.ps1', 'dist/runtime/src/permissions/windows-acl.ps1');
 mkdirSync('dist/runtime/src/memory/recall', { recursive: true });
 copyFileSync('apps/runtime/src/memory/recall/bge-worker.mjs', 'dist/runtime/src/memory/recall/bge-worker.mjs');

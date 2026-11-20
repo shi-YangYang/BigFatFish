@@ -2,7 +2,7 @@
 
 开始前阅读 [AGENTS.md](../.ai/AGENTS.md)、[项目使命](../constitution/mission.md)、[技术边界](../constitution/tech-stack.md) 和当前 [Spec](../specs/README.md)。涉及界面时同时遵循 [网页内容与信息设计规范](../.ai/rules/web-design.md)。
 
-实际 API、HTTPS 控制台、普通模块 SDK、独立插件开发/打包和媒体协议见 [开发者指南](../docs/developer.md)；社区协作遵循 [行为准则](../docs/CODE_OF_CONDUCT.md)。安装包、备份恢复及发布限制见 [安装与迁移](../docs/install-and-migrate.md)。
+实际 API、普通模块 SDK、独立插件开发/打包和媒体协议见 [开发者指南](../docs/developer.md)；社区协作遵循 [行为准则](../docs/CODE_OF_CONDUCT.md)。安装包、备份恢复及发布限制见 [安装与迁移](../docs/install-and-migrate.md)。
 
 ## 工作方式
 
@@ -16,15 +16,15 @@
 
 ## 当前工程状态
 
-源码使用 Node.js 24.9 至 24.x，在仓库根目录执行 `npm ci`。项目共用一份 npm 依赖清单和锁文件。React 业务页面在 `apps/desktop/src/features/`，Web 复用这些页面；原生宿主在 `apps/desktop/src-tauri/`。CLI 从 `apps/cli/src/main.ts` 分派到 `commands/`。
+源码使用 Node.js 24.9 至 24.x，在仓库根目录执行 `npm ci`。项目共用一份 npm 依赖清单和锁文件。React 业务页面在 `apps/desktop/src/features/`；原生宿主在 `apps/desktop/src-tauri/`。CLI 从 `apps/cli/src/main.ts` 分派到 `commands/`。
 
 开发桌面使用 `npm run desktop:dev`，由 supervisor 编译 Node 源码并管理 Runtime、Vite、Tauri。默认读取桌面数据目录，需要隔离时显式指定 `BIGFATFISH_DATA_DIR`。关闭窗口或按 Ctrl+C 会结束本次开发会话；修改 Node 后端后重新运行命令。
 
-`npm run build:node` 构建 Runtime/CLI、随包平台插件、SDK 和示例，`npm run build:web` 单独构建浏览器入口，`npm run build` 同时构建 Node、桌面前端和 Web。生成原生桌面安装包用 `npm run desktop:build`。HTTPS 控制台须在本机配置证书和独立口令后用 `bigfatfish web serve` 启动。插件开发、打包和隔离运行步骤见[开发者指南](../docs/developer.md)。
+`npm run build:node` 构建 Runtime、CLI 并准备平台适配器、插件 SDK 和示例。`npm run build` 同时构建桌面 WebView；生成原生安装包用 `npm run desktop:build`。插件开发、打包和隔离运行见[开发者指南](../docs/developer.md)。
 
 `npm run typecheck`、`npm run lint` 和 `npm test` 是仓库级检查，按改动风险选择所需范围。历史平台与安装验证见 [P0–P7 验证记录](../docs/progress/development.md#p0p7-验证范围)，后续行为及验证见[规格索引](../specs/README.md)。
 
-PR 和 main 的 CI 只做跨平台运行与编译：Linux、macOS、Windows 执行 `npm run test:platform`，覆盖进程生命周期、CLI 输入、文件权限和维护边界；macOS、Windows 编译桌面前端及 Rust 宿主并运行原生单元测试；Linux 容器编译 Web/Runtime 并做启动、重启、停止检查。通用业务测试、全仓类型与 lint 检查留在本地按改动风险执行。
+PR 和 main 的 CI 只做跨平台运行与编译：Linux、macOS、Windows 执行 `npm run test:platform`，覆盖进程生命周期、CLI 输入、文件权限和维护边界；macOS、Windows 编译桌面前端及 Rust 宿主并运行原生单元测试；Linux 容器编译 Runtime 与 CLI 并做启动、重启、停止检查。通用业务测试、全仓类型与 lint 检查留在本地按改动风险执行。
 
 桌面 CI 使用 debug 编译并启用 `tauri/custom-protocol` 嵌入实际前端，只在 job 内关闭随包 Runtime 资源复制；它不生成可分发的安装包，也不启动图形窗口。安装器、随包依赖和签名由手动 `npm run desktop:build` 验证，CI 不打包或上传产物。
 

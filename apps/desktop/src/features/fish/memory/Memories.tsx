@@ -1,3 +1,5 @@
+import { PageStack, SectionHeading, EmptyState } from "../../../components/PageLayout";
+import { RecentMemories } from "./RecentMemories";
 import { memoryOrigin, memoryRoles } from "./memory-origin";
 import { Drawer } from "../../../components/UI";
 import { Disclosure } from "../../../components/Surfaces";
@@ -5,7 +7,7 @@ import { MemoryScenes } from "./MemoryScenes";
 import { PersonProfiles } from "./PersonProfiles";
 import { SemanticRecall } from "./SemanticRecall";
 import { loadConversations } from "../../../api/chat";
-import { ContentScroll, Card , Alert} from "../../../components/Surfaces";
+import { ContentScroll, Card, Alert, Loading} from "../../../components/Surfaces";
 import {
   Field,
   Select,
@@ -47,11 +49,18 @@ const empty = {
   content: "",
   importance: 3,
 };
-export function Memories({ fail }: { fail: (e: unknown) => void }) {
+export function Memories({ fail, onChat }: { fail: (e: unknown) => void; onChat?: () => void }) {
+  const [browsing, setBrowsing] = useState(false);
+  return browsing ? <MemoryBrowser fail={fail} onBack={() => setBrowsing(false)} /> :
+    <RecentMemories browse={() => setBrowsing(true)} onChat={onChat} />;
+}
+
+function MemoryBrowser({ fail, onBack }: { fail: (e: unknown) => void; onBack: () => void }) {
   const [memories, setMemories] = useState<Memory[]>([]),
     [layer, setLayer] = useState<"重要记忆" | "场景记忆" | "人物资料">("重要记忆"),
     [scenes, setScenes] = useState<MemoryScene[]>([]),
     [profiles, setProfiles] = useState<ProfileEntry[]>([]),
+    [loadedView, setLoadedView] = useState<string>(),
     [sessions, setSessions] = useState<Conversation[]>([]),
     [tasks, setTasks] = useState<MemoryTask[]>([]),
     [query, setQuery] = useState(""),
@@ -67,16 +76,17 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<string[]>([]),
     [exportPath, setExportPath] = useState("");
+  const viewKey = JSON.stringify([layer, query, role, kind, status, offset]);
   const load = useCallback(
     async (isCurrent: () => boolean = () => true) => {
       if (layer === "场景记忆") {
         const rows = await api<MemoryScene[]>("/v1/memory-scenes/search", "POST", { query, role, offset, limit: 100 });
-        if (isCurrent()) setScenes(rows);
+        if (isCurrent()) { setScenes(rows); setLoadedView(viewKey); }
         return;
       }
       if (layer === "人物资料") {
         const rows = await api<ProfileEntry[]>("/v1/memory-profile/search", "POST", { query, role, offset, limit: 100 });
-        if (isCurrent()) setProfiles(rows);
+        if (isCurrent()) { setProfiles(rows); setLoadedView(viewKey); }
         return;
       }
       const [a, b, c] = await Promise.all([
@@ -91,12 +101,13 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         api<MemoryTask[]>("/v1/memory-tasks"),
       ]);
       if (isCurrent()) {
+        setLoadedView(viewKey);
         setMemories(a);
         setSessions(b);
         setTasks(c);
       }
     },
-    [query, status, role, kind, offset, layer],
+    [query, status, role, kind, offset, layer, viewKey],
   );
   const refreshError = useLifeRefresh(load);
   useEffect(() => {
@@ -137,19 +148,19 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
     setExportPath(result.path);
   };
   const pageCount = (layer === "场景记忆" ? scenes : layer === "人物资料" ? profiles : memories).length;
+  const filtered = !!(query || role || (layer === "重要记忆" && (kind || status)) || offset);
+  function clearFilters() { setQuery(""); setRole(""); setKind(""); setStatus(""); setOffset(0); }
   const mergeable = memories.filter(m => selected.includes(m.id));
   const canMerge = mergeable.length === 2 && mergeable.every(m => m.kind === mergeable[0].kind &&
     m.role === mergeable[0].role && m.personKey === mergeable[0].personKey && m.scopeKey === mergeable[0].scopeKey);
   return (
-    <section className="page-section">
-      <div className="section-heading">
-        <h2>记忆</h2>
-        {layer === "重要记忆" && <ActionRow>
+    <PageStack className="fish-memories">
+      <ActionRow><Button variant="ghost" size="compact" onClick={onBack}>返回最近记忆</Button></ActionRow>
+      <SectionHeading title="全部记忆" actions={layer === "重要记忆" && <ActionRow>
           <Button disabled={busy} aria-expanded={panel === "extract"} onClick={() => setPanel(panel === "extract" ? null : "extract")}>从对话整理</Button>
           <Button variant="primary" disabled={busy} aria-expanded={panel === "edit"} onClick={() => setPanel(panel === "edit" ? null : "edit")}>{editing ? "继续编辑" : "添加记忆"}</Button>
           <Button disabled={busy} onClick={() => setPanel("settings")}>记忆设置</Button>
-        </ActionRow>}
-      </div>
+        </ActionRow>} />
       <div className="memory-layer-switch" role="group" aria-label="记忆视图">
         {(["重要记忆", "场景记忆", "人物资料"] as const).map(name => (
           <Button key={name} variant="ghost" size="compact" disabled={busy} aria-pressed={layer === name}
@@ -293,6 +304,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
       </form>
       </Drawer>}
       </>}
+      <div className="memory-query-panel">
       <FormGrid className="memory-search">
         <Field>
           搜索
@@ -349,7 +361,10 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             ))}
           </Select>
         </Field></FormGrid></Disclosure>}
-      {layer === "场景记忆" ? <MemoryScenes entries={scenes} fail={fail} /> : layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
+      </div>
+      {loadedView !== viewKey ? (!refreshError && <Loading>正在读取记忆…</Loading>)
+        : !pageCount && filtered ? (!refreshError && <EmptyState title="没有符合条件的结果"><Button onClick={clearFilters}>清除筛选</Button></EmptyState>)
+        : !pageCount && refreshError ? null : layer === "场景记忆" ? <MemoryScenes entries={scenes} fail={fail} /> : layer === "人物资料" ? <PersonProfiles entries={profiles} refresh={load} fail={fail} /> : <>
       {selected.length > 0 && <ActionRow>
         <span>已选 {selected.length} 条</span>
         <Button
@@ -393,10 +408,10 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
         </Button>
       </ActionRow>}
       {exportPath && <p className="prewrap">导出已保存：{exportPath}</p>}
-      {!memories.length && <p>没有符合条件的记忆。可整理对话，或直接添加。</p>}
+      {!memories.length && !refreshError && <EmptyState title="还没有重要记忆" />}
       <ContentScroll label="记忆记录" className="content-scroll-list">
       {memories.map((m) => (
-        <Card key={m.id}>
+        <Card key={m.id} className="fish-memory-record">
           <Field className="check">
             <Checkbox
               disabled={busy}
@@ -413,7 +428,7 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
             {labels[m.kind]} · {states[m.status]} · 重要性 {m.importance}
           </Field>
           <h3>{m.subject}</h3>
-          <p>
+          <p className="memory-byline">
             {memoryOrigin(m)}
           </p>
           <p className="prewrap">{m.content}</p>
@@ -533,6 +548,6 @@ export function Memories({ fail }: { fail: (e: unknown) => void }) {
           下一页
         </Button>
       </ActionRow>}
-    </section>
+    </PageStack>
   );
 }

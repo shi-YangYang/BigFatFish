@@ -1,3 +1,4 @@
+import { installFixtureIPC } from '../../fixtures/desktop/ipc';
 import {it,expect} from 'vitest';
 import {existsSync,mkdirSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -12,24 +13,39 @@ it.skipIf(!existsSync(executable))('keeps QQ contact refresh busy separate from 
   const page=await browser.newPage({viewport:{width:900,height:720},reducedMotion:'reduce'});page.setDefaultTimeout(5000);
   let gate:{path:string;entered:()=>void;wait:Promise<void>}|undefined,revision=0,rejectSave=false;
   const pause=(path:string)=>{let entered!:()=>void,release!:()=>void;const reached=new Promise<void>(r=>{entered=r;}),wait=new Promise<void>(r=>{release=()=>{releases.delete(release);r();};});releases.add(release);gate={path,entered,wait};return {reached,release};};
-  const config={mode:'managed',url:'ws://127.0.0.1:3001',accountId:'10001',ownerId:'20002',enabled:true,groups:[],friendIds:[],replyEnabled:true,proactiveEnabled:false};
+  const config={mode:'managed',url:'ws://127.0.0.1:3001',accountId:'10001',ownerId:'',enabled:true,groups:[],friendIds:[],replyEnabled:true,proactiveEnabled:false};
   const component={phase:'online',supported:true,engine:'docker',busy:false,account:{id:'10001',name:'测试鱼'}};
   const contacts={accountId:'10001',friends:[{id:'20002',name:'主人'}],groups:[]};
-  await page.route('**/api/v1/**',async route=>{
+  await installFixtureIPC(page);
+  await page.route('**/ipc/v1/**',async route=>{
    const path=new URL(route.request().url()).pathname.slice(4);
    if(gate?.path===path){const current=gate;gate=undefined;current.entered();await current.wait;}
    if(path==='/v1/channels/qq/component/settings'){
     if(rejectSave)return route.fulfill({status:409,json:{error:'CHANNEL_VERSION_CONFLICT'}});
-    revision++;return route.fulfill({json:{}});
+    Object.assign(config,route.request().postDataJSON());revision++;return route.fulfill({json:{}});
    }
    const data:Record<string,unknown>={'/v1/channels/qq':{config,revision:String(revision),health:{state:'online'},hasToken:true,builtin:true},'/v1/channels/qq/component':component,'/v1/channels/qq/component/contacts':contacts,'/v1/channels/qq/component/contacts/refresh':contacts};
    return route.fulfill({json:data[path]??{}});
   });
   await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as {port:number}).port}/@fs/${resolve('tests/fixtures/desktop/desktop-clarity.html')}?qqconnection`);
+  const chooseOwner=page.getByRole('combobox',{name:'主人 QQ',exact:true}),extras=page.getByRole('button',{name:'添加好友或群（可选）'});
+  await chooseOwner.waitFor();expect(await extras.getAttribute('aria-expanded')).toBe('false');
+  expect(await page.getByRole('combobox',{name:'群聊触发方式'}).isVisible()).toBe(false);
+  await extras.click();await page.getByRole('combobox',{name:'群聊触发方式'}).waitFor();
+  expect(await page.getByRole('checkbox',{name:'允许主动消息'}).isChecked()).toBe(false);
+  await extras.click();await chooseOwner.click();await page.getByRole('option',{name:'主人 · 20002'}).click();
+  const replyToggle=page.getByRole('checkbox',{name:'自动回复',exact:true});
+  await replyToggle.uncheck();await page.getByRole('button',{name:'保存设置',exact:true}).waitFor();
+  expect(await page.getByRole('button',{name:'保存并开始回复',exact:true}).count()).toBe(0);
+  await replyToggle.check();await page.getByRole('button',{name:'保存并开始回复',exact:true}).click();
+  await page.getByRole('heading',{name:'自动回复已开启'}).waitFor();
+  expect(config).toMatchObject({ownerId:'20002',replyEnabled:true,friendIds:[],groups:[],proactiveEnabled:false});
+  await page.getByRole('button',{name:'编辑回复对象',exact:true}).click();
+  expect(await extras.count()).toBe(0);await page.getByRole('combobox',{name:'群聊触发方式'}).waitFor();
   const save=page.getByRole('button',{name:'保存设置',exact:true}),refresh=page.getByRole('button',{name:'刷新好友和群聊'});
   const saving=pause('/v1/channels/qq/component/settings');await save.click();await saving.reached;
   expect(await save.getAttribute('aria-busy')).toBe('true');expect(await refresh.getAttribute('aria-busy')).not.toBe('true');saving.release();
-  await page.waitForFunction(()=>document.querySelector('.qq-reply-actions button')?.getAttribute('aria-busy')!=='true');
+  await page.getByRole('button',{name:'编辑回复对象',exact:true}).click();
   const refreshing=pause('/v1/channels/qq/component/contacts/refresh');await refresh.click();await refreshing.reached;
   expect(await refresh.getAttribute('aria-busy')).toBe('true');expect(await save.getAttribute('aria-busy')).not.toBe('true');expect(await save.isDisabled()).toBe(true);
   mkdirSync('build/qq-response-feedback',{recursive:true});await page.screenshot({path:'build/qq-response-feedback/contacts-busy-r1.png'});refreshing.release();
@@ -77,7 +93,7 @@ it.skipIf(!existsSync(executable))('handles native string errors, partial record
   expect(await page.locator('.account-status svg').count()).toBe(1);await page.screenshot({path:'build/qq-response-feedback/qq-installing.png'});
   Object.assign(component,{phase:'login',busy:false,loginPhase:'waiting_qrcode',qr});await page.getByRole('img',{name:'QQ 登录二维码'}).waitFor();expect(await page.locator('.account-status svg').count()).toBe(0);expect(await page.getByRole('button',{name:'刷新二维码'}).isEnabled()).toBe(true);
   component.loginPhase='qrcode_scanned';await page.locator('[data-badge-label]').getByText('等待手机确认',{exact:true}).waitFor();expect(await page.locator('.account-status svg').count()).toBe(1);
-  Object.assign(component,{phase:'online',loginPhase:undefined,qr:undefined,account:{id:'10001',name:'测试鱼'}});await page.getByRole('button',{name:'保存设置',exact:true}).waitFor();const contacts=pause('/v1/channels/qq/component/contacts/refresh');await page.getByRole('button',{name:'刷新好友和群聊'}).click();await contacts.reached;expect(await page.getByRole('button',{name:'刷新好友和群聊'}).getAttribute('aria-busy')).toBe('true');contacts.release();
+  Object.assign(component,{phase:'online',loginPhase:undefined,qr:undefined,account:{id:'10001',name:'测试鱼'}});await page.getByRole('button',{name:'编辑回复对象',exact:true}).click();await page.getByRole('button',{name:'保存设置',exact:true}).waitFor();const contacts=pause('/v1/channels/qq/component/contacts/refresh');await page.getByRole('button',{name:'刷新好友和群聊'}).click();await contacts.reached;expect(await page.getByRole('button',{name:'刷新好友和群聊'}).getAttribute('aria-busy')).toBe('true');contacts.release();
   for(const [platform,connectPath,button,label] of [['bili','/v1/bilibili/connect','连接 B站','连接中'],['douyin','/v1/douyin/connect','连接抖音','正在打开登录']] as const){
    await page.goto(url+'?'+platform);const connecting=pause(connectPath);await page.getByRole('button',{name:button,exact:true}).click();await connecting.reached;expect(await page.getByRole('button',{name:new RegExp(button)}).getAttribute('aria-busy')).toBe('true');connecting.release();await page.locator('[data-badge-label]').getByText(label,{exact:true}).waitFor();expect(await page.locator('.platform-account-heading svg').count()).toBe(1);
    for(const width of [900,380]){await page.setViewportSize({width,height:720});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.screenshot({path:`build/qq-response-feedback/${platform}-loading-${width}.png`});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}

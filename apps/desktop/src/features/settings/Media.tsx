@@ -1,19 +1,20 @@
+import { PageStack, SectionHeading, SectionCard, EmptyState } from "../../components/PageLayout";
 import { Field, Input, Textarea, Button } from "../../components/Controls";
-import { Card } from "../../components/Surfaces";
+import { Loading } from "../../components/Surfaces";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-export function Media({ fail, configureModel }: { fail: (e: unknown) => void; configureModel: () => void }) {
+export function Media({ fail, configureModel, modelRevision }: { modelRevision?: unknown; fail: (e: unknown) => void; configureModel: (purpose: "asr" | "tts") => void }) {
   const [text, setText] = useState(""), [transcript, setTranscript] = useState(""),
     [voice, setVoice] = useState(""), [audio, setAudio] = useState(""), [busy, setBusy] = useState(false),
     [routes, setRoutes] = useState<{ asr?: string; tts?: string }>(), [loadError, setLoadError] = useState(false);
-  useEffect(() => { let active = true; void api<{ asr?: string; tts?: string }>("/v1/model-routes").then(value => { if (active) setRoutes(value); }, () => { if (active) setLoadError(true); }); return () => { active = false; }; }, []);
-  const missing = (kind: "asr" | "tts") => <div className="settings-empty">
-    <p>{loadError ? "暂时无法读取模型设置。" : !routes ? "正在读取模型设置…" : `先配置${kind === "asr" ? "语音输入" : "朗读"}模型。`}</p>
-    {(routes || loadError) && <Button onClick={configureModel}>设置模型</Button>}
-  </div>;
-  return <section className="page-section">
-    <h2>声音</h2>
-    <Card><h3>语音输入</h3>
+  useEffect(() => { let active = true; void api<{ asr?: string; tts?: string }>("/v1/model-routes").then(value => { if (active) setRoutes(value); }, () => { if (active) setLoadError(true); }); return () => { active = false; }; }, [modelRevision]);
+  const missing = (kind: "asr" | "tts") => !routes && !loadError ? <Loading>正在读取模型设置…</Loading> : <EmptyState
+    title={loadError ? "暂时无法读取模型设置。" : `先配置${kind === "asr" ? "语音输入" : "朗读"}模型。`}>
+    <Button onClick={() => configureModel(kind)}>设置{kind === "asr" ? "语音输入" : "朗读"}模型</Button>
+  </EmptyState>;
+  return <PageStack><SectionHeading title="声音" />
+    <div className="settings-audio-grid">
+    <SectionCard level={3} title="语音输入">
       {!routes?.asr ? missing("asr") : <>
         <Field>选择音频<Input type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/webm,audio/ogg" disabled={busy} onChange={event => {
           const file = event.target.files?.[0]; if (!file) return;
@@ -26,8 +27,8 @@ export function Media({ fail, configureModel }: { fail: (e: unknown) => void; co
         }} /></Field>
         {transcript && <Field>转写结果<Textarea readOnly value={transcript} /></Field>}
       </>}
-    </Card>
-    <Card><h3>朗读</h3>
+    </SectionCard>
+    <SectionCard level={3} title="朗读">
       {!routes?.tts ? missing("tts") : <form onSubmit={event => {
         event.preventDefault(); setBusy(true);
         void api<{ data: string; mimeType: string }>("/v1/media/synthesize", "POST", { text, voice }).then(result => setAudio(`data:${result.mimeType};base64,${result.data}`)).catch(fail).finally(() => setBusy(false));
@@ -37,6 +38,7 @@ export function Media({ fail, configureModel }: { fail: (e: unknown) => void; co
         <Button type="submit" variant="primary" disabled={busy || !text}>{busy ? "正在生成…" : "试听朗读"}</Button>
       </form>}
       {audio && <audio src={audio} controls aria-label="合成朗读" />}
-    </Card>
-  </section>;
+    </SectionCard>
+    </div>
+  </PageStack>;
 }

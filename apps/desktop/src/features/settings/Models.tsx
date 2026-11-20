@@ -1,12 +1,11 @@
+import { PageStack, SectionHeading, SectionCard, EmptyState } from "../../components/PageLayout";
 import { useModelConnection } from "./useModelConnection";
-import { reasoningEfforts } from "../../../../runtime/src/ai/models/model-options";
-import type { ReasoningEffort } from "../../../../runtime/src/ai/types";
-import { Card } from "../../components/Surfaces";
+import { ModelServiceFields } from "./ModelServiceFields";
+import { services, chatServices, savedService, normalizedAddress, type ServiceId } from "./model-services";
 import {
   Button,
   Field,
   Select,
-  Input,
   ActionRow,
   FormGrid,
 } from "../../components/Controls";
@@ -22,23 +21,41 @@ const blank: ModelConfig = {
   baseURL: "",
   model: "",
 };
+export type ModelTask = {
+  purpose: ModelPurpose;
+  conversationOnly?: boolean;
+  complete: (modelId: string) => void | Promise<void>;
+};
 export function Models({
   models,
   reload,
-  fail,
+  fail, direct, dismiss,
 }: {
   models: PublicModel[];
   reload: () => Promise<void>;
   fail: (e: unknown) => void;
+  direct?: ModelTask;
+  dismiss?: () => void;
 }) {
   const [form, setForm] = useState(blank),
-    [editorOpen, setEditorOpen] = useState(false),
-    [draftBaseline, setDraftBaseline] = useState(JSON.stringify([blank, "", "chat"])),
+    [editorOpen, setEditorOpen] = useState(!!direct),
+    [draftBaseline, setDraftBaseline] = useState(JSON.stringify([blank, "", direct?.purpose ?? "chat"])),
     [key, setKey] = useState(""),
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
-    [purpose, setPurpose] = useState<ModelPurpose>("chat");
-  const connection = useModelConnection(form, key, fail, purpose);
+    [purpose, setPurpose] = useState<ModelPurpose>(direct?.purpose ?? "chat");
+  const [serviceId, setServiceId] = useState<ServiceId | "">(direct && direct.purpose !== "chat" ? "custom" : "");
+  const stored = models.find(model => model.id === form.id);
+  const sameAddress = stored && stored.provider === form.provider && normalizedAddress(stored.baseURL) === normalizedAddress(form.baseURL);
+  const keepStoredKey = !!(stored?.hasKey && sameAddress);
+  const apiKey = key || (stored?.hasKey && !sameAddress ? "" : undefined);
+  const wrongKey = form.provider === "openai" && normalizedAddress(form.baseURL) === services.bailian.baseURL && key.trim().startsWith("sk-sp-");
+  const connection = useModelConnection(form, apiKey, fail, purpose);
+  function chooseService(value: ServiceId | "") {
+    const service = value ? services[value] : undefined;
+    setServiceId(value); setKey("");
+    setForm(current => ({...current, provider:service?.provider ?? "openai", baseURL:service?.baseURL ?? "", model:service?.models[0] ?? "", reasoningEffort:undefined}));
+  }
   const [routes, setRoutes] = useState<Partial<Record<ModelPurpose, string>>>({});
   useEffect(() => { let live = true; void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes").then(value => { if (live) setRoutes(value); }).catch(fail); return () => { live = false; }; }, [models, fail]);
   const purposes = { chat: "聊天模型", asr: "语音输入模型", tts: "朗读模型" };
@@ -46,32 +63,33 @@ export function Models({
   function openEditor(model?: PublicModel) {
     if (hasDraft && form.id === (model?.id ?? "")) { setEditorOpen(true); return; }
     if (hasDraft && !window.confirm("放弃未保存的修改，打开另一份配置？")) { setEditorOpen(true); return; }
-    const next = model ? { id: model.id, label: model.model, provider: model.provider, baseURL: model.baseURL, model: model.model, reasoningEffort: model.reasoningEffort } : blank;
+    const next = model ? { id: model.id, label: model.label, provider: model.provider, baseURL: model.baseURL, model: model.model, reasoningEffort: model.reasoningEffort } : blank;
     const nextPurpose = model ? (Object.keys(purposes) as ModelPurpose[]).find(p => routes[p] === model.id) ?? "chat" : "chat";
-    setForm(next); setPurpose(nextPurpose); setKey(""); setSaved("");
+    setForm(next); setPurpose(nextPurpose); setServiceId(model ? savedService(model, nextPurpose) : ""); setKey(""); setSaved("");
     setDraftBaseline(JSON.stringify([next, "", nextPurpose])); setEditorOpen(true);
   }
   const waiting = busy || !!connection.pending;
-  const effortLabels: Record<ReasoningEffort, string> = { none: "关闭", minimal: "极低", low: "低", medium: "中", high: "高", xhigh: "极高", max: "最高" };
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!serviceId || wrongKey) return;
     setBusy(true);
     setSaved("");
     try {
       const value = {
         ...form,
         id: form.id || crypto.randomUUID(),
-        label: form.model,
+        label: stored?.label && stored.label !== stored.model ? stored.label : form.model,
       };
       await api("/v1/models", "POST", {
         ...value,
-        ...(key ? { apiKey: key } : {}),
+        ...(apiKey !== undefined ? { apiKey } : {}),
       });
       setForm(value);
       const current = await api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes");
-      setRoutes(await api("/v1/model-routes", "PUT", { ...current, [purpose]: value.id }));
+      if (!direct?.conversationOnly || !current.chat) setRoutes(await api("/v1/model-routes", "PUT", { ...current, [purpose]: value.id }));
       setKey("");
       await reload();
+      if (direct) await direct.complete(value.id);
       setSaved("配置已保存");
       setDraftBaseline(JSON.stringify([value, "", purpose]));
       setEditorOpen(false);
@@ -81,119 +99,47 @@ export function Models({
       setBusy(false);
     }
   }
+  function closeEditor() {
+    if (waiting) return;
+    if (!direct) { setEditorOpen(false); return; }
+    if (!hasDraft || window.confirm("放弃未保存的模型配置？")) dismiss?.();
+  }
+  const editor = editorOpen && <Drawer title={direct ? "设置" + purposes[purpose] : form.id ? "编辑模型" : "新建模型"} close={closeEditor}>
+      <form onSubmit={save} className="model-form">
+        <FormGrid className="model-fields">
+          {purpose === "chat" && <Field className={direct ? "field-wide" : undefined}>服务商<Select value={serviceId} required onValueChange={value => chooseService(value as ServiceId)}>
+            <option value="" disabled>选择服务商</option>{chatServices.map(id => <option value={id} key={id}>{services[id].label}</option>)}
+          </Select></Field>}
+          {!direct && <Field>模型用途<Select value={purpose} onValueChange={value => {
+            if ((purpose === "chat") !== (value === "chat")) chooseService(value === "chat" ? "" : "custom");
+            setPurpose(value as ModelPurpose);
+          }}>{Object.entries(purposes).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</Select></Field>}
+          {serviceId && <ModelServiceFields key={serviceId} serviceId={serviceId} purpose={purpose} form={form} setForm={setForm} secret={key} setSecret={setKey}
+            keepStoredKey={keepStoredKey} wrongKey={wrongKey} waiting={waiting} connection={connection} />}
+        </FormGrid>
+        <ActionRow className="form-actions">
+          <Button variant="primary" type="submit" disabled={waiting || !serviceId || wrongKey}>
+            {direct?.purpose === "chat" ? "保存并回到聊天" : "保存模型"}
+          </Button>
+          <Button disabled={waiting} onClick={closeEditor}>关闭编辑</Button>
+        </ActionRow>
+      </form>
+      </Drawer>;
+  if (direct) return <>{editor}</>;
   return (
-    <section className="page-section">
-      <div className="section-heading">
-        <h2>模型</h2>
-        <ActionRow>
+    <PageStack className="settings-models">
+      <SectionHeading title="模型" actions={<ActionRow>
         {!editorOpen && hasDraft && <Button disabled={waiting} onClick={() => setEditorOpen(true)}>继续编辑</Button>}
         <Button
           type="button"
+          variant="primary"
           disabled={waiting}
           onClick={() => openEditor()}
         >
           新建配置
         </Button>
-        </ActionRow>
-      </div>
-      {editorOpen && <Drawer title={form.id ? "编辑模型" : "新建模型"} close={() => { if (!waiting) setEditorOpen(false); }}>
-      <form onSubmit={save} className="model-form">
-        <FormGrid className="model-fields">
-          <Field>模型用途<Select value={purpose} onValueChange={value => {
-            setPurpose(value as ModelPurpose);
-            if (value !== "chat" && form.provider === "deepseek") setForm(current => ({ ...current, provider: "openai", baseURL: "", reasoningEffort: undefined }));
-          }}>{Object.entries(purposes).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</Select></Field>
-          <Field>
-            提供商
-            <Select
-              value={form.provider}
-              onValueChange={(value) =>
-                setForm({
-                  ...form,
-                  provider: value as ModelConfig["provider"],
-                  reasoningEffort: undefined,
-                  baseURL:
-                    value === "deepseek"
-                      ? "https://api.deepseek.com/anthropic"
-                      : form.baseURL,
-                })
-              }
-            >
-              <option value="openai">OpenAI 兼容 / 本地模型</option>
-              {purpose === "chat" && <option value="deepseek">DeepSeek</option>}
-            </Select>
-          </Field>
-          <Field className="field-wide">
-            服务地址
-            <Input
-              required
-              type="url"
-              value={form.baseURL}
-              placeholder="https://api.example.com/v1"
-              onChange={(e) => setForm({ ...form, baseURL: e.target.value })}
-            />
-          </Field>
-          <Field className={purpose === "chat" ? undefined : "field-wide"}>
-            模型名称
-            <Input
-              required
-              value={form.model}
-              placeholder="服务提供的模型名称"
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-            />
-          </Field>
-        {purpose === "chat" && <div className="field-with-help">
-          <Field>
-            推理强度
-            <Select value={form.reasoningEffort ?? ""} onValueChange={value => setForm({ ...form, reasoningEffort: value ? value as ReasoningEffort : undefined })}>
-              <option value="">默认</option>
-              {reasoningEfforts[form.provider].map(effort => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}
-            </Select>
-          </Field>
-        </div>}
-
-          <Field className="field-wide">
-            API Key
-            <Input
-              type="password"
-              autoComplete="off"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder={
-                models.some((m) => m.id === form.id && m.hasKey)
-                  ? "已保存，留空保持不变"
-                  : "本地模型可留空"
-              }
-            />
-          </Field>
-          <div className="form-feedback field-wide">
-            <ActionRow>
-              <Button disabled={waiting || !form.baseURL.trim()} onClick={() => void connection.run("discover")}>
-                {connection.pending === "discover" ? "正在获取…" : "获取模型列表"}
-              </Button>
-              {purpose === "chat" && <Button disabled={waiting || !form.baseURL.trim() || !form.model.trim()} onClick={() => void connection.run("test")}>
-                {connection.pending === "test" ? "正在测试…" : "测试连接"}
-              </Button>}
-            </ActionRow>
-            {purpose === "chat" && <p className="muted">测试会调用所选模型，消耗少量 token。</p>}
-            {connection.result && <p role="status">{connection.result.message}</p>}
-          </div>
-          {connection.models.length > 0 && <Field className="field-wide">
-            可用模型
-            <Select value={connection.models.some(model => model.id === form.model) ? form.model : ""} onValueChange={model => setForm({ ...form, model })}>
-              <option value="">选择模型或在上方手动填写</option>
-              {connection.models.map(model => <option key={model.id} value={model.id}>{model.name === model.id ? model.id : `${model.name}（${model.id}）`}</option>)}
-            </Select>
-          </Field>}
-        </FormGrid>
-        <ActionRow className="form-actions">
-          <Button variant="primary" type="submit" disabled={waiting}>
-            保存模型
-          </Button>
-          <Button disabled={waiting} onClick={() => setEditorOpen(false)}>关闭编辑</Button>
-        </ActionRow>
-      </form>
-      </Drawer>}
+        </ActionRow>} />
+      {editor}
       {models.length > 0 && (
         <div className="model-list">
           {models.map((m) => (
@@ -215,7 +161,7 @@ export function Models({
                 onClick={() => {
                   if (!window.confirm(`删除模型「${m.label}」？`)) return;
                   void api("/v1/models/" + m.id, "DELETE")
-                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setForm(blank); setKey(""); setPurpose("chat"); setDraftBaseline(JSON.stringify([blank, "", "chat"])); } await reload(); })
+                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setForm(blank); setServiceId(""); setKey(""); setPurpose("chat"); setDraftBaseline(JSON.stringify([blank, "", "chat"])); } await reload(); })
                     .catch(fail);
                 }}
               >
@@ -226,17 +172,16 @@ export function Models({
           ))}
         </div>
       )}
-      {!models.length && !editorOpen && <p className="muted">还没有模型，添加配置后就能开始聊天。</p>}
+      {!models.length && !editorOpen && <EmptyState title="还没有模型" description="添加配置后就能开始聊天。" />}
       {saved && <p role="status">{saved}</p>}
-      {models.length > 0 && <Card>
-        <h3>默认用途</h3>
+      {models.length > 0 && <SectionCard level={3} title="默认用途">
         <div className="model-defaults">
           {(Object.keys(purposes) as ModelPurpose[]).map(p => <Field key={p}>{purposes[p]}<Select disabled={waiting} value={routes[p] ?? ""} onValueChange={id => {
             setBusy(true); const next = { ...routes }; if (id) next[p] = id; else delete next[p];
             void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes", "PUT", next).then(value => { setRoutes(value); setSaved("默认模型已更新"); return reload(); }).catch(fail).finally(() => setBusy(false));
           }}><option value="">未设置</option>{models.filter(m => p === "chat" || m.provider === "openai").map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</Select></Field>)}
         </div>
-      </Card>}
-    </section>
+      </SectionCard>}
+    </PageStack>
   );
 }

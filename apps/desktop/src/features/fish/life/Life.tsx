@@ -1,3 +1,6 @@
+import { PageStack, SectionHeading, SectionCard, EmptyState } from "../../../components/PageLayout";
+import { DiaryEntry } from "./DiaryEntry";
+import "../fish.css";
 import { DiarySettings } from './DiarySettings';
 import { memoryOrigin } from "../memory/memory-origin";
 import { visibleExperiences } from "./life-presentation";
@@ -6,7 +9,7 @@ import { loadActivities, type ActivityOverview } from "../../../api/activities";
 import { activityState } from "../activities/activity-labels";
 import { ContentScroll, Card, Disclosure , Alert, Loading} from "../../../components/Surfaces";
 import { Button, Field, Input, ActionRow } from "../../../components/Controls";
-import { FishAvatar } from "../../../components/UI";
+import { Drawer, FishAvatar } from "../../../components/UI";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
@@ -60,40 +63,28 @@ export function useLifeRefresh(
   }, [load]);
   return refreshError;
 }
-function CurrentActivities() {
-  const [data, setData] = useState<ActivityOverview>(),
-    [error, setError] = useState("");
+function CurrentActivities({ life }: { life: LifeOverview }) {
+  const [data, setData] = useState<ActivityOverview>();
+  const [error, setError] = useState("");
   const load = useCallback(async () => {
-    try {
-      setData(await loadActivities());
-      setError("");
-    } catch (e) {
-      setError(errorText(e));
-    }
+    try { setData(await loadActivities()); setError(""); }
+    catch (e) { setError(errorText(e)); }
   }, []);
   usePoll(load);
-  return (
-    <>
-      {error && <Alert role="alert">{error}</Alert>}
+  const current = data?.tasks.filter(t => ["queued", "running", "understanding"].includes(t.status)) ?? [];
+  if (!error && !current.length && !life.activity.length && !life.chattingCount && !data?.paused) return null;
+  return <section className="fish-reading-section">
+    <SectionHeading level={3} title="当前活动" />
+    {error && <Alert role="alert">{error}</Alert>}
+    <ContentScroll label="当前活动">
       {data?.paused && <p>活动已暂停</p>}
-      {data?.tasks
-        .filter((t) =>
-          ["queued", "running", "understanding"].includes(t.status),
-        )
-        .map((t) => (
-          <p key={t.id}>
-            {t.platform === "douyin"
-              ? "抖音"
-              : t.platform === "bilibili"
-                ? "B站"
-                : "活动"}
-            ：{activityState[t.status]}
-          </p>
-        ))}
-    </>
-  );
+      {!!life.chattingCount && <p>正在聊天</p>}
+      {life.activity.map(t => <p key={t.id}>{t.kind === "extract" ? "记忆整理" : "写日记"}：{taskState[t.status]}</p>)}
+      {current.map(t => <p key={t.id}>{t.platform === "douyin" ? "抖音" : t.platform === "bilibili" ? "B站" : "活动"}：{activityState[t.status]}</p>)}
+    </ContentScroll>
+  </section>;
 }
-export function Home({ navigate }: { navigate?: (page: string) => void }) {
+export function Home({ navigate, onChat }: { navigate?: (page: string) => void; onChat?: () => void }) {
   const [data, setData] = useState<LifeOverview>();
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     const value = await api<LifeOverview>("/v1/life");
@@ -102,97 +93,39 @@ export function Home({ navigate }: { navigate?: (page: string) => void }) {
   const refreshError = useLifeRefresh(load);
   if (!data) return refreshError ? <Alert>{refreshError}</Alert> : <Loading />;
   const recent = visibleExperiences(data.recent);
-  return (
-    <section className="page-section">
-      {refreshError && (
-        <Alert role="alert" className="error">
-          {refreshError}
-        </Alert>
-      )}
-      <div className="fish-home">
-        {data.persona.avatar ? (
-          <img
-            className="avatar"
-            src={data.persona.avatar}
-            alt={data.persona.name}
-          />
-        ) : (
-          <FishAvatar />
-        )}
-        <div>
-          <h2>{data.persona.name}</h2>
-          <p>
-            {data.mood
-              ? `${data.mood.mood} · ${data.mood.reason}`
-              : "平静 · 等待第一次聊天"}
-          </p>
-        </div>
+  const diary = data.diaries[0];
+  return <PageStack className="fish-overview">
+    {refreshError && <Alert role="alert">{refreshError}</Alert>}
+    <div className="fish-home">
+      {data.persona.avatar ? <img className="avatar" src={data.persona.avatar} alt={data.persona.name} /> : <FishAvatar />}
+      <div>
+        <SectionHeading title={data.persona.name} />
+        <p>{data.mood ? [data.mood.mood, data.mood.reason].filter(Boolean).join(" · ") : "今天还没有记下心情"}</p>
       </div>
-      <div className="life-grid">
-        <Card>
-          <h3>当前活动</h3>
-          <ContentScroll label="当前活动">
-          <CurrentActivities />
-          <p>
-            {data.activity.length
-              ? data.activity
-                  .map(
-                    (t) =>
-                      `${t.kind === "extract" ? "记忆整理" : "写日记"}：${taskState[t.status]}`,
-                  )
-                  .join("；")
-              : data.chattingCount
-                ? "正在聊天"
-                : "暂无聊天或记忆整理"}
-          </p>
-          <p>已记住 {data.confirmedCount} 条</p>
-          </ContentScroll>
-          {navigate && (
-            <p>
-              <Button type="button" onClick={() => navigate("任务")}>
-                查看活动计划
-              </Button>
-            </p>
-          )}
-        </Card>
-        {(data.interests.length > 0 || data.relationships.length > 0) && <Card>
-          <h3>兴趣与关系</h3>
-          <ContentScroll label="兴趣与关系">
-          {data.interests.map((m) => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
-          {data.relationships.map((m) => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
-          </ContentScroll>
-        </Card>}
-        <Card>
-          <h3>最近经历</h3>
-          <ContentScroll label="最近经历" className="overview-recent">
-          {recent.length ? (
-            recent.map((a) => (
-              <div key={a.id} className="summary-entry">
-                <p>{a.summary}</p>
-                <time>{new Date(a.occurredAt).toLocaleString()}</time>
-              </div>
-            ))
-          ) : (
-            <p>开始聊天，留下第一段经历。</p>
-          )}
-          </ContentScroll>
-        </Card>
-      </div>
-      <h3>最近日记</h3>
-      <ContentScroll label="最近日记" className="content-scroll-list">
-      {data.diaries.length ? (
-        data.diaries.map((d) => (
-          <Card key={d.id}>
-            <b>{d.day}</b>
-            <p>{d.content.slice(0, 240)}</p>
-          </Card>
-        ))
-      ) : (
-        <p className="muted">还没有日记。<Button variant="ghost" onClick={() => navigate?.("经历")}>去写第一篇</Button></p>
-      )}
+      {onChat && <div className="fish-memory-count"><Button onClick={onChat}>和它聊聊</Button></div>}
+    </div>
+    {diary && <section className="fish-reading-section">
+      <SectionHeading title="最近日记" level={3} actions={navigate && <Button size="compact" onClick={() => navigate("经历")}>查看全部日记</Button>} />
+      <DiaryEntry day={diary.day} content={diary.content.slice(0, 240)} />
+    </section>}
+    {recent.length > 0 && <section className="fish-reading-section">
+      <SectionHeading level={3} title="最近经历" />
+      <ContentScroll label="最近经历" className="overview-recent">
+        {recent.slice(0, 3).map(a => <div key={a.id} className="summary-entry"><p>{a.summary}</p><time>{new Date(a.occurredAt).toLocaleString()}</time></div>)}
       </ContentScroll>
-    </section>
-  );
+    </section>}
+    <CurrentActivities life={data} />
+    {(data.interests.length > 0 || data.relationships.length > 0) && <SectionCard level={3} title="兴趣与关系">
+      <ContentScroll label="兴趣与关系">
+        {[...data.interests, ...data.relationships].map(m => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
+      </ContentScroll>
+    </SectionCard>}
+    {navigate && <ActionRow>
+      {!diary && <Button variant="ghost" onClick={() => navigate("写日记")}>去写第一篇</Button>}
+      {data.confirmedCount > 0 && <Button variant="ghost" onClick={() => navigate("记忆")}>已记住 {data.confirmedCount} 条</Button>}
+      <Button variant="ghost" onClick={() => navigate("活动计划")}>查看活动计划</Button>
+    </ActionRow>}
+  </PageStack>;
 }
 export function TaskList({
   tasks,
@@ -226,7 +159,9 @@ export function TaskList({
     </ContentScroll>
   );
 }
-export function Life({ fail }: { fail: (e: unknown) => void }) {
+export function Life({ fail, startWriting = false }: { fail: (e: unknown) => void; startWriting?: boolean }) {
+  const [panel, setPanel] = useState<"write" | "options" | null>(startWriting ? "write" : null);
+  const [ready, setReady] = useState(false);
   const [timeline, setTimeline] = useState<Activity[]>([]),
     [diaries, setDiaries] = useState<Diary[]>([]),
     [tasks, setTasks] = useState<MemoryTask[]>([]),
@@ -242,6 +177,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
       api<MemoryTask[]>("/v1/memory-tasks"),
     ]);
     if (isCurrent()) {
+      setReady(true);
       setTimeline(visibleExperiences(a));
       setDiaries(b);
       setTasks(c);
@@ -257,6 +193,7 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
         requestId: crypto.randomUUID(),
       });
       await load();
+      setPanel(null);
     } catch (e) {
       fail(e);
     } finally {
@@ -264,15 +201,55 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
     }
   };
   return (
-    <section className="page-section">
-      <h2>经历与日记</h2>
+    <PageStack className="fish-journal">
+      <SectionHeading title="经历与日记" />
       {refreshError && (
         <Alert role="alert" className="error">
           {refreshError}
         </Alert>
       )}
-      <DiarySettings fail={fail}/>
-      <Disclosure title="手动写日记" className="secondary-options">
+      <section className="fish-reading-section">
+      <SectionHeading title="日记" level={3} />
+      {!ready && !refreshError && <Loading>正在读取经历…</Loading>}
+      {ready && !diaries.length && <EmptyState title="还没有日记。" description="大肥鱼写下的日记会出现在这里。" />}
+      <ContentScroll label="日记" className="content-scroll-list">
+      {diaries.map((d) => (
+        <DiaryEntry key={d.id} day={d.day} content={d.content}>
+          <Sources sources={d.sources} fail={fail} />
+          {d.copyStatus !== "ready" && <><p className="muted">文件副本保存失败，日记仍保存在应用中。</p>
+          <Button
+            type="button"
+            onClick={() =>
+              void api(`/v1/diaries/${d.id}/rebuild`, "POST")
+                .then(() => load())
+                .catch(fail)
+            }
+          >
+            重试保存副本
+          </Button></>}
+        </DiaryEntry>
+      ))}
+      </ContentScroll>
+      </section>
+      <section className="fish-reading-section">
+      <SectionHeading title="经历时间线" level={3} />
+      {ready && !timeline.length && <EmptyState title="暂无经历" description="开始聊天后会记录实际活动。" />}
+      <ContentScroll label="经历时间线" className="content-scroll-list">
+      {timeline.map((a) => (
+        <div className="timeline-entry" key={a.id}>
+          <time>{new Date(a.occurredAt).toLocaleString()}</time>
+          <p>{a.summary}</p>
+        </div>
+      ))}
+      </ContentScroll>
+      </section>
+      <ActionRow>
+        <Button size="compact" onClick={() => setPanel("write")}>手动写日记</Button>
+        <Button size="compact" variant="ghost" onClick={() => setPanel("options")}>日记设置</Button>
+      </ActionRow>
+      {tasks.some(t => t.kind === "diary") && <Disclosure title="日记生成记录" className="secondary-options"><TaskList tasks={tasks.filter(t => t.kind === "diary")} refresh={load} fail={fail} /></Disclosure>}
+      {panel === "options" && <Drawer title="日记设置" close={() => setPanel(null)}><DiarySettings fail={fail}/></Drawer>}
+      {panel === "write" && <Drawer title="手动写日记" close={() => { if (!busy) setPanel(null); }}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -289,10 +266,11 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
               required
             />
           </Field>
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="submit" variant="primary" busy={busy} disabled={busy}>
             生成或更新日记
           </Button>
         </ActionRow>
+        <p className="muted">使用聊天模型，根据这一天的经历写日记。</p>
         <Disclosure title="日期设置" className="secondary-options">
           <Field>
             时区
@@ -300,45 +278,8 @@ export function Life({ fail }: { fail: (e: unknown) => void }) {
           </Field>
         </Disclosure>
       </form>
-      </Disclosure>
-      <TaskList
-        tasks={tasks.filter((t) => t.kind === "diary")}
-        refresh={load}
-        fail={fail}
-      />
-      <h3>日记</h3>
-      {!diaries.length && <p>还没有日记。有了值得记住的经历，大肥鱼会在晚上写下。</p>}
-      <ContentScroll label="日记" className="content-scroll-list">
-      {diaries.map((d) => (
-        <Card key={d.id}>
-          <div className="record-title"><h3>{d.day}</h3></div>
-          <p className="prewrap">{d.content}</p>
-          <Sources sources={d.sources} fail={fail} />
-          {d.copyStatus !== "ready" && <><p className="muted">文件副本保存失败，日记仍保存在应用中。</p>
-          <Button
-            type="button"
-            onClick={() =>
-              void api(`/v1/diaries/${d.id}/rebuild`, "POST")
-                .then(() => load())
-                .catch(fail)
-            }
-          >
-            重试保存副本
-          </Button></>}
-        </Card>
-      ))}
-      </ContentScroll>
-      <h3>经历时间线</h3>
-      {!timeline.length && <p>暂无经历，开始聊天后会记录实际活动。</p>}
-      <ContentScroll label="经历时间线" className="content-scroll-list">
-      {timeline.map((a) => (
-        <div className="timeline-entry" key={a.id}>
-          <time>{new Date(a.occurredAt).toLocaleString()}</time>
-          <p>{a.summary}</p>
-        </div>
-      ))}
-      </ContentScroll>
-    </section>
+      </Drawer>}
+    </PageStack>
   );
 }
 

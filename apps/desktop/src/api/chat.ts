@@ -11,7 +11,7 @@ export async function loadLocalConversations() {
   try {
     return await api<Conversation[]>("/v1/conversations/local");
   } catch (error) {
-    // An older Runtime returns Fastify's missing-route error through either transport.
+    // An older Runtime returns Fastify's missing-route error through desktop IPC.
     if ((error instanceof Error ? error.message : error) !== "Not Found") throw error;
     const sessions = await loadConversations();
     return sessions.filter(session => session.readOnly === false);

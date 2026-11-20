@@ -16,6 +16,13 @@ it('migrates version 1, encrypts model secrets, validates routes and keeps perso
  const model={id:'local',label:'本地',provider:'openai',baseURL:'http://127.0.0.1:9999/v1',model:'test',contextWindow:8192,maxTokens:512,timeoutMs:30000,vision:false,apiKey:'fixture-secret-123'};
  expect(config.saveModel(model).hasKey).toBe(true);expect(JSON.stringify(config.models())).not.toContain(model.apiKey);expect(db.prepare('SELECT secret FROM models').get()!.secret).not.toContain(model.apiKey);
  expect(config.model('local').key).toBe(model.apiKey);expect(config.model('local').config).not.toHaveProperty('apiKey');
+ const draft={...model,apiKey:undefined};
+ config.saveModel({...draft,model:'another'});expect(config.model('local').key).toBe(model.apiKey);
+ for(const patch of [{baseURL:'http://127.0.0.1:9999/v2'},{provider:'deepseek'}]){
+  expect(()=>config.saveModel({...draft,...patch})).toThrow('MODEL_KEY_REENTRY_REQUIRED');
+ }
+ expect(config.model('local').config.baseURL).toBe(model.baseURL);
+ expect(config.saveModel({...draft,baseURL:'http://127.0.0.1:9999/v2',apiKey:''}).hasKey).toBe(false);
  expect(()=>config.saveModel({...model,baseURL:'https://user:password@example.com'})).toThrow('INVALID_MODEL_URL');
  expect(()=>config.saveModel({...model,baseURL:'http://example.com'})).toThrow('INVALID_MODEL_URL');
  expect(()=>config.saveRoutes({chat:'missing'})).toThrow('MODEL_NOT_CONFIGURED');expect(config.saveRoutes({chat:'local'})).toEqual({chat:'local'});

@@ -1,3 +1,4 @@
+import { SectionHeading } from "../../../components/PageLayout";
 import { useEffect, useRef, useState } from "react";
 import { loadRecall, setRecallEnabled, type RecallStatus } from "../../../api/memory-recall";
 import { Button } from "../../../components/Controls";
@@ -62,14 +63,8 @@ export function SemanticRecall({ fail }: { fail: (error: unknown) => void }) {
 
   const action = status?.state === "ready" ? "停用" : status?.state === "downloading" ? "取消" : status?.state === "failed" ? "重试" : "启用";
   return <Card>
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="summary-entry">
-        <strong>按语义回忆</strong>
-        <span className="muted" role="status">{readFailed ? "暂时无法读取状态" : status ? caption(status) : "正在读取…"}</span>
-      </div>
-      {readFailed
+    <SectionHeading level={3} title="按语义回忆" description={<span className="muted" role="status">{readFailed ? "暂时无法读取状态" : status ? caption(status) : "正在读取…"}</span>} actions={readFailed
         ? <Button size="compact" onClick={() => reload(v => v + 1)}>刷新状态</Button>
-        : <Button size="compact" disabled={!status || busy} onClick={() => void toggle()}>{action}</Button>}
-    </div>
+        : <Button size="compact" disabled={!status || busy} onClick={() => void toggle()}>{action}</Button>} />
   </Card>;
 }

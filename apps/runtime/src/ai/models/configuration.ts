@@ -28,7 +28,9 @@ export class Configuration {
     const reasoningEffort = parseReasoning(provider, b.reasoningEffort);
     const config: ModelConfig = { id, label: b.label === undefined ? string(b.model, 200) : string(b.label, 200), provider, baseURL, model: string(b.model, 200), ...(reasoningEffort ? { reasoningEffort } : {}) };
     const old = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
-    if (old && this.modelIdentity(JSON.parse(old.config as string)) !== this.modelIdentity(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
+    const previous = old ? JSON.parse(old.config as string) as ModelConfig : undefined;
+    if (previous && this.modelIdentity(previous) !== this.modelIdentity(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
+    if (previous && old?.secret && b.apiKey === undefined && (previous.provider !== provider || modelURL(previous.baseURL) !== baseURL)) throw new InputError('MODEL_KEY_REENTRY_REQUIRED');
     const secret = b.apiKey === undefined ? old?.secret ?? null : (string(b.apiKey, 8192, true) ? this.secrets.encrypt(b.apiKey as string) : null);
     this.db.prepare('INSERT INTO models(id, config, secret) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config, secret=excluded.secret').run(id, JSON.stringify(config), secret);
     return this.models().find(model => model.id === id)!;

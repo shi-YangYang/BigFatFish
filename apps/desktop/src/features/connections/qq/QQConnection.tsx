@@ -1,4 +1,5 @@
-import { ConnectionStatus } from '../shared/ConnectionStatus';
+import { PlatformAccount, LoginPrompt } from '../shared/PlatformSurface';
+import { PageStack, SectionCard, SectionHeading } from '../../../components/PageLayout';
 import {QQSelfActivity} from './QQSelfActivity';
 import {RefreshCw} from 'lucide-react';
 import {QQStickers} from './QQStickers';
@@ -8,7 +9,7 @@ import { activeQQMode, qqStatus } from '../shared/connection-status';
 import { ConnectionReadError } from '../shared/ConnectionReadError';
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
-import { ContentScroll, Menu, Card,Alert } from '../../../components/Surfaces';
+import { ContentScroll, Disclosure, Menu, Card,Alert } from '../../../components/Surfaces';
 import { Button,Field,Input,Checkbox,Select,ActionRow,FormGrid } from '../../../components/Controls';
 import type { ChannelStatus,QQConfig } from '../../../../../runtime/src/channels/types';
 import type { ManagedQQStatus,QQContact } from '../../../../../runtime/src/channels/managed/types';
@@ -20,9 +21,13 @@ function qqError(error: unknown) {
  return errors[code] ?? errorText(error);
 }
 interface Lists {friends:QQContact[];groups:QQContact[];accountId?:string;error?:string}
+function ReplyOptions({firstSetup,children}:{firstSetup:boolean;children:ReactNode}){
+ return firstSetup?<Disclosure title="添加好友或群（可选）">{children}</Disclosure>:<>{children}</>;
+}
 export function QQConnection({fail,children}:{fail:(error:unknown)=>void;children?:ReactNode}){
  const [channel,setChannel]=useState<ChannelStatus>(),[component,setComponent]=useState<ManagedQQStatus>(),[lists,setLists]=useState<Lists>({friends:[],groups:[]}),[mode,setMode]=useState<'managed'|'external'>('managed'),[tab,setTab]=useState('回复设置'),[form,setForm]=useState<QQConfig>(initial),[revision,setRevision]=useState(''),[token,setToken]=useState(''),[manualOwner,setManualOwner]=useState(false),[manualFriends,setManualFriends]=useState(''),[manualFriendsMode,setManualFriendsMode]=useState(false),[manualGroups,setManualGroups]=useState(''),[busy,setBusy]=useState(false),[contactsRefreshing,setContactsRefreshing]=useState(false),[loadError,setLoadError]=useState(false);
  const [actionError,setActionError]=useState<string>(),[contactsError,setContactsError]=useState<string>(),[activeAction,setActiveAction]=useState<string>();
+ const [editScope,setEditScope]=useState(false);
  const lastAction=useRef('');
  const draftMode=useRef<'managed'|'external'>('managed'),contactsPending=useRef(false),contactsSequence=useRef(0);
  const initialized=useRef(false),editing=useRef(false),alive=useRef(true),pending=useRef(false),refreshSequence=useRef(0),accountSeen=useRef(''),savePending=useRef<string|undefined>(undefined);
@@ -41,7 +46,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
   if(accountChanged||(!contactsPending.current&&contactSequence===contactsSequence.current)){
    if(l)setLists(l.accountId===m?.account?.id?l:{friends:[],groups:[]});
    else setLists(previous=>({...(accountChanged?{friends:[],groups:[]}:previous),error:'QQ_CONTACTS_UNAVAILABLE'}));
-   if(accountChanged)setContactsError(undefined);
+   if(accountChanged){setContactsError(undefined);setEditScope(false);setTab('回复设置');}
   }
   if(m?.phase!=='verifying')accountSeen.current=m?.account?.id??'';
   const saved=savePending.current!==undefined&&!!m&&!m.busy&&!m.error&&!m.operationError&&c.revision!==savePending.current;
@@ -50,6 +55,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
    const next=sameMode&&!(draftMode.current==='managed'&&m?.account&&c.config!.accountId!==m.account.id)?c.config!:initial;
    setForm(next);setRevision(c.revision);setManualGroups(next.groups.join(','));setManualFriends(next.friendIds?.join(',')??'');
    if(saved||accountChanged){editing.current=false;savePending.current=undefined;}
+   if(saved)setEditScope(false);
   }
   initialized.current=true;
  },[]);
@@ -62,7 +68,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
   try{
    await api(path,method,body);
    if(path.endsWith('/settings'))savePending.current=revision;
-   else if(path==='/v1/channels/qq'){editing.current=false;setToken('');}
+   else if(path==='/v1/channels/qq'){editing.current=false;setEditScope(false);setToken('');}
    await refresh();
   }catch(error){if(alive.current)setActionError(qqError(error));}finally{pending.current=false;setBusy(false);setActiveAction(undefined);}
  };
@@ -78,7 +84,7 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
  const locked=busy||component?.busy;
  const actionBusy=(path:string)=>activeAction===path;
  const matchingAccount=channel?.config?.mode==='managed'&&channel.config.accountId===component?.account?.id;
- const switchMode=()=>{draftMode.current=mode==='managed'?'external':'managed';setMode(draftMode.current);setTab('回复设置');setActionError(undefined);lastAction.current='';editing.current=false;savePending.current=undefined;setToken('');setForm(initial);setManualFriends('');setManualGroups('');void refresh();};
+ const switchMode=()=>{draftMode.current=mode==='managed'?'external':'managed';setMode(draftMode.current);setEditScope(false);setTab('回复设置');setActionError(undefined);lastAction.current='';editing.current=false;savePending.current=undefined;setToken('');setForm(initial);setManualFriends('');setManualGroups('');void refresh();};
  const feedback=channel?qqStatus(mode,channel,component):{label:'正在读取…'};
  const statusLabel=loadError?'状态待更新':feedback.label;
  const currentError=feedback.error?qqError(feedback.error):undefined;
@@ -88,42 +94,36 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
   ? actionError||(component.operationError&&qqError(component.operationError)) : undefined;
  const connectionErrors=[...new Set([currentError,settingsError?undefined:actionError].filter(Boolean))];
  const alerts=connectionErrors.map(message=><Alert key={message}>{message}</Alert>);
- return <section className="page-section qq-connection">
-  {mode==='managed'&&<>
-   <Card className={`qq-account-card${component?.phase==='online'?' qq-account-online':''}`}>
-    <div className="qq-account-heading"><div><h2>QQ{component?.account?.name && <span className="account-name"> · {component.account.name}</span>}</h2>{component?.account&&<p className="muted">{component.account.id}</p>}</div><div className="account-status"><ConnectionStatus label={statusLabel}/></div></div>
-    {readError}
-    {component&&!component.supported&&<Alert>此系统暂不支持内置组件，请使用已有服务。</Alert>}
-    {feedback.qr&&<div className="qq-login-code"><img src={feedback.qr} alt="QQ 登录二维码"/><p>使用手机 QQ 扫码，并确认登录</p></div>}
-    {alerts}
-    <ActionRow className="qq-connect-actions">
-     {component&&!component.busy&&['missing','ready','error'].includes(component.phase)&&<Button variant="primary" busy={actionBusy(endpoint+'/connect')} disabled={busy||!component.supported} onClick={()=>void act(endpoint+'/connect')}>{component.phase==='error'?'重试连接':'连接 QQ'}</Button>}
-     {component?.phase==='online'&&matchingAccount&&!channel?.config?.enabled&&<Button variant="primary" busy={actionBusy(endpoint+'/connect')} disabled={locked} onClick={()=>void act(endpoint+'/connect')}>重新连接</Button>}
-     {component?.phase==='login'&&(component.error||!['qrcode_scanned','initializing','reconnecting'].includes(component.loginPhase??''))&&<Button busy={actionBusy(endpoint+'/refresh')} disabled={locked} onClick={()=>void act(endpoint+'/refresh')}>刷新二维码</Button>}
-     {component&&['starting','login','verifying','online','error','installing'].includes(component.phase)&&<Button busy={actionBusy(endpoint+'/stop')} disabled={busy||component.phase==='stopping'} onClick={()=>void act(endpoint+'/stop')}>{component.busy?'取消连接':'断开连接'}</Button>}
-     {!component?.busy&&component?.phase!=='online'&&component?.phase!=='verifying'&&<Button variant="ghost" disabled={busy} onClick={switchMode}>连接已有服务</Button>}
-     {component?.phase==='online'&&<Menu trigger={<Button variant="ghost" disabled={locked}>连接选项</Button>}><Button variant="ghost" disabled={locked} onClick={switchMode}>连接已有服务</Button></Menu>}
-    </ActionRow>
-    {component?.phase==='missing'&&<p className="muted">首次连接需下载 QQ 组件。{component.engine==='docker'?'请先启动 Docker。':''}</p>}
-   </Card>
-  </>}
-  {mode==='external'&&<Card><div className="qq-method-heading"><div><h2>QQ</h2><ConnectionStatus label={statusLabel}/></div><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></div>
-   {readError}{alerts}
-  </Card>}
-  <Tabs items={['回复设置','自主活动','表情','消息']} value={tab} onChange={setTab} label="QQ 设置">
-   {tab==='回复设置'&&(mode==='managed'?<>
-   {component?.account&&component.phase==='online'&&<Card className="qq-reply-card"><form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,friendIds:form.friendIds??[],groupReplyMode:form.groupReplyMode??'all',groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>
+
+ const config=channel?.config;
+ const managedOnline=mode==='managed'&&component?.phase==='online'&&!!component.account;
+ const configured=!!config?.ownerId&&(mode==='managed'?managedOnline&&matchingAccount:config.mode!=='managed');
+ const persisted=configured?config:null;
+ const ownerName=lists.friends.find(person=>person.id===persisted?.ownerId)?.name;
+ const activeReply=!!persisted?.enabled&&channel?.health.state==='online'&&!loadError&&persisted.replyEnabled;
+ const configuredSummary=persisted&&<SectionCard level={3} title={loadError?'回复状态待更新':!persisted.replyEnabled?'自动回复已暂停':activeReply?'自动回复已开启':'连接未就绪，暂不回复'} actions={
+   <Button disabled={!!locked} onClick={()=>setEditScope(true)}>编辑回复对象</Button>}>
+   <dl className="reply-audience"><div><dt>主人</dt><dd>{ownerName?ownerName+' · ':''}{persisted.ownerId}</dd></div>
+    <div><dt>其他好友</dt><dd>{new Set((persisted.friendIds??[]).filter(id=>id!==persisted.ownerId&&id!==persisted.accountId)).size} 位</dd></div>
+    <div><dt>允许的群</dt><dd>{new Set(persisted.groups).size} 个{persisted.groups.length>0&&` · ${persisted.groupReplyMode==='mention'?'仅被 @ 时回复':'普通消息也回复'}`}</dd></div></dl>
+   {settingsError&&<Alert>{settingsError}</Alert>}
+   <ActionRow>{persisted.enabled&&<Button disabled={!!locked||loadError} busy={actionBusy(mode==='managed'?endpoint+'/settings':'/v1/channels/qq')} onClick={()=>{
+    const {accountId,ownerId,friendIds,groupReplyMode,groups,proactiveEnabled}=persisted;
+    void act(mode==='managed'?endpoint+'/settings':'/v1/channels/qq','PUT',mode==='managed'?{revision:channel!.revision,accountId,ownerId,friendIds:friendIds??[],groupReplyMode:groupReplyMode??'all',groups,proactiveEnabled,replyEnabled:!persisted.replyEnabled}:{...persisted,revision:channel!.revision,replyEnabled:!persisted.replyEnabled});
+   }}>{persisted.replyEnabled?'暂停自动回复':'恢复自动回复'}</Button>}
+   {mode==='external'&&persisted.enabled&&<Button disabled={!!locked} onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
+  </SectionCard>;
+ const cancelEdit=()=>{editing.current=false;setEditScope(false);setToken('');setActionError(undefined);lastAction.current='';void refresh();};
+ const settingsForm=mode==='managed'?<>
+   {component?.account&&component.phase==='online'&&<Card className="qq-reply-card channel-authorization"><form onSubmit={event=>{event.preventDefault();void act(endpoint+'/settings','PUT',{revision,accountId:component.account!.id,ownerId:form.ownerId,friendIds:form.friendIds??[],groupReplyMode:form.groupReplyMode??'all',groups:form.groups,replyEnabled:form.replyEnabled,proactiveEnabled:form.proactiveEnabled});}}>
     <fieldset disabled={locked}>
-     <div className="qq-reply-heading">
-      <h3>回复设置</h3>
-      <div className="qq-reply-heading-actions"><Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field><Button size="icon" variant="ghost" aria-label="刷新好友和群聊" title="刷新好友和群聊" busy={contactsRefreshing} disabled={locked} onClick={()=>void refreshContacts()}><RefreshCw size={18} aria-hidden="true"/></Button></div>
-     </div>
+     <SectionHeading level={3} className="qq-reply-heading" title={configured?"编辑回复对象":"选择回复对象"} actions={<div className="qq-reply-heading-actions"><Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field><Button size="icon" variant="ghost" aria-label="刷新好友和群聊" title="刷新好友和群聊" busy={contactsRefreshing} disabled={locked} onClick={()=>void refreshContacts()}><RefreshCw size={18} aria-hidden="true"/></Button></div>}/>
      {contactsError&&<Alert>{contactsError}</Alert>}
      <div className="qq-owner-row">
       {lists.friends.length>0&&!manualOwner?<Field>主人 QQ<Select required value={form.ownerId} onValueChange={ownerId=>change({ownerId})}><option value="">选择主人 QQ</option>{lists.friends.map(friend=><option key={friend.id} value={friend.id}>{friend.name} · {friend.id}</option>)}</Select></Field>:<Field>主人 QQ 号<Input required inputMode="numeric" value={form.ownerId} onChange={event=>change({ownerId:event.target.value})}/></Field>}
       {lists.friends.length>0&&<Button variant="ghost" onClick={()=>setManualOwner(!manualOwner)}>{manualOwner?'从好友中选择':'手动输入 QQ 号'}</Button>}
      </div>
-     <div className="qq-reply-options">
+     <ReplyOptions firstSetup={!configured}><div className="qq-reply-options">
       <section className="qq-settings-group"><div className="qq-group-heading"><h4>可私聊的好友</h4><span className="qq-setting-hint">已选 {(form.friendIds??[]).filter(id=>id!==form.ownerId).length} 位</span></div>
        {lists.friends.length>0&&!manualFriendsMode?<ContentScroll label="可私聊的好友" className="qq-group-list">{lists.friends.filter(friend=>friend.id!==form.ownerId&&friend.id!==component?.account?.id).map(friend=><Field className="check" key={friend.id}><Checkbox checked={(form.friendIds??[]).includes(friend.id)} onCheckedChange={checked=>changeFriends(checked?[...(form.friendIds??[]),friend.id]:(form.friendIds??[]).filter(id=>id!==friend.id))}/>{friend.name} · {friend.id}</Field>)}</ContentScroll>:<Field>可私聊的 QQ 号<Input placeholder="多个 QQ 号用逗号分隔，可留空" value={manualFriends} onChange={e=>changeFriends(e.target.value)}/></Field>}
        {lists.friends.length>0&&<Button className="qq-friends-manual-toggle" variant="ghost" onClick={()=>setManualFriendsMode(!manualFriendsMode)}>{manualFriendsMode?'从好友列表选择':'手动填写好友 QQ 号'}</Button>}
@@ -134,13 +134,12 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
        {lists.error&&lists.groups.length===0&&<p className="muted">暂时无法读取群列表，可填写群号。</p>}
       </section>
       <div className="qq-proactive-row"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许主动消息</Field></div>
-     </div>
+     </div></ReplyOptions>
      {settingsError&&<Alert>{settingsError}</Alert>}
-     <ActionRow className="qq-reply-actions"><Button type="submit" variant="primary" busy={actionBusy(endpoint+'/settings')||!!(savePending.current&&component?.busy)}>{matchingAccount&&channel?.config?.enabled?'保存设置':'保存并连接'}</Button></ActionRow>
+     <ActionRow className="qq-reply-actions"><Button type="submit" variant="primary" busy={actionBusy(endpoint+'/settings')||!!(savePending.current&&component?.busy)}>{!configured&&form.replyEnabled?'保存并开始回复':'保存设置'}</Button>{configured&&<Button disabled={!!locked} onClick={cancelEdit}>取消编辑</Button>}</ActionRow>
     </fieldset>
    </form></Card>}
-   {!component?.account&&<p className="muted">连接 QQ 后设置回复范围</p>}
-  </>:<Card><form onSubmit={event=>{event.preventDefault();void act('/v1/channels/qq','PUT',{...form,mode:'external',enabled:true,revision,groups:manualGroups.split(/[,，\s]+/).filter(Boolean),...(token?{token}:{})});}}>
+  </>:<SectionCard title="已有服务" level={3}><form onSubmit={event=>{event.preventDefault();void act('/v1/channels/qq','PUT',{...form,mode:'external',enabled:true,revision,groups:manualGroups.split(/[,，\s]+/).filter(Boolean),...(token?{token}:{})});}}>
    <fieldset disabled={locked}>
     <FormGrid><Field>服务地址<Input required value={form.url} onChange={e=>change({url:e.target.value})}/></Field><Field>连接凭据<Input type="password" autoComplete="off" value={token} placeholder={channel?.hasToken?'已保存，留空不变':'可选'} onChange={e=>setToken(e.target.value)}/></Field></FormGrid>
     <FormGrid><Field>机器人 QQ 号<Input required value={form.accountId} onChange={e=>change({accountId:e.target.value})}/></Field><Field>主人 QQ 号<Input required value={form.ownerId} onChange={e=>change({ownerId:e.target.value})}/></Field></FormGrid>
@@ -149,12 +148,35 @@ export function QQConnection({fail,children}:{fail:(error:unknown)=>void;childre
     <Field>允许回复的群号<Input placeholder="多个群号用逗号分隔，可留空" value={manualGroups} onChange={e=>{editing.current=true;setManualGroups(e.target.value);}}/></Field>
     <Field className="check"><Checkbox checked={form.replyEnabled} onCheckedChange={replyEnabled=>change({replyEnabled})}/>自动回复</Field>
     <div className="qq-proactive-row"><Field className="check"><Checkbox checked={form.proactiveEnabled} onCheckedChange={proactiveEnabled=>change({proactiveEnabled})}/>允许主动消息</Field></div>
-    <ActionRow><Button type="submit" variant="primary" busy={actionBusy('/v1/channels/qq')}>保存并连接</Button>{channel?.config?.enabled&&channel.config.mode!=='managed'&&<Button busy={actionBusy('/v1/channels/qq/stop')} onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
+    <ActionRow><Button type="submit" variant="primary" busy={actionBusy('/v1/channels/qq')}>{configured&&config?.enabled?'保存设置':'保存并连接'}</Button>{configured&&<Button disabled={!!locked} onClick={cancelEdit}>取消编辑</Button>}{channel?.config?.enabled&&channel.config.mode!=='managed'&&<Button busy={actionBusy('/v1/channels/qq/stop')} onClick={()=>void act('/v1/channels/qq/stop')}>停用连接</Button>}</ActionRow>
    </fieldset>
-  </form></Card>)}
-   {tab==='自主活动'&&<QQSelfActivity key={channel?.config?.accountId??'none'}/>}
-   {tab==='表情'&&<QQStickers fail={fail}/>}
-   {tab==='消息'&&<div className="qq-messages-panel">{children}</div>}
-  </Tabs>
- </section>;
+  </form></SectionCard>;
+ return <PageStack className="qq-connection">
+  {mode==='managed'&&<>
+   <PlatformAccount platform="QQ" name={component?.account?.name} accountId={component?.account?.id} status={statusLabel}>
+    {readError}
+    {component&&!component.supported&&<Alert>此系统暂不支持内置组件，请使用已有服务。</Alert>}
+    {feedback.qr&&<LoginPrompt code={feedback.qr} alt="QQ 登录二维码" instruction="使用手机 QQ 扫码，并确认登录"/>}
+    {alerts}
+    <ActionRow className="qq-connect-actions">
+     {component&&!component.busy&&['missing','ready','error'].includes(component.phase)&&<Button variant="primary" busy={actionBusy(endpoint+'/connect')} disabled={busy||!component.supported} onClick={()=>void act(endpoint+'/connect')}>{component.phase==='error'?'重试连接':'连接 QQ'}</Button>}
+     {component?.phase==='online'&&matchingAccount&&!channel?.config?.enabled&&<Button variant="primary" busy={actionBusy(endpoint+'/connect')} disabled={locked} onClick={()=>void act(endpoint+'/connect')}>重新连接</Button>}
+     {component?.phase==='login'&&(component.error||!['qrcode_scanned','initializing','reconnecting'].includes(component.loginPhase??''))&&<Button busy={actionBusy(endpoint+'/refresh')} disabled={locked} onClick={()=>void act(endpoint+'/refresh')}>刷新二维码</Button>}
+     {component&&['starting','login','verifying','online','error','installing'].includes(component.phase)&&<Button busy={actionBusy(endpoint+'/stop')} disabled={busy||component.phase==='stopping'} onClick={()=>void act(endpoint+'/stop')}>{component.busy?'取消连接':'断开连接'}</Button>}
+     {component&&!component.busy&&component.phase!=='verifying'&&<Menu trigger={<Button variant="ghost" disabled={locked}>连接选项</Button>}><Button variant="ghost" disabled={locked} onClick={switchMode}>连接已有服务</Button></Menu>}
+    </ActionRow>
+    {component?.phase==='missing'&&<p className="muted">首次连接需下载 QQ 组件。{component.engine==='docker'?'请先启动 Docker。':''}</p>}
+   </PlatformAccount>
+  </>}
+  {mode==='external'&&<PlatformAccount platform="QQ" status={statusLabel}>
+   {readError}{alerts}
+   <ActionRow><Button variant="ghost" disabled={locked} onClick={switchMode}>使用扫码登录</Button></ActionRow>
+  </PlatformAccount>}
+  {configured ? <Tabs items={['回复设置','自主活动','表情','操作记录']} value={tab} onChange={setTab} label="QQ 设置">
+    {tab==='回复设置'&&(editScope?settingsForm:configuredSummary)}
+    {tab==='自主活动'&&<QQSelfActivity key={config!.accountId}/>}
+    {tab==='表情'&&<QQStickers fail={fail}/>}
+    {tab==='操作记录'&&<div className="qq-messages-panel">{children}</div>}
+  </Tabs> : (managedOnline||mode==='external')&&settingsForm}
+ </PageStack>;
 }

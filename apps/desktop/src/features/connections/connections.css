@@ -1,0 +1,66 @@
+/* Channel directory, account and sign-in states share a single visual language. */
+.connection-directory, .connection-details, .qq-connection { min-width: 0; container-type: inline-size; }
+.connection-directory .connection-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--form-gap); }
+.connection-list .business-card.channel-tile {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  gap: 18px; padding: clamp(16px, 2.5cqi, 22px); min-width: 0;
+}
+.channel-tile-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.channel-mark {
+  flex: none; display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  color: var(--brand); background: var(--accent-soft);
+}
+.channel-mark--bilibili { color: #48677e; background: #eaf1f6; }
+.channel-mark--douyin { color: #3f626b; background: #eaf3f3; }
+.channel-tile-copy { min-width: 0; }
+.channel-tile-copy h3 { font-size: 17px; margin: 0 0 4px; }
+.channel-tile-copy p { color: var(--muted); line-height: 1.55; margin: 0; overflow-wrap: anywhere; font-size: 13px; }
+.channel-tile .channel-tile-action { align-self: flex-start; margin-top: auto; }
+.connection-details > .back-button { justify-self: start; margin: 0; }
+.connection-account.business-card {
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--form-gap);
+  min-width: 0; margin: 0;
+}
+.channel-account-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.channel-account-head .section-heading { flex: 1; min-width: 0; margin: 0; }
+.channel-account-head h2, .channel-account-head p { margin: 0; overflow-wrap: anywhere; }
+.channel-account-head .account-name { font-size: inherit; }
+.connection-account .ui-action-row, .connection-account .qq-connect-actions, .connection-account .platform-connect-actions { margin: 0; }
+.channel-login-prompt {
+  min-width: 0; display: flex; align-items: center; justify-content: flex-start;
+  gap: 12px; padding: 14px 16px; border-radius: 10px; background: var(--accent-soft);
+}
+.channel-login-prompt p { margin: 0; color: var(--color-foreground, inherit); line-height: 1.6; }
+.channel-login-prompt > svg { flex: none; color: var(--brand); }
+.channel-login-prompt.with-qr { gap: 20px; }
+.channel-login-prompt img { display: block; flex: none; width: min(168px, 100%); height: auto; border-radius: 8px; background: white; padding: 6px; }
+.channel-authorization .qq-settings-group { align-content: start; }
+.channel-authorization .qq-reply-options { align-items: start; }
+.channel-form-footer { padding-top: 12px; border-top: 1px solid var(--border); }
+.channel-record-title { font-weight: 600; }
+.channel-record-body { color: var(--muted); }
+.channel-records .operation-record-heading .operation-record-status { flex: none; }
+.channel-records .operation-record-status { padding: 2px 8px; border-radius: 100px; background: var(--surface-soft); }
+@container (min-width: 720px) {
+  .channel-authorization .qq-reply-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .channel-authorization .qq-proactive-row { grid-column: 1 / -1; }
+}
+@container (max-width: 640px) {
+  .connection-directory .connection-list { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .connection-list .business-card.channel-tile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; }
+  .channel-tile-meta { display: contents; }
+  .channel-tile-meta .channel-mark { grid-row: 1; grid-column: 1; }
+  .channel-tile-copy { grid-row: 1; grid-column: 2; }
+  .channel-tile-meta > :not(.channel-mark) { grid-row: 1; grid-column: 3; justify-self: end; }
+  .channel-tile .channel-tile-action { grid-row: 2; grid-column: 2 / 4; justify-self: start; margin-top: 4px; }
+}
+@media (max-width: 480px) {
+  .channel-login-prompt.with-qr { flex-direction: column; text-align: center; gap: 8px; }
+}
+.channel-permission-list { display: grid; gap: 2px; }
+.channel-permission-list .ui-field { margin: 0; padding-block: 8px; }
+.channel-permission-list .ui-field + .ui-field { border-top: 1px solid var(--border); }
+
+.reply-audience { display:flex; flex-wrap:wrap; gap:12px 32px; margin:0; }
+.reply-audience dt { color:var(--muted); font-size:.9em; }
+.reply-audience dd { margin:4px 0 0; overflow-wrap:anywhere; }

@@ -22,6 +22,8 @@ afterEach(async () => {
 });
 it('executes a real detached lifecycle, concurrent starts, auth, persistence, and crash recovery', async () => {
   const root = temp();
+  for (const subcommand of ['configure', 'serve'])
+    expect(await cli(root, 'web', [subcommand])).toEqual({ code: 1, value: { error: 'INVALID_ARGUMENTS' } });
   expect(await cli(root, 'status')).toEqual({ code: 3, value: { state: 'stopped' } });
   const results = await Promise.all(Array.from({ length: 4 }, () => cli(root, 'start')));
   expect(results.map(r => r.code)).toEqual([0, 0, 0, 0]);
@@ -33,6 +35,11 @@ it('executes a real detached lifecycle, concurrent starts, auth, persistence, an
   const metadata = JSON.parse(readFileSync(join(root, 'runtime/connection.json'), 'utf8'));
   const health = await fetch(`http://127.0.0.1:${metadata.port}/health`);
   expect(await health.json()).toEqual({ status: 'ok' });
+  const base = `http://127.0.0.1:${metadata.port}`;
+  const headers = { authorization: `Bearer ${metadata.token}` };
+  expect((await fetch(base + '/v1/status', { headers: { ...headers, origin: 'http://localhost' } })).status).toBe(403);
+  for (const pathname of ['/', '/auth/session', '/api/v1/status', '/events'])
+    expect((await fetch(base + pathname, { headers })).status).toBe(404);
   expect((await fetch(`http://127.0.0.1:${metadata.port}/v1/shutdown`, { method: 'POST', headers: { authorization: 'Bearer wrong', 'content-type': 'application/json' }, body: '{}' })).status).toBe(401);
   const logs = await cli(root, 'logs'); expect(logs.code).toBe(0); expect(JSON.stringify(logs)).not.toContain(metadata.token);
   const restarted = await cli(root, 'restart'); expect(restarted.code).toBe(0); expect(restarted.value.instanceId).not.toBe(first.instanceId);

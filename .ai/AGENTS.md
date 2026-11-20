@@ -20,7 +20,7 @@ multi_agent: AUTO
 
 | 改动内容 | 应修改的位置 |
 | --- | --- |
-| 桌面和 Web 的业务界面 | `apps/desktop/src/features/`；通用控件在 `components/`，请求和事件传输在 `api/`，均相对于 `apps/desktop/src/`。Web 入口为 `apps/web/src/`，复用同一套页面。 |
+| 桌面 WebView 业务界面 | `apps/desktop/src/features/`；通用控件在 `components/`，请求和事件传输在 `api/`，均相对于 `apps/desktop/src/`。Tauri 宿主提供本机能力。 |
 | 后台业务与本机进程 | `apps/runtime/src/` 下，聊天、模型和人格归 `ai/`，记忆与经历归 `memory/`，启动与本机 HTTP 服务归 `host/`，存储与本机权限分别归 `storage/`、`permissions/`。CLI 和桌面原生宿主各自保留入口。 |
 | 平台接入 | QQ、B站、抖音均为内置能力，在 `apps/runtime/src/` 下分别由 `channels/`、`bilibili/`、`douyin/` 管理。B站和抖音随包资源放在各自的 `adapter/`；NapCat 的固定上游源码与许可在 `third_party/napcat/`。`plugins/sdk/` 只用于第三方扩展。 |
 | 说明与设计 | 根目录只保留一份 Markdown，即面向用户的 `README.md`。使用指南和设计资料在 `docs/`，协作规则在 `.ai/`，长期约定与功能规格分别在 `constitution/`、`specs/`。 |
@@ -268,7 +268,7 @@ PASS / FAIL
 
 依次读取 `.ai/AGENTS.md`、`constitution/mission.md`、`constitution/tech-stack.md`、`.ai/rules/`；该规则目录下**全部有效规则都必须读取**。
 
-[网页设计与前端组件规范](rules/web-design.md)适用于桌面窗口和 Web 的共用页面、组件、视觉状态及其验收。冲突按第 12 节处理。
+[网页设计与前端组件规范](rules/web-design.md)适用于桌面 WebView 页面、组件、视觉状态及其验收。冲突按第 12 节处理。
 
 ### 11.2 任务必读
 
@@ -710,7 +710,7 @@ BigFatFish 的根目录只维护简体中文 `README.md`，不按通用模板另
 
 数据删除、Migration、Force Push、Reset、Production Deployment、权限变更、Secret Rotation、外部收费 API、云资源创建和破坏性目录迁移属于高风险动作，须额外确认并留痕。
 
-默认用隔离数据目录和测试账号或夹具。不要把群聊、好友私聊和主人的私人记忆混用；平台消息不进入桌面或 Web 的本地聊天列表。重启正在使用的开发会话、向真实账号发送消息、更改真实资料或消耗模型额度，须先确认本次操作范围；文档和日志示例不得包含可用登录凭据。
+默认用隔离数据目录和测试账号或夹具。不要把群聊、好友私聊和主人的私人记忆混用；平台消息不进入桌面的本地聊天列表。重启正在使用的开发会话、向真实账号发送消息、更改真实资料或消耗模型额度，须先确认本次操作范围；文档和日志示例不得包含可用登录凭据。
 
 Git 高风险操作同时按第 19.4 节说明具体影响并取得明确授权；同一操作已说明影响、已获授权且范围未变时不重复确认。普通提交、推送、同步授权不能扩大为高风险授权。
 
@@ -791,7 +791,7 @@ CI 检查跨平台的编译和运行；生成安装包和发布是另外两件�
 | --- | --- |
 | Windows、macOS、Linux | `npm ci` 后运行 `npm run test:platform`，编译 Runtime 并验证平台行为。 |
 | Windows、macOS | `npm run build:desktop` 编译前端，在 `apps/desktop/src-tauri/` 运行 Cargo 编译和测试；不生成 MSI 或 DMG。 |
-| Linux 容器 | 按 `infra/docker/Dockerfile` 构建 Runtime 与 Web，在容器里执行 `node scripts/smoke.mjs` 验证生命周期。 |
+| Linux 容器 | 按 `infra/docker/Dockerfile` 构建 Runtime 与 CLI，在容器里执行 `node scripts/smoke.mjs` 验证生命周期。 |
 
 依赖按锁文件安装。本地按第 22 节选择与修改相关的检查，不要求每个 PR 在所有系统重复本地全套验证。
 

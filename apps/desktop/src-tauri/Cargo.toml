@@ -9,6 +9,7 @@ rust-version = "1.90"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+rfd = { version = "=0.16.0", default-features = false, features = ["gtk3"] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "=2.7.0"
 tauri-plugin-updater = "=2.14.1"

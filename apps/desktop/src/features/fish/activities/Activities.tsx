@@ -1,13 +1,16 @@
-import { useCallback, useState } from "react";
+import { PageStack, SectionHeading, EmptyState } from "../../../components/PageLayout";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityTask } from "../../../../../runtime/src/tasks/queue";
-import { Card, ContentScroll, Alert } from "../../../components/Surfaces";
-import { ActionRow, Field, Input, Button, Select, FormGrid, Checkbox } from "../../../components/Controls";
+import { Card, ContentScroll, Alert, Loading } from "../../../components/Surfaces";
+import { ActionRow, Button } from "../../../components/Controls";
 import { Drawer } from "../../../components/UI";
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
 import { cancelActivity, loadActivities, type ActivityOverview } from "../../../api/activities";
 import { activityState, actionNames } from "./activity-labels";
 import { usePoll } from "../../../hooks/usePoll";
+import { WatchPlanForm } from "./WatchPlanForm";
+import { newWatchPlan, type WatchPlatform } from "./watch-plan";
 
 function ActivityRows({
   tasks,
@@ -103,26 +106,37 @@ function ActivityRows({
     </ContentScroll>
   );
 }
-export function Activities({ fail }: { fail: (e: unknown) => void }) {
+export type PlanIntent = { platform: WatchPlatform; id: number };
+
+export function Activities({ fail, planIntent, onPlanHandled }: {
+  fail: (e: unknown) => void;
+  planIntent?: PlanIntent;
+  onPlanHandled?: (id: number) => void;
+}) {
   const [data, setData] = useState<ActivityOverview>(),
-    [platform, setPlatform] = useState("douyin"),
-    [videoId, setVideoId] = useState(""),
-    [interval, setInterval] = useState(60),
-    [autonomous, setAutonomous] = useState(false),
+    [draft, setDraft] = useState(() => newWatchPlan()),
+    [readError, setReadError] = useState(""),
     [creating, setCreating] = useState(false);
+  const consumed = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!planIntent || consumed.current === planIntent.id) return;
+    consumed.current = planIntent.id;
+    setDraft(newWatchPlan(planIntent.platform));
+    setCreating(true);
+    onPlanHandled?.(planIntent.id);
+  }, [planIntent, onPlanHandled]);
   const load = useCallback(async () => {
     try {
       setData(await loadActivities());
+      setReadError("");
     } catch (e) {
-      fail(e);
+      setReadError(errorText(e));
     }
-  }, [fail]);
+  }, []);
   usePoll(load);
   return (
-    <section className="page-section">
-      <div className="section-heading">
-        <h2>活动计划</h2>
-        <ActionRow>
+    <PageStack className="fish-plans">
+      <SectionHeading title="活动计划" actions={<ActionRow>
           {data && (
             <Button
               type="button"
@@ -136,74 +150,17 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
             </Button>
           )}
           <Button variant="primary" aria-expanded={creating} onClick={() => setCreating(!creating)}>创建计划</Button>
-        </ActionRow>
-      </div>
+        </ActionRow>} />
       {creating && <Drawer title="创建计划" close={() => setCreating(false)}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void api("/v1/schedules", "POST", {
-            enabled: true,
-            mode: autonomous ? "Autonomous" : "Scheduled",
-            intervalMinutes: interval,
-            choices: autonomous
-              ? [{ platform, query: videoId }]
-              : videoId
-                  .split(/[，,\s]+/)
-                  .filter(Boolean)
-                  .map((videoId) => ({ platform, videoId })),
-          })
-            .then(async () => { await load(); setCreating(false); })
-            .catch(fail);
-        }}
-      >
-        <FormGrid>
-        <Field>
-          平台
-          <Select
-            value={platform}
-            onValueChange={(value) => setPlatform(value)}
-          >
-            <option value="douyin">抖音</option>
-            <option value="bilibili">B站</option>
-          </Select>
-        </Field>
-        <Field>
-          间隔（分钟）
-          <Input
-            type="number"
-            min="1"
-            max="10080"
-            value={interval}
-            onChange={(e) => setInterval(Number(e.target.value))}
-          />
-        </Field>
-        </FormGrid>
-        <Field>
-          {autonomous ? "允许搜索的主题" : "允许观看的视频 ID（逗号分隔）"}
-          <Input
-            value={videoId}
-            onChange={(e) => setVideoId(e.target.value)}
-            required
-          />
-        </Field>
-
-        <Field>
-          <Checkbox
-
-            checked={autonomous}
-            onCheckedChange={(value) => setAutonomous(value)}
-          />
-          允许鱼依据兴趣选择观看或休息
-        </Field>
-        <Button type="submit" variant="primary">
-          启用计划
-        </Button>
-      </form>
+        <WatchPlanForm draft={draft} change={setDraft} saved={() => {
+          setCreating(false); setDraft(newWatchPlan(draft.platform)); void load();
+        }} />
       </Drawer>}
-      {data && !data.schedules.length && <p className="muted">还没有活动计划。</p>}
+      {readError && <Alert role="alert">{readError}</Alert>}
+      {!data && !readError && <Loading>正在读取活动计划…</Loading>}
+      {data && !data.schedules.length && <EmptyState title="还没有活动计划。" />}
       {data?.schedules.map((s) => (
-        <Card key={s.id}>
+        <Card className="fish-plan-row" key={s.id}>
           <p>
             {s.mode === "Autonomous" ? "自主选择" : "定时观看"} ·{" "}
             {s.enabled ? "启用" : "停用"} · 每 {s.intervalMinutes} 分钟
@@ -242,8 +199,8 @@ export function Activities({ fail }: { fail: (e: unknown) => void }) {
           </ActionRow>
         </Card>
       ))}
-      {!!data?.tasks.length && <h3>活动记录</h3>}
+      {!!data?.tasks.length && <SectionHeading level={3} title="活动记录" />}
       <ActivityRows tasks={data?.tasks ?? []} fail={fail} refresh={load} />
-    </section>
+    </PageStack>
   );
 }

@@ -1,3 +1,4 @@
+import { SectionHeading, EmptyState } from "../../../components/PageLayout";
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
@@ -56,12 +57,11 @@ export function SceneDetail({ scene, close, fail, back }: {
 export function MemoryScenes({ entries, fail }: { entries: MemoryScene[]; fail: (e: unknown) => void }) {
   const [id, setId] = useState("");
   const selected = entries.find(scene => scene.id === id);
-  if (!entries.length) return <p className="muted">暂无符合条件的场景。</p>;
+  if (!entries.length) return <EmptyState title="暂无符合条件的场景。" />;
   return <>
     <ContentScroll label="场景记忆" className="content-scroll-list">
       {entries.map(scene => <Card key={scene.id}>
-        <h3>{scene.title}</h3>
-        <p className="muted">{sceneOrigin(scene)}</p>
+        <SectionHeading level={3} title={scene.title} description={sceneOrigin(scene)} />
         <p className="prewrap">{scene.summary}</p>
         <ActionRow><Button size="compact" onClick={() => setId(scene.id)}>查看相关记忆（{scene.members.length}）</Button></ActionRow>
       </Card>)}

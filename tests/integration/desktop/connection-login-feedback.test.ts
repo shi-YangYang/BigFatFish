@@ -1,3 +1,4 @@
+import { installFixtureIPC } from '../../fixtures/desktop/ipc';
 import { it, expect } from 'vitest';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -9,7 +10,7 @@ import type { ManagedQQStatus } from '../../../apps/runtime/src/channels/managed
 
 const browserPath = process.env.BFF_TEST_BROWSER ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 it.skipIf(!existsSync(browserPath))('shows the current login step and keeps failures on the corresponding connection card', async () => {
-  const server = await createServer({ configFile: resolve('apps/web/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false } });
+  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false } });
   await server.listen();
   const browser = await chromium.launch({ executablePath: browserPath });
   try {
@@ -30,8 +31,8 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
       '/v1/bilibili': bili, '/v1/bilibili/tasks': [], '/v1/douyin': douyin, '/v1/activities': { tasks: [], schedules: [] },
     };
     let rejectDouyinRead = false;
-    await page.route('**/auth/session', route => route.fulfill({ json: { csrf: 'fixture' } }));
-    await page.route('**/api/v1/**', route => {
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', route => {
       const path = new URL(route.request().url()).pathname.slice(4);
       if (path === '/v1/douyin' && rejectDouyinRead) return route.fulfill({ status: 503, json: { error: 'UNAVAILABLE' } });
       if (path === '/v1/channels/qq/component/refresh' || path === '/v1/channels/qq/component/settings') {
@@ -77,6 +78,7 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     Object.assign(component, { phase: 'online', account: { id: '10001', name: '测试' }, qr: undefined, loginPhase: undefined });
     channel.health = { state: 'online' };
     await badge('已连接').waitFor(); await noAlert();
+    await page.getByRole('button', { name: '编辑回复对象', exact:true }).click();
     await page.getByRole('button', { name: '保存设置' }).click();
     await page.locator('.qq-account-card').getByRole('alert').getByText(/核对回复设置/).waitFor();
     Object.assign(component, { phase: 'online', error: undefined });
@@ -132,7 +134,8 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     const douyin = { config: { enabled: false, executablePath: '', pythonPath: 'python3', accountId: '', headless: false }, accountState: 'unverified', revision: 'douyin-1', connection: { phase: 'idle', loginState: '' } };
     let rejectBili = true, rejectLogout = true, rejectDouyin = true;
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
-    await page.route('**/api/v1/**', async route => {
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', async route => {
       const request = route.request(), path = new URL(request.url()).pathname.slice(4);
       if (request.method() === 'POST') requests.push({ path, body: request.postDataJSON() });
       if (path === '/v1/bilibili/connect') {
@@ -157,6 +160,7 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     });
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/desktop-clarity.html')}`;
     await page.goto(`${url}?bili`);
+    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '导入凭据', exact: true }).click();
     const biliDialog = page.getByRole('dialog', { name: '导入凭据', exact: true });
     await biliDialog.getByLabel('SESSDATA', { exact: true }).fill('fixture-sessdata');
@@ -177,6 +181,7 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     await biliDialog.waitFor({ state: 'detached' });
     await page.locator('[data-badge-label]').getByText('已连接', { exact: true }).waitFor();
     expect(requests.filter(item => item.path === '/v1/bilibili/connect').at(-1)?.body).toEqual({ revision: 'bili-poll', credentials: { sessdata: 'fixture-sessdata', bili_jct: 'fixture-csrf' } });
+    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '导入凭据', exact: true }).click();
     expect(await biliDialog.getByLabel('SESSDATA', { exact: true }).inputValue()).toBe('');
     expect(await biliDialog.getByLabel('bili_jct', { exact: true }).inputValue()).toBe('');
@@ -187,6 +192,7 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     await page.getByRole('button', { name: '连接 B站', exact: true }).waitFor();
 
     await page.goto(`${url}?douyin`);
+    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '连接设置', exact: true }).click();
     const douyinDialog = page.getByRole('dialog', { name: '连接设置', exact: true });
     await douyinDialog.getByLabel('浏览器路径', { exact: true }).fill('/fixture/chrome');

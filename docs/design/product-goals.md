@@ -1,6 +1,6 @@
 # BigFatFish 产品设计目标
 
-> 版本：v1.0 \| 项目立项基线 \| 面向 Codex 与项目开发者
+> 版本：v1.0 \| 项目立项基线 \| 面向 Codex 与项目开发者。下文为立项原稿；独立 Web Console 已退役，当前入口见[架构](architecture.md#客户端如何访问-runtime)。
 
 ## 1. 项目定位
 

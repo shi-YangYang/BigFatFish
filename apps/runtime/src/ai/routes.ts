@@ -32,6 +32,7 @@ export async function registerAi(app: FastifyInstance, chat: ChatService) {
   app.get('/v1/conversations', async () => chat.conversations());
   app.get('/v1/conversations/local', async () => chat.conversations('local'));
   app.post('/v1/conversations', async req => chat.create(req.body));
+  app.put<{ Params: { id: string } }>('/v1/conversations/:id/model', async req => chat.changeLocalModel(req.params.id, req.body));
   app.get<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.messages(req.params.id));
   app.post<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.send(req.params.id, req.body));
   app.post<{ Params: { id: string } }>('/v1/messages/:id/cancel', async req => chat.cancel(req.params.id));

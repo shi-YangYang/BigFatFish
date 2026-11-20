@@ -4,15 +4,18 @@ import { mergeChatMessage, statusText } from './chat-messages';
 import { notifyMessage } from '../../components/Notifications';
 import { PromptInput } from "../../components/beui/prompt-input";
 import { Message, MessageAvatar, MessageContent, MessageBubble, MessageBubbleContent } from "../../components/beui/message";
-import { Disclosure, Menu, Alert } from "../../components/Surfaces";
-import { Button, Input, Field } from "../../components/Controls";
+import { EmptyState } from "../../components/PageLayout";
+import { History, Volume2, AudioLines, SendHorizontal } from "lucide-react";
+import { Disclosure, Menu, Alert, ContentScroll } from "../../components/Surfaces";
+import { Button, Input, Field, Select, ActionRow } from "../../components/Controls";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ChatMessage,
   Conversation,
-  ModelConfig,
+  ModelConfig, ModelPurpose,
 } from "../../../../runtime/src/ai/types";
 import { api } from "../../api/client";
+import { modelErrorText } from "../../api/model-error-text";
 import { errorText } from "../../api/errors";
 import { Drawer, FishAvatar, Icon } from "../../components/UI";
 export function Chat({
@@ -25,7 +28,7 @@ export function Chat({
 }: {
   models: ModelConfig[];
   fail: (e: unknown) => void;
-  configureModel: () => void;
+  configureModel: (complete?: (id: string) => void | Promise<void>, conversationOnly?: boolean) => void;
   connected?: boolean;
   active?: boolean;
   renderHeader: (content: ReactNode) => ReactNode;
@@ -34,13 +37,16 @@ export function Chat({
   useEffect(() => { if (!active) setVoiceOpen(false); }, [active]);
   const [sessions, setSessions] = useState<Conversation[]>([]),
     [selection, setSelection] = useState({ id: "" }),
-    [chatModel, setChatModel] = useState(""),
+    [routes, setRoutes] = useState<Partial<Record<ModelPurpose, string>>>({}),
     [messages, setMessages] = useState<ChatMessage[]>([]),
     [text, setText] = useState(""),
     [busy, setBusy] = useState(false),
     [history, setHistory] = useState(false),
     [streamOffline, setStreamOffline] = useState(false),
-    [streamRetry, setStreamRetry] = useState(0);
+    [streamRetry, setStreamRetry] = useState(0),
+    [changingModel, setChangingModel] = useState(false),
+    [lastRepaired, setLastRepaired] = useState(""),
+    [pickedModel, setPickedModel] = useState("");
   const [tools, setTools] = useState<
       { name: string; state: string; at: string }[]
     >([]),
@@ -59,7 +65,26 @@ export function Chat({
     fileInput = useRef<HTMLInputElement>(null);
   const currentSession = sessions.find(session => session.id === selected);
   const sessionModel = currentSession?.modelId;
-  const canChat = models.some(model => model.id === (selected ? sessionModel : chatModel));
+  const canChat = models.some(model => model.id === (selected ? sessionModel : routes.chat));
+  const chatCandidates = models.filter(({ id }) => id !== sessionModel && (
+    id === routes.chat || sessions.some(session => session.modelId === id)
+    || (id !== routes.asr && id !== routes.tts)
+  ));
+  const lastReply = messages.filter(message => message.role === "assistant").at(-1);
+  const failedModel = lastReply?.status === "failed" && !!lastReply.error && !!modelErrorText(lastReply.error) && lastRepaired !== lastReply.id;
+  const recoverModel = !currentSession?.readOnly && (!canChat || failedModel);
+  async function useModel(modelId: string) {
+    if (selected) {
+      const updated = await api<Conversation>(`/v1/conversations/${selected}/model`, "PUT", { modelId });
+      setSessions(items => items.map(item => item.id === updated.id ? updated : item));
+    } else {
+      const routes = await api<Record<string, string>>("/v1/model-routes");
+      if (routes.chat !== modelId) await api("/v1/model-routes", "PUT", { ...routes, chat: modelId });
+      setRoutes({...routes, chat: modelId});
+    }
+    setLastRepaired(lastReply?.id ?? ""); setPickedModel("");
+  }
+  function addChatModel() { configureModel(useModel, !!selected); }
   function updateText(value: string) {
     draftVersion.current++;
     if (!value) transcribedDrafts.current.delete(currentSelection.current.id);
@@ -73,6 +98,7 @@ export function Chat({
     const next = { id };
     currentSelection.current = next;
     setSelection(next);
+    setPickedModel("");
     updateText(drafts.current.get(id) ?? "");
     setMessages([]);
     setTools([]);
@@ -80,7 +106,7 @@ export function Chat({
   }
   useEffect(() => {
     let live = true;
-    void api<{ chat?: string }>("/v1/model-routes").then(routes => { if (live) setChatModel(routes.chat ?? ""); }).catch(fail);
+    void api<Partial<Record<ModelPurpose, string>>>("/v1/model-routes").then(value => { if (live) setRoutes(value); }).catch(fail);
     return () => { live = false; };
   }, [models, fail]);
   useEffect(() => {
@@ -244,20 +270,15 @@ export function Chat({
   }
   const title = currentSession?.title ?? "新对话";
   const voiceOptions = (
-<Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" align="start" trigger={<Button variant="ghost" size="compact">声音</Button>} className="voice-options">
-
-                  <Field>
-                    声音名称
-                    <Input
-                      value={voice}
-                      placeholder="例如 alloy"
-                      onChange={(e) => {
-                        setVoice(e.target.value);
-                        localStorage.setItem("bff-voice", e.target.value);
-                      }}
-                    />
-                  </Field>
-                </Menu>
+    <Menu open={active && voiceOpen} onOpenChange={setVoiceOpen} side="top" align="start"
+      trigger={<Button variant="ghost" size="compact"><Volume2 size={16} aria-hidden="true" />声音</Button>} className="voice-options">
+      <Field>声音名称
+        <Input value={voice} placeholder="例如 alloy" onChange={(e) => {
+          setVoice(e.target.value);
+          localStorage.setItem("bff-voice", e.target.value);
+        }} />
+      </Field>
+    </Menu>
   );
   return (
     <section className="chat">
@@ -272,7 +293,7 @@ export function Chat({
             onClick={() => setHistory(true)}
             aria-expanded={history}
           >
-            <Icon name="history" />
+            <History size={18} aria-hidden="true" />
           </Button>
           <h1 className="chat-title" title={title}>
             {title}
@@ -293,12 +314,12 @@ export function Chat({
       {active && history && (
         <Drawer title="历史对话" close={() => setHistory(false)}>
           <div className="session-list">
-            <div className="session-heading">最近对话</div>
             {sessions.length ? (
               sessions.map((s) => (
                 <Button
                   type="button"
                   className={s.id === selected ? "active" : ""}
+                  aria-current={s.id === selected ? "true" : undefined}
                   key={s.id}
                   onClick={() => selectSession(s.id)}
                 >
@@ -307,7 +328,7 @@ export function Chat({
                 </Button>
               ))
             ) : (
-              <p className="muted">还没有对话</p>
+              <EmptyState title="还没有对话" />
             )}
           </div>
         </Drawer>
@@ -316,21 +337,10 @@ export function Chat({
         <div className="conversation">
           <div className="messages" aria-live="polite">
             {!messages.length && (
-              <div className="chat-welcome">
-                <FishAvatar />
-                <h2>
-                  {canChat
-                    ? "今天想聊些什么？"
-                    : "先为大肥鱼添加一个模型"}
-                </h2>
-                {!canChat ? (
-                  <Button type="button" onClick={configureModel}>
-                    添加聊天模型
-                  </Button>
-                ) : (
-                  <p>从一句话开始，慢慢了解彼此。</p>
-                )}
-              </div>
+              <EmptyState className="chat-welcome" icon={<FishAvatar alt="" />}
+                title={canChat ? "今天想聊些什么？" : "先为大肥鱼添加一个模型"}>
+                {!canChat && !selected && !chatCandidates.length && <Button type="button" variant="primary" onClick={addChatModel}>添加聊天模型</Button>}
+              </EmptyState>
             )}
             {messages.map((m) => (
               <Message from={m.role === "user" ? "user" : "assistant"} aria-label={m.role === "user" ? "你的消息" : "大肥鱼的消息"} className={`message ${m.role} flex-row`} key={m.id}>
@@ -339,13 +349,13 @@ export function Chat({
                 </MessageAvatar>
                 <MessageContent className="message-content items-start">
                   <strong>{m.role === "user" ? "你" : "大肥鱼"}</strong>
-                  <MessageBubble align="start" variant={m.role === "assistant" ? "ghost" : "soft"} className="chat-bubble"><MessageBubbleContent className="max-w-full text-[15px] leading-[1.85]">
+                  <MessageBubble align={m.role === "user" ? "end" : "start"} variant={m.role === "assistant" ? "ghost" : "soft"} className="chat-bubble"><MessageBubbleContent className="max-w-full text-[15px] leading-[1.85]">
                     {m.content ||
                       (["queued", "running"].includes(m.status)
                         ? "正在想…"
                         : "")}
                   </MessageBubbleContent></MessageBubble>
-                  {m.error ? <Alert>{errorText(m.error)}</Alert> : <small>{statusText[m.status]}</small>}
+                  {m.error ? <Alert>{errorText(m.error)}</Alert> : statusText[m.status] ? <small>{statusText[m.status]}</small> : null}
                   {m.role === "assistant" &&
                   ["queued", "running"].includes(m.status) ? (
                     <Button
@@ -379,6 +389,7 @@ export function Chat({
             {tools.length > 0 && (
               <Disclosure className="tool-activity" title={<>工具活动 · {tools.length}</>}>
 
+                <ContentScroll label="本次工具活动">
                 {tools.map((t, i) => (
                   <p key={i}>
                     {t.name} ·{" "}
@@ -389,6 +400,7 @@ export function Chat({
                         : "失败"}
                   </p>
                 ))}
+                </ContentScroll>
               </Disclosure>
             )}
           </div>
@@ -403,10 +415,24 @@ export function Chat({
           )}
           <div className="composer-area">
             {streamOffline && <p role="status" className="stream-status">聊天连接已断开，已有回复已保留。<Button size="compact" onClick={() => setStreamRetry(value => value + 1)}>重新连接</Button></p>}
+            {recoverModel && (!!selected || !!chatCandidates.length) && <div className="chat-model-recovery">
+              <p role="status">{!selected ? "选择一个聊天模型即可开始。" : failedModel ? "模型没有完成上次回复。可以重试，也可以更换模型继续这段对话。" : "这段对话的模型不可用。换一个模型继续聊，历史和草稿都会保留。"}</p>
+              <ActionRow>
+                {!!chatCandidates.length && <>
+                  <Field>可用聊天模型<Select disabled={!connected || busy || changingModel} value={pickedModel} onValueChange={setPickedModel}>
+                    <option value="">选择模型</option>{chatCandidates.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+                  </Select></Field>
+                  <Button disabled={!connected || !pickedModel || busy || changingModel} busy={changingModel} onClick={() => {
+                    setChangingModel(true); void useModel(pickedModel).catch(fail).finally(() => setChangingModel(false));
+                  }}>使用这个模型</Button>
+                </>}
+                <Button disabled={!connected || busy || changingModel} onClick={addChatModel}>添加聊天模型</Button>
+              </ActionRow>
+            </div>}
             <PromptInput className="composer" onSubmit={() => send()}
               aria-label="消息" value={text} onValueChange={updateText}
-              placeholder="和大肥鱼聊聊…" disabled={!canChat}
-              submitDisabled={busy || !connected} footer={
+              placeholder="和大肥鱼聊聊…"
+              submitDisabled={busy || !connected || !canChat || changingModel} footer={
               <div className="composer-tools">
                 <Input
                   ref={fileInput}
@@ -422,12 +448,12 @@ export function Chat({
                   disabled={mediaBusy ||  !connected}
                   onClick={() => fileInput.current?.click()}
                 >
-                  {mediaBusy ? "处理中…" : "上传音频"}
+                  <AudioLines size={16} aria-hidden="true" />{mediaBusy ? "处理中…" : "上传音频"}
                 </Button>
                 {voiceOptions}
                 <Button variant="primary" className="send-button" type="submit"
                   disabled={busy ||  !connected || !canChat || !text.trim()}>
-                  {busy ? "发送中…" : "发送"}
+                  <SendHorizontal size={16} aria-hidden="true" />{busy ? "发送中…" : "发送"}
                 </Button>
               </div>
             } />

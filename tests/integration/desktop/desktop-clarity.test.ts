@@ -1,3 +1,4 @@
+import { installFixtureIPC } from '../../fixtures/desktop/ipc';
 import { it, expect } from 'vitest';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,7 +14,8 @@ it.skipIf(!existsSync(executable))('keeps existing persona details while simplif
     const page = await browser.newPage({ viewport: { width: 900, height: 680 } });
     let persona = { ...defaultPersona, avatar: 'https://example.invalid/avatar.png', boundaries: '保留的行为边界', schedule: '保留的作息', autonomy: '保留的活动偏好' };
     const changes: unknown[] = [];
-    await page.route('**/api/v1/**', async route => {
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('/persona')) {
         if (route.request().method() === 'PUT') { persona = { ...route.request().postDataJSON(), version: persona.version + 1 }; changes.push(persona); }
@@ -75,6 +77,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.exposeFunction('fixtureInvoke', (command: string, args: Record<string, unknown> = {}) => {
       calls.push({ command, args });
       if (command === 'desktop_settings') return { complete: true, dataDir: '/fixture/data', background: true, autostart: false };
+      if (command === 'desktop_pick_backup_file') return '/fixture/backup.bff';
       if (command === 'desktop_maintenance') return { scopes: ['persona', 'models', 'sessions', 'memories', 'life', 'plugins'], conversations: 4 };
       if (command === 'runtime_request') {
         const data: Record<string, unknown> = {
@@ -83,6 +86,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
           '/v1/bilibili': { enabled: !!resumePhase, revision: 'fixture', accountState: 'unverified', health: {}, connection: {phase: resumePhase} },
           '/v1/bilibili/tasks': [{ id: 'v1', bvid: 'BVfixture', status: 'completed', result: { evidence: { title: '一段海边视频' }, summary: '海边日落' }, createdAt: '2026-11-07T08:00:00Z' }],
           '/v1/bilibili/tasks/v1/share': { status: 'sent' },
+          '/v1/channels/qq':{config:{mode:'external',accountId:'10001',ownerId:'10002',groups:[],enabled:true,proactiveEnabled:true},health:{state:'online'},revision:'qq-1'},
           '/v1/douyin': { revision: 'fixture', connection: {phase: resumePhase, loginState: 'verification'}, config: { enabled: !!resumePhase, accountId: '', executablePath: '', pythonPath: 'python3', headless: false }, accountState: resumePhase === 'online' ? 'verified' : 'unverified', browser: { state: 'closed' } },
           '/v1/activities': { tasks: [], schedules: [] },
         };
@@ -107,7 +111,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.goto(`${url}?media`);
     await page.getByText('先配置语音输入模型。', { exact: true }).waitFor();
     expect(await page.getByRole('button', { name: '选择文件', exact: true }).count()).toBe(0);
-    await page.getByRole('button', { name: '设置模型', exact: true }).first().click();
+    await page.getByRole('button', { name: '设置语音输入模型', exact: true }).click();
     await page.getByRole('heading', { name: '模型设置', exact: true }).waitFor();
     routes = { asr: 'speech', tts: 'voice' };
     await page.reload();
@@ -119,7 +123,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     expect(await page.getByRole('checkbox').count()).toBe(2);
     await page.goto(`${url}?backup`);
     expect(await page.getByRole('checkbox', { name: '模型设置', exact: true }).count()).toBe(0);
-    await page.getByLabel('保存到', { exact: true }).fill('/fixture/backup.bff');
+    await page.getByRole('button', { name: '选择保存位置', exact: true }).click();
     await page.getByRole('button', { name: '创建备份', exact: true }).click();
     await page.getByRole('status').waitFor();
     expect(calls.find(call => call.command === 'desktop_maintenance')?.args).toMatchObject({ action: 'export', input: { file: '/fixture/backup.bff', scopes: ['persona', 'models', 'sessions', 'memories', 'life', 'plugins'], credentials: false } });
@@ -130,14 +134,16 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.getByRole('button', { name: '分享到 QQ', exact: true }).waitFor();
     expect(await page.getByLabel('接收 QQ 或群号', { exact: true }).count()).toBe(0);
     await page.getByRole('button', { name: '分享到 QQ', exact: true }).click();
-    await page.getByLabel('接收 QQ 或群号', { exact: true }).fill('10002');
+    await page.getByRole('combobox',{name:'分享对象',exact:true}).getByText('主人 · 10002').waitFor();
+    expect(await page.getByLabel('接收 QQ 或群号', {exact:true}).count()).toBe(0);
     await page.getByRole('button', { name: '确认分享', exact: true }).click();
     await page.getByText('已分享到 QQ。', { exact: true }).waitFor();
     expect(calls.find(call => call.args.route === '/v1/bilibili/tasks/v1/share')?.args).toMatchObject({ method: 'POST', body: { target: { kind: 'private', id: '10002' } } });
     await page.goto(`${url}?douyin`);
-    await page.getByRole('tab', { name: '互动', exact: true }).click();
-    await page.getByText('连接抖音后可点赞或评论。', { exact: true }).waitFor();
+    await page.getByRole('button', {name:'连接抖音',exact:true}).waitFor();
+    expect(await page.getByRole('tab',{name:'互动',exact:true}).count()).toBe(0);
     expect(await page.getByLabel('视频 ID', { exact: true }).count()).toBe(0);
+    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '连接设置', exact: true }).click();
     await page.getByRole('dialog', { name: '连接设置', exact: true }).waitFor();
     await page.getByLabel('浏览器路径', { exact: true }).waitFor();

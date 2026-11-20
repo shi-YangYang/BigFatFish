@@ -42,7 +42,7 @@ it.skipIf(!existsSync(executable))(
       headless: true,
     });
     const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-    let online = true,
+    let setupComplete = true, online = true,
       unknown = false,
       hold = false,
       release = () => {};
@@ -176,12 +176,13 @@ it.skipIf(!existsSync(executable))(
       ) => {
         if (cmd === "desktop_settings")
           return {
-            complete: true,
+            complete: setupComplete,
             dataDir: "/isolated/fixture",
             background: true,
             autostart: false,
             version: "0.1.0",
           };
+        if (cmd === "desktop_configure") { setupComplete = true; return {}; }
         if (!online) throw new Error("UNAVAILABLE");
         if (cmd === "runtime_status") return {};
         const route = args.route,
@@ -189,6 +190,9 @@ it.skipIf(!existsSync(executable))(
         if (method !== "GET") {
           requests.push({ route, body: args.body ?? {} });
           if (route === "/v1/memories/search") return data[route];
+          if (route === "/v1/memory-scenes/search" || route === "/v1/memory-profile/search") return [];
+          if (route === "/v1/model-routes") { data[route] = args.body; return args.body; }
+          if (route.endsWith("/model") && method === "PUT") return { ...sessions.find(x => x.id === route.split("/")[3]), modelId: args.body?.modelId };
           if (route === "/v1/conversations") {
             const item = {
               id: "new-" + sessions.length,
@@ -208,7 +212,8 @@ it.skipIf(!existsSync(executable))(
             return {};
           }
           if (route === "/v1/models") {
-            data[route] = [{ ...args.body, hasKey: false }];
+            const list = data[route] as {id:string}[];
+            data[route] = [...list.filter(x=>x.id !== args.body?.id), { ...args.body, hasKey:false }];
             return args.body;
           }
           return {};
@@ -219,15 +224,39 @@ it.skipIf(!existsSync(executable))(
         return structuredClone(data[route] ?? []);
       },
     );
-    await context.addInitScript(() => {
+    await context.addInitScript((initialMessages) => {
+      type Stream = { conversationId: string; channel: { onmessage: (event: unknown) => void }; subscriptionId: string };
+      const subscriptions = new Set<string>();
       const w = window as unknown as {
         bffTestInvoke: (cmd: string, args: unknown) => Promise<unknown>;
         __TAURI_INTERNALS__: unknown;
       };
       w.__TAURI_INTERNALS__ = {
-        invoke: (cmd: string, args: unknown) => w.bffTestInvoke(cmd, args),
+        transformCallback: () => 1,
+        unregisterCallback: () => {},
+        invoke: (cmd: string, args: Stream) => {
+          if (cmd === "runtime_stream_stop") {
+            subscriptions.delete(args.subscriptionId);
+            return Promise.resolve();
+          }
+          if (cmd === "runtime_stream_start") {
+            const { conversationId, channel, subscriptionId } = args;
+            subscriptions.add(subscriptionId);
+            queueMicrotask(() => {
+              if (!subscriptions.has(subscriptionId)) return;
+              const snapshot = conversationId === "recent" ? initialMessages : [];
+              for (const event of [
+                { type: "snapshot-start" },
+                ...snapshot.map(message => ({ type: "snapshot-message", message })),
+                { type: "snapshot-end", tools: [] },
+              ]) channel.onmessage({ ...event, conversationId });
+            });
+            return Promise.resolve();
+          }
+          return w.bffTestInvoke(cmd, args);
+        },
       };
-    });
+    }, messages);
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(4000);
@@ -237,7 +266,7 @@ it.skipIf(!existsSync(executable))(
       await page
         .getByText("今天想出去走走，换换心情。", { exact: true })
         .waitFor();
-      mkdirSync("build/desktop-webui", { recursive: true });
+      mkdirSync("build/beui-interface", { recursive: true });
       for (const width of [1100, 820, 640]) {
         await page.setViewportSize({ width, height: 760 });
         await page.evaluate(
@@ -249,11 +278,12 @@ it.skipIf(!existsSync(executable))(
             ),
         );
         expect(await page.locator(".topbar:visible").count()).toBe(1);
-        const headerButtons = await page.locator(".topbar:visible > button:visible").evaluateAll((buttons) => buttons.map((button) => ({
+        const headerButtons = await page.locator(".topbar:visible button:visible").evaluateAll((buttons) => buttons.map((button) => ({
           height: button.getBoundingClientRect().height,
           radius: getComputedStyle(button).borderRadius,
           library: button.getAttribute("data-beui"),
         })));
+        expect(headerButtons.length).toBeGreaterThan(0);
         expect(headerButtons.every((button) => Math.abs(button.height - 40) < 0.01 && button.radius === "8px" && button.library === "button")).toBe(true);
 
         if (width > 700) expect((await page.locator(".app-sidebar").boundingBox())!.width).toBeLessThanOrEqual(80);
@@ -295,6 +325,8 @@ it.skipIf(!existsSync(executable))(
       expect(requests.filter((r) => r.route.endsWith("/messages"))).toHaveLength(0);
       await input.fill("保留的草稿");
       await page.getByRole("button", { name: "设置", exact: true }).click();
+      await page.getByRole("button", { name: "新建配置", exact: true }).click();
+      await page.getByRole("combobox", {name:"服务商",exact:true}).click(); await page.getByRole("option", {name:"自定义 / OpenAI 兼容",exact:true}).click();
       await page.getByLabel("服务地址", { exact: true }).waitFor();
       expect(
         await page
@@ -302,56 +334,45 @@ it.skipIf(!existsSync(executable))(
           .evaluate((el) => (el.closest(".ui-input") ?? el).getBoundingClientRect().height),
       ).toBeCloseTo(40, 2);
       await page.screenshot({ path: "build/beui-interface/regression-settings-1100.png" });
+      await page.getByRole("dialog").getByRole("button", { name: "关闭", exact: true }).click();
       // General settings must not mix fields, toggles and a stretched action in a two-column grid.
       await page.getByRole("tab", { name: "通用", exact: true }).click();
-      const settingsBoxes = await Promise.all([
-        page.getByLabel("数据目录", { exact: true }).locator("..", {}).locator("..").boundingBox(),
-        page
-          .getByLabel("关闭窗口后继续在后台运行", { exact: true })
-          .boundingBox(),
+      await page.getByText("/isolated/fixture", { exact: true }).waitFor();
+      const preferences = await Promise.all([
+        page.getByLabel("关闭窗口后继续在后台运行", { exact: true }).boundingBox(),
         page.getByLabel("登录电脑时启动", { exact: true }).boundingBox(),
-        page
-          .getByRole("button", { name: "保存设置", exact: true })
-          .boundingBox(),
+        page.getByRole("button", { name: "保存设置", exact: true }).boundingBox(),
       ]);
-      expect(settingsBoxes.every((b) => b?.x === settingsBoxes[0]!.x)).toBe(
-        true,
+      const form = await page.locator(".setup-form").boundingBox();
+      expect(preferences.every(b => b && Math.abs(b.x - preferences[0]!.x) <= 1)).toBe(true);
+      expect(preferences[2]!.height).toBeCloseTo(40, 2);
+      expect(preferences[2]!.width).toBeLessThan(form!.width / 2);
+      await page.getByRole("tab", { name: "数据与维护", exact: true }).click();
+      const exportAction = await page.getByRole("button", { name: "创建备份", exact: true }).boundingBox();
+      await page.getByRole("group", { name: "备份操作" }).getByRole("button", { name: "恢复数据", exact: true }).click();
+      const restoreActions = await Promise.all(
+        ["检查备份", "恢复数据"].map(name => page.locator(".ui-section-card").getByRole("button", { name, exact: true }).boundingBox()),
       );
-      expect(settingsBoxes[0]!.height).toBeCloseTo(40, 2);
-      expect(settingsBoxes[3]!.height).toBeCloseTo(40, 2);
-      expect(settingsBoxes[3]!.width).toBeLessThan(settingsBoxes[0]!.width / 2);
-      await page.getByRole("tab", { name: "数据", exact: true }).click();
-      const backupActions = await Promise.all(
-        ["导出备份", "检查备份", "恢复备份"].map((name) =>
-          page.getByRole("button", { name, exact: true }).boundingBox(),
-        ),
-      );
-      expect(
-        backupActions.every(
-          (b) => !!b && Math.abs(b.height - 40) < 0.01 && b.y === backupActions[0]!.y,
-        ),
-      ).toBe(true);
+      expect([exportAction, ...restoreActions].every(b => b && Math.abs(b.height - 40) < 0.01)).toBe(true);
+      expect(restoreActions[0]!.y).toBe(restoreActions[1]!.y);
       await page.getByRole("button", { name: "我的鱼", exact: true }).click();
       await page.getByRole("tab", { name: "记忆", exact: true }).click();
       await page
-        .getByText("没有符合条件的记忆。可整理对话，或直接添加。", {
+        .getByText("还没有记忆", {
           exact: true,
         })
         .waitFor();
-      const filters = await page
-        .locator(".filters input, .filters button[role=combobox]")
-        .evaluateAll((elements) =>
-          elements.map((el) => ({
-            bottom: (el.closest(".ui-input") ?? el).getBoundingClientRect().bottom,
-            height: (el.closest(".ui-input") ?? el).getBoundingClientRect().height,
-          })),
-        );
-      expect(filters).toHaveLength(3);
-      expect(
-        filters.every(
-          (r) => Math.abs(r.height - 40) < 0.01 && r.bottom === filters[0]!.bottom,
-        ),
-      ).toBe(true);
+      await page.getByRole("button", { name: "浏览全部记忆", exact: true }).click();
+      await page.getByRole("button", { name: "筛选", exact: true }).click();
+      const filters = await page.locator(".memory-query-panel input:visible, .memory-query-panel button[role=combobox]:visible")
+        .evaluateAll(elements => elements.map(el => {
+          const box = (el.closest(".ui-input") ?? el).getBoundingClientRect();
+          return { bottom: box.bottom, height: box.height };
+        }));
+      expect(filters).toHaveLength(4);
+      expect(filters.every(r => Math.abs(r.height - 40) < 0.01)).toBe(true);
+      expect(filters[0]!.bottom).toBe(filters[1]!.bottom);
+      expect(filters[2]!.bottom).toBe(filters[3]!.bottom);
       await page.getByRole("button", { name: "聊天", exact: true }).click();
       expect(await input.inputValue()).toBe("保留的草稿");
       online = false;
@@ -456,15 +477,67 @@ it.skipIf(!existsSync(executable))(
         .getByRole("button", { name: "暂停全部活动", exact: true })
         .waitFor();
       expect(errors).toEqual([]);
-      // A clean launch without a model leads directly to configuration.
-      data["/v1/models"] = [];
-      data["/v1/conversations/local"] = [];
-      data["/v1/conversations"] = [];
+      // A missing historical model must not strand a local draft or force a new conversation.
+      data["/v1/models"] = [model, {...model,id:"voice-only",label:"仅朗读"}];
+      data["/v1/model-routes"] = {chat:model.id,tts:"voice-only"};
+      data["/v1/conversations/local"] = [{...sessions.find(x => x.id === "recent"), modelId:"unavailable"}];
       await page.reload();
-      await page
-        .getByRole("button", { name: "添加聊天模型", exact: true })
-        .click();
-      await page.getByLabel("服务地址", { exact: true }).waitFor();
+      await page.getByText("今天想出去走走，换换心情。", { exact:true }).waitFor();
+      await input.fill("等换好模型再聊");
+      await page.getByLabel("可用聊天模型").click();
+      expect(await page.getByRole("option", {name:"仅朗读",exact:true}).count()).toBe(0);
+      await page.getByRole("option", {name:model.label,exact:true}).click();
+      await page.getByRole("button", {name:"使用这个模型"}).click();
+      await page.getByText("这段对话的模型不可用。", {exact:false}).waitFor({state:"hidden"});
+      expect(requests.find(r => r.route === "/v1/conversations/recent/model")?.body.modelId).toBe("demo");
+      expect(await input.inputValue()).toBe("等换好模型再聊");
+      await page.getByText("今天想出去走走，换换心情。", {exact:true}).waitFor();
+
+      // Direct editor uses the source task's model purpose; no automatic provider request.
+      const writesBefore = requests.length;
+      data["/v1/models"] = []; data["/v1/model-routes"]={};
+      data["/v1/conversations/local"] = []; data["/v1/conversations"] = [];
+      await page.reload();
+      await page.getByRole("button", { name: "添加聊天模型", exact: true }).click();
+      await page.getByRole("dialog", {name:"设置聊天模型"}).waitFor();
+      await page.getByRole("combobox", {name:"服务商",exact:true}).click(); await page.getByRole("option", {name:"自定义 / OpenAI 兼容",exact:true}).click();
+      await page.getByLabel("服务地址", {exact:true}).fill("https://unused.invalid/v1"); await page.getByLabel("模型名称", {exact:true}).fill("my-chat");
+      await page.getByRole("button",{name:"保存并回到聊天"}).click();
+      await page.getByRole("dialog").waitFor({state:"hidden"});
+      expect(await input.isEnabled()).toBe(true);
+      await page.getByRole("button",{name:"设置",exact:true}).click();
+      await page.getByRole("button",{name:"语音输入与朗读",exact:true}).click();
+      for (const [title,purpose] of [["语音输入","asr"],["朗读","tts"]]) {
+        await page.getByRole("button",{name:"设置"+title+"模型",exact:true}).click();
+        await page.getByRole("dialog",{name:"设置"+title+"模型"}).waitFor();
+        await page.getByLabel("服务地址",{exact:true}).fill("https://unused.invalid/v1");await page.getByLabel("模型名称",{exact:true}).fill("my-"+purpose);
+        await page.getByRole("button",{name:"保存模型",exact:true}).click();
+        await page.getByRole("dialog").waitFor({state:"hidden"});
+        expect((data["/v1/model-routes"] as Record<string,string>)[purpose]).toBeTruthy();
+      }
+      // First run uses the system data directory and persona without presenting background controls.
+      setupComplete = false; data["/v1/models"] = []; data["/v1/model-routes"] = {};
+      await page.reload();
+      await page.getByRole("heading",{name:"欢迎养一条自己的鱼"}).waitFor();
+      expect(await page.getByRole("textbox", {name:"鱼的名字"}).count()).toBe(0);
+      expect(await page.getByRole("button", {name:"自定义名字和数据目录"}).getAttribute("aria-expanded")).toBe("false");
+      expect(await page.getByLabel("登录电脑时启动").count()).toBe(0);
+      await page.getByRole("button",{name:"开始设置模型"}).click();
+      await page.getByRole("dialog",{name:"设置聊天模型"}).waitFor();
+      await page.getByRole("combobox",{name:"服务商",exact:true}).click();
+      await page.getByRole("option",{name:"阿里云百炼（按量，北京）",exact:true}).click();
+      expect(await page.getByRole("textbox",{name:"服务地址",exact:true}).count()).toBe(0);
+      expect(await page.getByRole("combobox",{name:"聊天模型",exact:true}).innerText()).toBe("qwen3.7-plus");
+      await page.getByLabel("API Key",{exact:true}).fill("sk-sp-fixture-only");
+      expect(await page.getByRole("button",{name:"保存并回到聊天"}).isDisabled()).toBe(true);
+      await page.getByLabel("API Key",{exact:true}).fill("fixture-payg-key");
+      await page.getByRole("button",{name:"保存并回到聊天"}).click();
+      await page.getByRole("dialog").waitFor({state:"hidden"});
+      await page.getByRole("heading",{name:"今天想聊些什么？"}).waitFor();
+      expect(requests.filter(r=>r.route==="/v1/models").at(-1)?.body).toMatchObject({provider:"openai",model:"qwen3.7-plus",baseURL:"https://dashscope.aliyuncs.com/compatible-mode/v1",apiKey:"fixture-payg-key"});
+      await input.fill("第一条草稿");
+      expect(await page.getByRole("button",{name:"发送",exact:true}).isEnabled()).toBe(true);
+      expect(requests.slice(writesBefore).some(r=>r.route.endsWith("/test")||r.route.endsWith("/discover"))).toBe(false);
     } finally {
       await browser.close();
       await new Promise<void>((r) => server.close(() => r()));

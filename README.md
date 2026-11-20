@@ -2,7 +2,7 @@
 
 一条可以长期陪伴、积累记忆与经历的 AI 鱼。
 
-大肥鱼可以在桌面和 Web 上与你聊天，也可以接入 QQ、B站和抖音。各入口共用人格、模型配置和记忆，桌面和 Web 的聊天历史只显示本地对话。
+大肥鱼可以在桌面窗口与你聊天，也可以接入 QQ、B站和抖音。各入口共用人格、模型配置和记忆，桌面聊天历史只显示本地对话。
 
 ## 快速开始
 
@@ -13,7 +13,7 @@ npm ci
 npm run desktop:dev
 ```
 
-首次设置完成后，到「设置 → 模型 → 新建配置」添加聊天模型。回到「聊天」即可发送第一条消息，回复会逐步显示。「我的鱼 → 设定」可以选择女儿版或傲娇版，也可以编辑完整人设。模型的测试、语音输入与朗读配置见[模型与聊天指南](docs/ai-core.md)。
+首次打开时点「开始设置模型」，选择服务商、选好聊天模型并填入自己的 API Key，保存后就能回到聊天。本机模型不需要密钥时可留空。以后在「设置 → 模型与声音」管理模型。「我的鱼 → 设定」可以选择女儿版或傲娇版，也可以编辑完整人设。模型的测试、语音输入与朗读配置见[模型与聊天指南](docs/ai-core.md)。
 
 使用独立 CLI 时，在安装源码依赖后执行：
 
@@ -76,7 +76,7 @@ npm run cli -- stop --data-dir .local/bigfatfish
 BIGFATFISH_DATA_DIR="$PWD/.local/bigfatfish" npm run desktop:dev
 ```
 
-Windows PowerShell 可先设置 `$env:BIGFATFISH_DATA_DIR = Join-Path $PWD '.local/bigfatfish'`。`npm run frontend:dev` 仅打开前端预览；真实本机状态通过桌面原生宿主读取，不向普通网页提供连接凭据。
+Windows PowerShell 可先设置 `$env:BIGFATFISH_DATA_DIR = Join-Path $PWD '.local/bigfatfish'`。`npm run frontend:dev` 仅打开前端预览；不连接真实 Runtime。完整功能请在桌面窗口中使用。
 
 ### 验证与 Linux 运行
 
@@ -92,19 +92,19 @@ docker build -f infra/docker/Dockerfile -t bigfatfish:local .
 docker run --rm bigfatfish:local node scripts/smoke.mjs
 ```
 
-测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 准备独立资源并生成本机安装包；macOS 使用本地 ad-hoc 签名，不执行公证或发布。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器 loopback 内；Compose 持久卷、systemd 用户服务及备份操作见 [安装指南](docs/install-and-migrate.md)。
+测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 准备独立资源并生成本机安装包；macOS 使用本地 ad-hoc 签名，不执行公证或发布。Linux 无桌面时可通过 CLI 管理大肥鱼。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器 loopback 内；Compose 持久卷、systemd 用户服务及备份操作见 [安装指南](docs/install-and-migrate.md)。
 
 ## 源码导航
 
 | 要修改的内容 | 从这里开始 |
 | --- | --- |
-| 桌面与 Web 共用的业务页面 | `apps/desktop/src/features/` 下的 [聊天](apps/desktop/src/features/chat/)、[连接](apps/desktop/src/features/connections/)、[我的鱼](apps/desktop/src/features/fish/) 和 [设置](apps/desktop/src/features/settings/) |
+| 桌面业务页面 | `apps/desktop/src/features/` 下的 [聊天](apps/desktop/src/features/chat/)、[连接](apps/desktop/src/features/connections/)、[我的鱼](apps/desktop/src/features/fish/) 和 [设置](apps/desktop/src/features/settings/) |
 | 通用组件和样式 | [组件](apps/desktop/src/components/)、[beUI](apps/desktop/src/components/beui/)、[样式](apps/desktop/src/styles/) |
 | 界面如何访问后台 | [前端 API](apps/desktop/src/api/)、[Runtime 服务](apps/runtime/src/) |
 | 聊天、人格与记忆 | [对话](apps/runtime/src/ai/chat/)、[人设](apps/runtime/src/ai/persona/)、[模型配置](apps/runtime/src/ai/models/)、[记忆学习](apps/runtime/src/memory/learning/)、[回忆检索](apps/runtime/src/memory/recall/) |
 | 内置平台接入 | [QQ](apps/runtime/src/channels/)、[B站](apps/runtime/src/bilibili/)、[抖音](apps/runtime/src/douyin/)；外部插件使用单独的 [SDK](plugins/sdk/) |
 | CLI 子命令 | [命令入口](apps/cli/src/main.ts)、[命令处理](apps/cli/src/commands/)、[输入](apps/cli/src/io/input.ts)、[Runtime 请求与进程控制](apps/cli/src/runtime/) |
-| 桌面与浏览器各自的入口 | [Tauri 原生宿主](apps/desktop/src-tauri/)、[Web 入口](apps/web/src/) |
+| 桌面窗口 | [Tauri 原生宿主](apps/desktop/src-tauri/)、[WebView 界面入口](apps/desktop/src/main.tsx) |
 | 开发、构建与验证 | [工程脚本](scripts/)、[分业务集成测试](tests/integration/)、[测试夹具](tests/fixtures/)、[部署配置](infra/) |
 
 插件、辅助服务、部署与测试等目录见 [技术栈与工程边界](constitution/tech-stack.md#目录与职责)。

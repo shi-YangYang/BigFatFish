@@ -1,6 +1,6 @@
-import { ConnectionStatus } from './shared/ConnectionStatus';
+import { PlatformTile, platforms } from './shared/PlatformSurface';
+import { PageStack, SectionHeading } from '../../components/PageLayout';
 import { useEffect, useState } from "react";
-import { Card } from "../../components/Surfaces";
 import { Button } from "../../components/Controls";
 import { api } from "../../api/client";
 import { Bilibili } from "./bilibili/Bilibili";
@@ -11,7 +11,7 @@ import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type
 import type { ChannelStatus } from "../../../../runtime/src/channels/types";
 import type { ManagedQQStatus } from "../../../../runtime/src/channels/managed/types";
 
-export function Connections({ fail }: { fail: (error: unknown) => void }) {
+export function Connections({ fail, onPlan }: { fail: (error: unknown) => void; onPlan?: (platform: "bilibili" | "douyin") => void }) {
   const [tab, setTab] = useState(""),
     [states, setStates] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -42,7 +42,7 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
   }, [tab]);
   if (tab)
     return (
-      <>
+      <PageStack className="connection-details">
         <Button
           type="button"
           className="back-button"
@@ -59,32 +59,19 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
             </QQConnection>
           </div>
         ) : tab === "B站" ? (
-          <Bilibili fail={fail} />
+          <Bilibili fail={fail} onPlan={onPlan && (() => onPlan("bilibili"))} onConfigureQQ={() => setTab("QQ")} />
         ) : (
-          <Douyin fail={fail} />
+          <Douyin fail={fail} onPlan={onPlan && (() => onPlan("douyin"))} />
         )}
-      </>
+      </PageStack>
     );
   return (
-    <section className="page-section">
-      <h2>连接你的世界</h2>
+    <PageStack className="connection-directory">
+      <SectionHeading title="平台连接"/>
       <div className="connection-list">
-        {(["QQ", "B站", "抖音"] as const).map((name, i) => (
-          <Card key={name}>
-            <div className={`platform-icon platform-${i}`}>
-              {name === "B站" ? "B" : name === "抖音" ? "♪" : "Q"}
-            </div>
-            <div className="connection-info">
-              <h3>{name}</h3>
-              <p>{["消息与陪伴", "视频与兴趣", "发现与观看"][i]}</p>
-              <ConnectionStatus className="connection-state" label={states[name] ?? "正在读取…"}/>
-            </div>
-            <Button type="button" onClick={() => setTab(name)}>
-              管理连接
-            </Button>
-          </Card>
-        ))}
+        {platforms.map(platform => <PlatformTile key={platform.name} platform={platform}
+          status={states[platform.name] ?? "正在读取…"} open={() => setTab(platform.name)}/>)}
       </div>
-    </section>
+    </PageStack>
   );
 }

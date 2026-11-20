@@ -1,0 +1,40 @@
+.settings-audio-grid {
+  display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 300px),1fr));
+  align-items: start; gap: var(--form-gap);
+}
+.settings-audio-grid audio { width: min(100%, 420px); }
+.settings-audio-grid .business-card { margin: 0; }
+.settings-brand { display: flex; align-items: center; gap: 16px; padding-block: 8px; }
+.settings-brand .fish-portrait { width: 54px; height: 54px; object-fit: cover; border-radius: 14px; }
+.settings-runtime .setup-form {
+  max-width: 680px; background: var(--color-background, white); border: 1px solid var(--border);
+  border-radius: 14px; padding: var(--surface-padding);
+}
+.setup-form .runtime-preferences {
+  display: grid; gap: 14px; min-width: 0; margin: 0; border: 0; padding: 0;
+}
+.runtime-preferences legend { font-weight: 600; padding: 0 0 12px; }
+.setup-form .readonly-setting { padding-block-start: 14px; border-block-start: 1px solid var(--border); overflow-wrap: anywhere; }
+.settings-backup { max-width: 760px; }
+.backup-file-choice > span { min-width: 0; overflow-wrap: anywhere; }
+.settings-about .asset-notice { overflow-wrap: anywhere; white-space: pre-wrap; }
+.settings-extensions .extension-import {
+  background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px;
+  display: grid; gap: 8px; padding: var(--surface-padding);
+}
+.extension-import p { margin: 0; font-size: 13px; }
+.settings-models .model-list { gap: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--color-background, white); }
+.settings-models .model-row { border: 0; border-radius: 0; background: transparent; margin: 0; }
+.settings-models .model-row + .model-row { border-block-start: 1px solid var(--border); }
+.model-options { display: grid; gap: var(--form-gap); }
+.model-form .form-feedback { border-block: 1px solid var(--border); padding-block: 14px; }
+.settings-models .model-defaults { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,156px),1fr)); gap: var(--form-gap); }
+
+.maintenance-tools { border-top: 1px solid var(--border); padding-top: var(--surface-padding); }
+.maintenance-tools h3 { margin: 0 0 var(--action-gap); }
+.maintenance-links { display: flex; flex-wrap: wrap; gap: var(--action-gap); }
+.chat-model-recovery { margin-bottom: var(--action-gap); }
+.chat-model-recovery p { margin: 0 0 var(--action-gap); }
+.chat-model-recovery .field { min-width: min(200px,100%); }
+
+.first-run-shell .mobile-menu { display: none; }

@@ -1,9 +1,10 @@
+import { SectionCard, EmptyState } from "../../../components/PageLayout";
 import { ChevronRight } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import type { Memory, MemoryScene, ProfileEntry } from "../../../../../runtime/src/memory/types";
 import { api } from "../../../api/client";
 import { ActionRow, Button, Field, Textarea } from "../../../components/Controls";
-import { Alert, Card, ContentScroll, Loading } from "../../../components/Surfaces";
+import { Alert, ContentScroll, Loading } from "../../../components/Surfaces";
 import { Drawer } from "../../../components/UI";
 import { Sources, useLifeRefresh } from "../life/Life";
 import { SceneDetail } from "./MemoryScenes";
@@ -94,10 +95,10 @@ export function PersonProfiles({ entries, refresh, fail }: {
     else groups.set(key, [entry]);
   }
   return <>
-    {!entries.length && <p className="muted">暂无符合条件的人物资料。</p>}
+    {!entries.length && <EmptyState title="暂无符合条件的人物资料。" />}
     <ContentScroll label="人物资料" className="content-scroll-list">
       {Array.from(groups, ([id, group]) =>
-        <Card key={id}><h3>{origin(group[0]!)}</h3>
+        <SectionCard key={id} level={3} title={origin(group[0]!)}>
           <div className="profile-fields">
             {group.map(entry => <Button variant="ghost" key={entry.memoryId + entry.key} className="profile-field"
               aria-label={`查看${entry.label}，${entry.value}`} onClick={() => setSelected(entry)}>
@@ -107,7 +108,7 @@ export function PersonProfiles({ entries, refresh, fail }: {
               <ChevronRight size={16} aria-hidden="true" />
             </Button>)}
           </div>
-        </Card>)}
+        </SectionCard>)}
     </ContentScroll>
     {selected && <ProfileDetail key={selected.memoryId} entry={selected} refresh={refresh} fail={fail}
       close={() => setSelected(undefined)} />}

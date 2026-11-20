@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Chat } from '../../../apps/desktop/src/features/chat/Chat';
+import { MyFish } from "../../../apps/desktop/src/features/fish/MyFish";
+import type { PlanIntent } from "../../../apps/desktop/src/features/fish/activities/Activities";
 import { Memories } from '../../../apps/desktop/src/features/fish/memory/Memories';
 import { BounceSidebar } from '../../../apps/desktop/src/components/beui/bounce-sidebar';
 import { Badge, Menu } from '../../../apps/desktop/src/components/Surfaces';
@@ -37,4 +39,18 @@ function StateFixture() {
     <Activities fail={fail} />
   </div>;
 }
-createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).has('states') ? <StateFixture /> : <Fixture />);
+function FishFixture() {
+  const [intent, setIntent] = useState<PlanIntent>();
+  const [sequence, setSequence] = useState(0);
+  const [chat, setChat] = useState(false);
+  const [error, setError] = useState("");
+  return <main className="content-page">
+    {(["bilibili", "douyin"] as const).map(platform => <button key={platform} onClick={() => {
+      setSequence(sequence + 1); setIntent({ id: sequence + 1, platform });
+    }}>从{platform}创建计划</button>)}
+    {chat ? <h1>回到聊天</h1> : <MyFish onChat={() => setChat(true)} fail={e => setError(String(e))}
+      planIntent={intent} onPlanHandled={id => setIntent(current => current?.id === id ? undefined : current)} />}
+    {error && <p role="alert">{error}</p>}
+  </main>;
+}
+createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).has('states') ? <StateFixture /> : new URLSearchParams(location.search).has('fish') ? <FishFixture /> : <Fixture />);

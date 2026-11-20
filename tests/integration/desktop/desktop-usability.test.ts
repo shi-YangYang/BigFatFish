@@ -1,3 +1,4 @@
+import { installFixtureIPC } from '../../fixtures/desktop/ipc';
 import { expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -14,7 +15,8 @@ it.skipIf(!existsSync(executable))('keeps checkbox, menus and activity controls 
     const errors: string[] = [], writes: boolean[] = [];
     page.on('pageerror', error => errors.push(error.message));
     let activity: ActivityOverview = { paused: false, schedules: [], tasks: [] };
-    await page.route('**/api/v1/**', async route => {
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', async route => {
       if (route.request().method() === 'POST') {
         activity = { ...activity, paused: route.request().postDataJSON().paused };
         writes.push(activity.paused);
@@ -107,8 +109,16 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
       { id: 'external', title: 'QQ群会话', modelId: 'fixture', readOnly: true, createdAt: '2026-11-05T08:00:00Z' },
       { id: 'local', title: 'QQ 群 12345', modelId: 'fixture', readOnly: false, createdAt: '2026-11-04T08:00:00Z' },
     ];
-    await page.route('**/api/v1/**', async route => {
-      const name = new URL(route.request().url()).pathname.replace('/api', '');
+    await installFixtureIPC(page, conversationId => {
+      streams.push(conversationId);
+      return [
+        {type:'snapshot-start',conversationId},
+        {type:'snapshot-message',conversationId,message:{id:'message',conversationId,role:'user',content:'你好',status:'completed'}},
+        {type:'snapshot-end',conversationId},
+      ];
+    });
+    await page.route('**/ipc/v1/**', async route => {
+      const name = new URL(route.request().url()).pathname.replace('/ipc', '');
       const body = route.request().postDataJSON() ?? {};
       if (name === '/v1/memory-recall') {
         if (route.request().method() === 'PUT') {
@@ -131,16 +141,9 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
       }
       const data: Record<string, unknown> = {
         '/v1/model-routes': { chat: 'fixture' }, '/v1/conversations': sessions,
-        '/v1/memories/search': memories, '/v1/memory-tasks': [], '/v1/life/updates': { revision: String(revision) },
+        '/v1/memories/search': memories, '/v1/memory-scenes/search': [], '/v1/memory-tasks': [], '/v1/life/updates': { revision: String(revision) },
       };
       return route.fulfill({ json: data[name] ?? {} });
-    });
-    await page.routeWebSocket('**/events?**', socket => {
-      const conversationId = new URL(socket.url()).searchParams.get('conversationId');
-      streams.push(conversationId);
-      socket.send(JSON.stringify({ type: 'snapshot-start', conversationId }));
-      socket.send(JSON.stringify({ type: 'snapshot-message', conversationId, message: { id: 'message', conversationId, role: 'user', content: '你好', status: 'completed' } }));
-      socket.send(JSON.stringify({ type: 'snapshot-end', conversationId }));
     });
     await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/desktop-usability.html')}`);
     await page.getByRole('heading', { name: 'QQ 群 12345' }).waitFor();
@@ -157,7 +160,8 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     await page.keyboard.press('Escape');
     legacyRuntime = false;
     await page.getByRole('tab', { name: '记忆', exact: true }).click();
-    await page.getByText('没有符合条件的记忆。可整理对话，或直接添加。', { exact: true }).waitFor();
+    await page.getByRole('heading', { name: '还没有记忆', exact: true }).waitFor();
+    await page.getByRole('button', { name: '浏览全部记忆', exact: true }).click();
     await page.getByRole('button', { name: '记忆设置', exact: true }).click();
     const recallCard = page.getByRole('article').filter({ hasText: '按语义回忆' });
     await recallCard.getByRole('button', { name: '启用' }).click();
@@ -224,7 +228,8 @@ it.skipIf(!existsSync(executable))('updates selected navigation and status feedb
     const page = await browser.newPage({ viewport: { width: 900, height: 680 } });
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('**/api/v1/**', route => route.fulfill({ json: route.request().url().endsWith('/model-routes') ? {} : route.request().url().endsWith('/life/updates') ? { revision: '1' } : [] }));
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', route => route.fulfill({ json: route.request().url().endsWith('/model-routes') ? {} : route.request().url().endsWith('/life/updates') ? { revision: '1' } : [] }));
     await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/desktop-usability.html')}`);
     await page.getByRole('heading', { name: '先为大肥鱼添加一个模型' }).waitFor();
     const activeColor = await page.getByRole('button', { name: '聊天导航' }).evaluate(element => getComputedStyle(element).backgroundColor);
@@ -265,7 +270,8 @@ it.skipIf(!existsSync(executable))('opens a scene from the memory list and a pro
     const scene = {...actor,id:'camp',title:'南山露营',summary:'在南山露营，饮品选乌龙茶。',members:[fact,place]};
     const sources = [{type:'message',id:'input1',quote:'我露营时喜欢喝乌龙茶。'}];
     const related: string[] = [];
-    await page.route('**/api/v1/**', async route => {
+    await installFixtureIPC(page);
+    await page.route('**/ipc/v1/**', async route => {
       const path = new URL(route.request().url()).pathname.slice(4);
       if (path === '/v1/memory-scenes/search') {
         const body = route.request().postDataJSON();
@@ -282,6 +288,7 @@ it.skipIf(!existsSync(executable))('opens a scene from the memory list and a pro
     });
     await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as {port:number}).port}/@fs/${resolve('tests/fixtures/desktop/desktop-usability.html')}`);
     await page.getByRole('tab',{name:'记忆',exact:true}).click();
+    await page.getByRole('button',{name:'浏览全部记忆',exact:true}).click();
     await page.getByRole('button',{name:'场景记忆',exact:true}).click();
     await page.getByRole('button',{name:'查看相关记忆（2）'}).click();
     const drawer = page.getByRole('dialog');

@@ -1,3 +1,4 @@
+import { PageStack, SectionHeading } from "../../components/PageLayout";
 import { useEffect, useRef, useState } from "react";
 import { Loading } from "../../components/Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "../../components/Controls";
@@ -41,9 +42,9 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
   const preset = matchPersonaPreset(persona);
   const source=personaCards.find(card=>card.id===persona.cardId);
   return (
-    <section className="page-section personality-settings">
-      <h2>鱼的设定</h2>
-      <form className="settings" onSubmit={event => { event.preventDefault(); void save(); }}>
+    <PageStack className="personality-settings">
+      <SectionHeading title="鱼的设定" />
+      <form className="settings fish-persona-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <FormGrid>
           <Field>
             名字
@@ -61,12 +62,12 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
             </Select>
           </Field>
         </FormGrid>
-        {preset && <div className="persona-example">
+        {preset && <blockquote className="persona-example">
           <span>口吻示例</span>
           <p>{preset.example}</p>
-        </div>}
+        </blockquote>}
         <ActionRow>
-          <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存设定"}</Button>
+          <Button variant="primary" type="submit" busy={saving}>{saving ? "正在保存…" : "保存设定"}</Button>
           {persona.cardPrompt !== undefined && <Button disabled={saving} onClick={() => setEditingPrompt(true)}>自定义人设</Button>}
           <span role="status">{saved ? "已保存" : ""}</span>
         </ActionRow>
@@ -81,6 +82,6 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
           </ActionRow>
         </form>
       </Drawer>}
-    </section>
+    </PageStack>
   );
 }

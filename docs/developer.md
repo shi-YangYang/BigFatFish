@@ -1,6 +1,6 @@
-# 开发、Web 管理与插件协议 v1
+# 开发与插件协议 v1
 
-BigFatFish 使用一个根 npm 清单。`apps/runtime/src` 是唯一业务核心；Desktop、CLI 和 Web 只访问该核心。SDK 是普通源码及换行 JSON 协议，不是需要另行发布的 npm workspace。参与项目请阅读[贡献指南](../.github/CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。
+BigFatFish 使用一个根 npm 清单。`apps/runtime/src` 是唯一业务核心；桌面和 CLI 均访问这个核心。SDK 是普通源码及换行 JSON 协议，不是需要另行发布的 npm workspace。参与项目请阅读[贡献指南](../.github/CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。
 
 ## 本地开发与安装产物
 
@@ -12,7 +12,7 @@ node dist/cli/src/main.js plugins list --data-dir /absolute/path/fish --json
 node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 ```
 
-`build` 生成 Node 核心、桌面前端和 `dist/web`。`build:node` 同时生成 `dist/runtime/plugin-catalog` 的 QQ/B站/抖音安装产物、`dist/plugin-sdk` 和 `dist/plugin-examples`。`release:prepare` 将这些资源与固定 Node/生产依赖一起放入独立安装包。安装后的命令是 `bin/bigfatfish`，无需源码目录、全局 Node 或开发工具。桌面打包及签名边界见 [安装与迁移](install-and-migrate.md)。
+`npm run build` 构建 Runtime、CLI 和桌面 WebView 资源。`build:node` 还准备平台适配器、插件 SDK 和示例。`release:prepare` 准备含固定 Node 及生产依赖的便携目录，安装后可用 `bin/bigfatfish`，不要求全局安装 Node。桌面打包和签名见[安装与迁移](install-and-migrate.md)。
 
 ### 托管桌面开发
 
@@ -26,31 +26,9 @@ node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 
 定向验证（先 `npm run build:node`）：`npx vitest run tests/integration/runtime/desktop-dev.test.ts`。测试使用临时目录和受控子进程，不依赖真实模型账号。
 
-## 启用 HTTPS 控制台
-
-默认没有 Web 监听器。由服务器本机操作者准备证书和私钥，以标准输入配置独立管理口令；不要在命令参数、URL、日志或共享脚本中写口令。
-
-```sh
-# 将 JSON 从受保护的本机文件或管道输入，避免 shell 历史留下口令。
-bigfatfish web configure --data-dir /absolute/path/fish < /private/path/web-settings.json
-bigfatfish web serve --data-dir /absolute/path/fish
-```
-
-输入结构：`{"origin":"https://fish.example:8443","host":"127.0.0.1","cert":"/absolute/path/fullchain.pem","key":"/absolute/path/privkey.pem","password":"<替换为至少16个字符的独立管理口令>"}`。远程直连时由操作者明确配置监听地址，如 `0.0.0.0`，并配置防火墙；不可用 HTTP 降级。证书和私钥由本机文件提供，不自动申请域名或收费资源。
-
-网关是单独的前台进程，可由服务管理器运行；退出桌面/Runtime 不代表关闭网关。网关只在服务器内部读本地连接凭据，转发同一 Runtime API，浏览器不会得到本机 bearer。登录使用 scrypt 哈希、Secure/HttpOnly/SameSite=Strict cookie、1小时会话、CSRF令牌和严格 Origin/Host；每个来源地址1分钟最多5次登录尝试。过期/退出撤销 WebSocket；浏览器收到明确的会话失效响应后返回登录，重新登录可继续管理。普通断线或业务权限不足保留登录状态。代理头默认拒绝，反向代理必须保留所配置的原始 Host/Origin，且后端连接仍使用 TLS，不允许把未经验证的 X-Forwarded-* 当身份依据。
-
-Web 配置位于受保护的 `runtime/web-config.json`，不进入逻辑备份。正在运行的网关持有独立锁，`web configure` 返回 `WEB_STOP_REQUIRED`，不会假装已换密。先停止 `web serve`（Ctrl+C 或停止所属服务），再配置和启动；所有旧会话随进程退出失效。证书续期后也须重启网关。本地测试证书仅在独立浏览器上下文中信任，不安装全局 CA。
-
-Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人格、经历、记忆、模型、平台、任务、插件、语音、日志和备份均复用真实 Runtime。语音合成明确标为 AI 合成，不自动发送。浏览器没有修改访问者电脑启动项的能力；桌面设置继续走 Tauri。
-
-备份与恢复由仍在线的网关先排空 Runtime、调用同一离线维护核心及固定实例锁，再启动 Runtime。只有恢复/备份及启动均结束才返回 completed；浏览器上传/下载字节，不指定服务器任意文件路径。恢复替换当前鱼，原始目录保留在 rollback 目录中。聊天会话随所选备份范围迁移，Web 登录会话和插件程序不迁移，恢复后的第三方插件需要重新安装和授权。当前逻辑归档格式为 v1，新导出使用 schema 12，读取接受 schema 6 至 12。具体范围见[安装与迁移](install-and-migrate.md#备份恢复与凭据)。
-
-更新使用本机已经明确配置的 P6 签名信任源；Web 不提供任意路径执行。检查、安装、回退调用相同更新核心。portable 安装支持范围及 Windows 限制沿用 P6；安装后 Runtime 会重启，网关进程本身须由操作者重启以载入新代码。尚未配置信任源时，检查结果为 `unconfigured`。
-
 ## API 与事件
 
-本机客户端读取受限 `runtime/connection.json`，连接 `http://127.0.0.1:PORT` 并带 bearer；不接受浏览器 Origin。Web 从同源 `/api/v1/*` 访问；登录 `/auth/login`，读取会话 `/auth/session`，退出 `/auth/logout`。登录需要精确匹配 Origin。登录后的写请求还须携带会话的 `X-BFF-CSRF`。模型 API Key 仅写入，查询只返回 hasKey。
+桌面 WebView 通过 Tauri IPC 调用原生宿主。宿主和 CLI 从受限的 `runtime/connection.json` 读取本机地址与 Bearer token；Runtime 仅绑定回环地址，不接受带浏览器 Origin 的请求。普通浏览器可预览前端，但不提供管理登录或访问 Runtime 的通道。模型 API Key 仅写入，查询只返回 `hasKey`。
 
 | API | 用途 |
 | --- | --- |
@@ -58,7 +36,7 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 | `/v1/models`、`/v1/model-routes` | 模型配置及 chat/asr/tts 路由；旧细分用途兼容归一到聊天 |
 | `POST /v1/models/discover`、`POST /v1/models/test` | 对当前模型配置草稿发现模型或执行一次有界生成诊断，不保存配置或会话 |
 | `/v1/persona`、`/v1/persona/history` | 当前人格与版本历史；「我的鱼 → 设定」编辑当前版本，API 保留历史查询 |
-| `GET /v1/conversations/local` | Desktop/Web 聊天历史，只列最近 500 个本地主人会话 |
+| `GET /v1/conversations/local` | 桌面聊天历史，只列最近 500 个本地主人会话 |
 | `GET /v1/conversations`、`/v1/conversations/:id/messages`、`/v1/conversations/:id/tools` | 本地与平台合计最近 500 个会话，以及按 ID 查询的消息、工具记录；CLI 的 `sessions list` 使用完整列表 |
 | `/v1/messages/:id/cancel` | 取消实际模型回合 |
 | `/v1/memories`、`/v1/memory-tasks`、`/v1/life` | 长期记忆、整理任务和养成；具体子路由见 ai-core.md |
@@ -69,11 +47,11 @@ Desktop/Web 共用「聊天」「我的鱼」「连接」和底部设置；人�
 
 连接页按平台展示操作记录。QQ 的直接发送也可使用 CLI `channels send`，抖音写入可使用 `douyin write`。两者均检查当前授权。旧 QQ/抖音审批 HTTP 入口返回 410，历史待办不会执行。
 
-实时订阅：本机 `/v1/events?conversationId=ID` WebSocket 与 `/v1/events/stream?conversationId=ID` NDJSON 使用 bearer；Desktop 由原生宿主将 NDJSON 转为 Tauri Channel，Web `/events?conversationId=ID` 使用登录 cookie 和精确 Origin，不把 token 放查询串或交给前端。连接先依序发送 snapshot-start、逐条 snapshot-message、snapshot-end，再交付快照期间排队的增量事件，随后发送 ready；ready 不是生成完成。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。断线有限退避重连时补齐快照，发送使用 requestId 防重复。前端会话切换、终态与草稿版本保护不能省略。
+实时订阅：本机 `/v1/events?conversationId=ID` WebSocket 与 `/v1/events/stream?conversationId=ID` NDJSON 使用 bearer；Desktop 由原生宿主将 NDJSON 转为 Tauri Channel；凭据不放进查询串，也不交给前端。连接先依序发送 snapshot-start、逐条 snapshot-message、snapshot-end，再交付快照期间排队的增量事件，随后发送 ready；ready 不是生成完成。消息帧有 conversationId、message；工具帧有 name、state、at、conversationId。断线有限退避重连时补齐快照，发送使用 requestId 防重复。前端会话切换、终态与草稿版本保护不能省略。
 
 模型诊断输入包含`provider/baseURL`，可附`id/apiKey/timeoutMs`；测试另需`model`，可附`maxTokens/reasoningEffort`。省略apiKey时仅允许对同提供商、同规范化地址复用id对应密钥，显式空字符串表示不使用密钥。发现返回`{models:[{id,name}],elapsedMs}`，测试返回`{ok:true,elapsedMs}`；错误为稳定错误码，不返回上游正文。推理字段的值、默认与已有配置约束见[模型说明](ai-core.md)。
 
-ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；Desktop/Web 聊天中可上传音频转写、朗读回复，「设置 → 声音」保留声音与媒体操作。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
+ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；桌面聊天中可上传音频转写、朗读回复，「设置 → 模型与声音 → 语音输入与朗读」保留声音与媒体操作。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
 
 ## 从外部目录开发插件
 
@@ -88,7 +66,7 @@ printf '%s' '{"name":"greet","args":{"name":"主人"}}' | bigfatfish plugins cal
 bigfatfish plugins disable hello-fish --data-dir /absolute/path/fish
 ```
 
-Desktop/Web 也可在「设置 → 扩展」选择插件文件、查看权限并安装，再点「信任并授权启用」。首次安装只校验并保存，不运行安装脚本、不启用代码。`inspect` 展示来源、作者、许可、兼容和权限；安装不代表该来源已由发行者签名认证，用户必须信任代码。授权必须列出全部且仅有清单权限。重新启用、调用、禁用均调用真实进程。主人聊天中的 DSH 会获得已启用工具；QQ主人私聊仍是外部渠道主体，不获得本机管理工具。
+桌面版也可在「设置 → 数据与维护 → 扩展」选择插件文件、查看权限并安装，再点「信任并授权启用」。首次安装只校验并保存，不运行安装脚本、不启用代码。`inspect` 展示来源、作者、许可、兼容和权限；安装不代表该来源已由发行者签名认证，用户必须信任代码。授权必须列出全部且仅有清单权限。重新启用、调用、禁用均调用真实进程。主人聊天中的 DSH 会获得已启用工具；QQ主人私聊仍是外部渠道主体，不获得本机管理工具。
 
 升级时修改外部目录 manifest.version 和代码，重新打包，先 inspect 再 `plugins update FILE`。候选写入新唯一目录，旧进程排空后启用；初始化/健康失败恢复旧版本及其配置/存储快照。新增权限导致停用且清空授权，需再次明确授权。`plugins remove ID` 卸载代码并保留作用域存储；重新安装相同ID可继续使用数据。更新、卸载都不清除鱼的人格、历史和长期记忆。
 
@@ -135,8 +113,8 @@ MCP仅由平台/服务适配层拥有。抖音辅助服务严格复用Runtime拥
 
 ## 验证与诊断
 
-定向用例：`tests/integration/runtime/web.test.ts` 使用实际TLS与隔离Chrome；`tests/integration/runtime/plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`apps/runtime/src/plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`tests/integration/ai/p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
+定向用例：`tests/integration/runtime/plugins.test.ts` 从外部目录打包并跑真实DSH工具回合；`apps/runtime/src/plugins/boundaries.test.ts` 覆盖归档、权限、取消、初始化回退；`tests/integration/ai/p7-media.test.ts` 使用实际音频字节和OneBot协议接收器。B站/抖音集成用例设置 BFF_TEST_FFMPEG / BFF_TEST_PYTHON 后通过实际安装资源运行。云模型、真实账号、Windows和正式发布证据必须另列。
 
-常见问题：WEB_LOGIN_REQUIRED重新登录；WEB_ORIGIN_DENIED核对实际origin/Host及代理头；WEB_STOP_REQUIRED先停网关再换口令；PLUGIN_PERMISSION_REQUIRED查看权限清单并明确授权；PLUGIN_DISABLED查看停用/恢复后状态；PLUGIN_STOPPED检查崩溃、超时或取消；PLUGIN_DEPENDENCY_UNSUPPORTED不能自动装未知依赖；MEDIA_BYTES_UNAVAILABLE在NapCat检查所需返回字节配置。不要用关掉权限、忽略签名或扩大网络访问来消除报错。
+常见问题：PLUGIN_PERMISSION_REQUIRED查看权限清单并明确授权；PLUGIN_DISABLED查看停用/恢复后状态；PLUGIN_STOPPED检查崩溃、超时或取消；PLUGIN_DEPENDENCY_UNSUPPORTED不能自动装未知依赖；MEDIA_BYTES_UNAVAILABLE在NapCat检查所需返回字节配置。不要用关掉权限、忽略签名或扩大网络访问来消除报错。
 
-macOS独立安装新增能力复现：完成`release:prepare`与Tauri bundle后运行`node scripts/smoke/smoke-p7.mjs`。它复制.app到外部临时目录，只用随包Node验证SDK/DSH/媒体/Web，并清理自有临时实例；`--native`保留隔离原生窗口供人工操作，Ctrl+C后清理其配置。默认要求原生desktop.json不存在，存在时会拒绝覆盖。无秘密运行证据写入build/p7-evidence。
+macOS独立安装新增能力复现：完成`release:prepare`与Tauri bundle后运行`node scripts/smoke/smoke-p7.mjs`。它复制.app到外部临时目录，只用随包Node验证 SDK、DSH 和媒体，并清理自有临时实例；`--native`保留隔离原生窗口供人工操作，Ctrl+C后清理其配置。默认要求原生desktop.json不存在，存在时会拒绝覆盖。无秘密运行证据写入build/p7-evidence。
