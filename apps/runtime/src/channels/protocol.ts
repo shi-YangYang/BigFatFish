@@ -17,7 +17,16 @@ export function target(input:unknown):Target {const b=object(input);if(!['privat
 export function segments(input:unknown,outbound=false):Segment[] {
   if(!Array.isArray(input)||!input.length||input.length>64)throw new InputError('INVALID_SEGMENTS');
   const result:Segment[]=input.map((value):Segment=>{
-    const b=object(value),d=object(b.data);
+    const b=object(value);
+    // Unknown OneBot extensions (including forwarded bodies) are untrusted:
+    // preserve only an internally generated label, never their payload as text.
+    if(!outbound && !['text','at','reply','image','record','file'].includes(String(b.type))) {
+      const labels: Record<string,string> = {face:'QQ表情',forward:'转发',json:'卡片',xml:'卡片',video:'视频'};
+      const label=typeof b.type==='string'&&Object.hasOwn(labels,b.type)?labels[b.type]!:'其他内容';
+      return {type:'opaque',data:{label}};
+    }
+    const d=object(b.data);
+    if(!outbound&&b.type==='at'&&d.qq==='all')return {type:'opaque',data:{label:'@全体成员'}};
     if(b.type==='text')return {type:'text',data:{text:string(d.text,4000,true)}};
     if(b.type==='at'&&!outbound)return {type:'at',data:{qq:stableId(d.qq)}};
     if(b.type==='reply')return {type:'reply',data:{id:messageId(d.id)}};
@@ -54,7 +63,7 @@ export function inbound(input:unknown,config:QQConfig) {
   // CQ strings are treated as plain text; only structured arrays carry mentions/media.
   const parts=segments(typeof b.message==='string'?[{type:'text',data:{text:b.message}}]:b.message);
   if(to.kind==='group'&&config.groupReplyMode==='mention'&&!parts.some(s=>s.type==='at'&&s.data.qq===config.accountId))return null;
-  const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片]':s.type==='record'?'[语音]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
+  const text=parts.map(s=>s.type==='text'?s.data.text:s.type==='image'?'[图片]':s.type==='opaque'?('['+s.data.label+']'):s.type==='record'?'[语音]':s.type==='file'?'[文件：尚未读取内容]':s.type==='reply'?`[引用消息 ${s.data.id}，未读取原文]`:'').join('').trim();
   if(!text)return null;
   const sender=b.sender&&typeof b.sender==='object'?b.sender as Record<string,unknown>:{};
   const nickname=typeof sender.card==='string'&&sender.card?sender.card:typeof sender.nickname==='string'?sender.nickname:'';
