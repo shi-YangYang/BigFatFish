@@ -12,14 +12,15 @@ import type {Segment} from '../../apps/runtime/src/channels/types.js';
 
 type Call={name:string;args:Record<string,unknown>};
 type Body={tools?:{function:{name:string;parameters:{properties:Record<string,unknown>}}}[];messages:{role:string;content:unknown}[];model:string};
-type Step=(body:Body)=>Call[];
+type Step=(body:Body)=>Call[]|string;
 const say=(text:string):Call=>({name:'send_message',args:{messages:[text]}});
-async function exercise(profileBoundary=false){
+async function exercise(mode:'normal'|'reject'|'clarify'='normal'){
   const p=paths(mkdtempSync(join(tmpdir(),'bff-command-')));
   let signature='PRIVATE_OLD_SIG';const secret='DO_NOT_DISCLOSE',file='a'.repeat(32)+'.png';
   const bot=await onebotFixture({
     get_stranger_info:()=>({user_id:10001,nickname:'鱼',long_nick:signature}),
-    set_qq_profile:params=>{signature=String(params.personal_note);return {result:0};},
+    set_qq_profile:()=>({result:1}),
+    set_self_longnick:params=>{signature=String(params.longNick);return null;},
     set_qq_avatar:()=>({result:0}),send_qzone_msg:()=>({tid:'ok'}),
     _get_group_notice:()=>Array.from({length:9},()=>({message:{text:'周五聚会',images:[secret]},settings:{secret}})),
     get_essence_msg_list:()=>[{sender_nick:'小蓝',content:[{type:'text',data:{text:'精华摘录'}},{type:'image',data:{url:secret}}],operator_nick:secret}],
@@ -35,7 +36,8 @@ async function exercise(profileBoundary=false){
     emit({role:'assistant'});
     if(body.tools?.length){
       requests.push(body);const calls=steps.shift()?.(body)??[say('意外的额外请求')];
-      emit({tool_calls:calls.map((c,i)=>({index:i,id:'call-'+requests.length+'-'+i,type:'function',function:{name:c.name,arguments:JSON.stringify(c.args)}}))});emit({},'tool_calls');
+      if(typeof calls==='string'){emit({content:calls});emit({},'stop');}
+      else{emit({tool_calls:calls.map((c,i)=>({index:i,id:'call-'+requests.length+'-'+i,type:'function',function:{name:c.name,arguments:JSON.stringify(c.args)}}))});emit({},'tool_calls');}
     }else{emit({content:'{"items":[],"changed":false}'});emit({},'stop');}
     res.end('data: [DONE]\n\n');
   });
@@ -59,15 +61,29 @@ async function exercise(profileBoundary=false){
     await api('/v1/model-routes','PUT',{chat:'fixture'});await api('/v1/channels/qq/sticker-options','PUT',{networkEnabled:false,revision:'initial'});
     await api('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:owner,groups:[group],enabled:true,replyEnabled:true,proactiveEnabled:false,token:'fixture-token',revision:''});
     for(let i=0;i<100;i++){if((await api<{health:{state:string}}>('/v1/channels/qq')).health.state==='online')break;await delay(20);}
-    if(profileBoundary){
-      const rejected=await turn('把你的签名改成开心，先别动',[
-        ()=>[{name:profile,args:{signature:'开心'}},{name:'set_group_card',args:{card:'开心'}}],
-        ()=>[say('已经改好了')],
-      ]);
-      expect(names(requests[0]!)).not.toContain(profile);expect(names(requests[0]!)).not.toContain('set_group_card');
-      expect(rejected.filter(r=>r.action===profile||r.action==='set_group_card')).toEqual([]);
+    if(mode==='clarify'){
+      const follow=()=>turn('改成你现在的心情',[b=>{
+        const schema=b.tools?.find(t=>t.function.name===profile)?.function.parameters.properties;
+        if(schema?.followup){expect(JSON.stringify(b.messages)).toContain('改成什么呀？你给我一句，我原样写上。');}
+        return [has(b,profile,{signatureFrom:'current_mood',followup:true})];
+      },()=>[say('好了')]]);
+      const ask=()=>turn('大肥鱼改一下你的签名',[()=>'改成什么呀？你给我一句，我原样写上。']);
+      expect((await follow()).filter(r=>r.action===profile||r.action==='set_self_longnick')).toHaveLength(0);
+      await ask();await turn('路过',[()=>[say('你好')]],'30003');
+      expect((await follow()).filter(r=>r.action===profile||r.action==='set_self_longnick')).toHaveLength(0);
+      await ask();
+      const yes=await follow(),writes=yes.filter(r=>r.action===profile||r.action==='set_self_longnick');
+      expect(writes.map(r=>[r.action,r.params])).toEqual([['set_self_longnick',{longNick:'慢慢游，今天的水温刚刚好。'}]]);
+      expect(signature).toBe('慢慢游，今天的水温刚刚好。');expect(yes.filter(r=>r.action==='get_stranger_info')).toHaveLength(2);
+      expect((await follow()).filter(r=>r.action===profile||r.action==='set_self_longnick')).toHaveLength(0);
+      return;
+    }
+    if(mode==='reject'){
+      const rejected=await turn('把你的签名改成开心，先别动',[()=>[say('好，先不改。')]]);
+      expect(names(requests[0]!)).toContain(profile);expect(names(requests[0]!)).toContain('set_group_card');
+      expect(rejected.filter(r=>r.action===profile||r.action==='set_self_longnick'||r.action==='set_group_card')).toEqual([]);
       const sent=rejected.filter(r=>r.action==='send_group_msg');
-      expect(sent).toHaveLength(1);expect(sent[0]!.params.message).toEqual([{type:'text',data:{text:expect.stringMatching(/签名.*「[^」]+」/u)}}]);
+      expect(sent).toHaveLength(1);expect(sent[0]!.params.message).toEqual([{type:'text',data:{text:'好，先不改。'}}]);
       expect(signature).toBe('PRIVATE_OLD_SIG');
       return;
     }
@@ -78,13 +94,13 @@ async function exercise(profileBoundary=false){
     expect(wires.at(-1)?.action).toBe('send_group_msg');
     await turn('发条说说庆祝毕业',[b=>[has(b,post,{content:'毕业啦！'})],()=>[say('庆祝一下')]]).then(w=>{
       expect(w.filter(r=>r.action==='send_qzone_msg').map(r=>r.params)).toEqual([{content:'毕业啦！',ugc_right:4}]);});
-    wires=await turn('改个名字',[()=>[say('改好了')]]);
-    expect(names(requests[0]!)).not.toContain('set_group_card');expect(names(requests[0]!)).not.toContain(profile);
+    wires=await turn('改个名字',[()=>[say('想改群名片，还是 QQ 账号昵称？')]]);
+    expect(names(requests[0]!)).toContain('set_group_card');expect(names(requests[0]!)).toContain(profile);
     expect(JSON.stringify(wires.at(-1)?.params)).toContain('群名片，还是 QQ 账号昵称');
-    await turn('把你的个性签名改成「今天开心，继续游！」',[b=>[has(b,profile,{signature:'今天开心，继续游！'})],()=>[say('改好了')]]).then(w=>{
-      expect(w.filter(r=>r.action===profile).map(r=>r.params)).toEqual([{nickname:'鱼',personal_note:'今天开心，继续游！'}]);});
+    await turn('签名那一栏写上「今天开心，继续游！」',[b=>[has(b,profile,{signature:'今天开心，继续游！'})],()=>[say('改好了')]]).then(w=>{
+      expect(w.filter(r=>r.action===profile||r.action==='set_self_longnick').map(r=>[r.action,r.params])).toEqual([['set_self_longnick',{longNick:'今天开心，继续游！'}]]);});
     const schema=requests[0]!.tools!.find(t=>t.function.name===profile)!.function.parameters;
-    expect(schema).toMatchObject({required:['signature']});expect(Object.keys(schema.properties)).toEqual(['signature']);
+    expect(Object.keys(schema.properties).sort()).toEqual(['followup','nickname','signature','signatureFrom']);
     expect(JSON.stringify(requests)).not.toContain('PRIVATE_OLD_SIG');
     await turn('换个头像',[b=>[has(b,avatar,{image:'builtin-hello'})],b=>[has(b,'get_sticker_image',{id:'builtin-hello'})],b=>[has(b,avatar,{image:'builtin-hello'})],()=>[say('服务已接受')]]).then(w=>{
       expect(w.filter(r=>r.action===avatar).map(r=>r.params.file)).toEqual(['base64://'+readFileSync(new URL('../../apps/runtime/src/channels/sticker-assets/hello.png',import.meta.url)).toString('base64')]);});
@@ -93,7 +109,7 @@ async function exercise(profileBoundary=false){
     expect(sourceChoices).toMatchObject({parameters:{properties:{image:{enum:expect.arrayContaining(['builtin-hello'])}}}});
     wires=await turn('用我这张图发条说说',[b=>[has(b,'get_message_images',{index:1})],b=>[has(b,post,{content:'一起看鲸鱼',image:'message:1'})],()=>[say('发好了')]],owner,[img]);
     expect(wires.filter(r=>r.action==='send_qzone_msg').map(r=>r.params)).toEqual([{content:'一起看鲸鱼',ugc_right:4,images:['base64://'+png]}]);
-    expect(requests[0]!.tools!.find(t=>t.function.name===post)?.function).toMatchObject({parameters:{properties:{image:{enum:['message:1']}}}});
+    expect(requests[0]!.tools!.find(t=>t.function.name===post)?.function).toMatchObject({parameters:{properties:{image:{enum:expect.arrayContaining(['message:1'])}}}});
     expect(JSON.stringify(requests[1]!.messages)).toMatch(/data:image\/(png|webp|jpeg);base64,/);
     // News and highlights are bound server-side to the current group. Only
     // structured mentions (not names/text CQ or the bot) admit member reads.
@@ -113,4 +129,6 @@ async function exercise(profileBoundary=false){
 }
 
 it('serves scoped group material, natural owner commands and image actions through DSH/OneBot',()=>exercise(),60000);
-it('rejects fabricated profile and group card writes and delivers the clarification through OneBot',()=>exercise(true),60000);
+it('leaves account unchanged when the chat model answers a cancellation without a write',()=>exercise('reject'),60000);
+
+it('binds a mood delegation from a delivered and still-current clarification',()=>exercise('clarify'),60000);

@@ -28,7 +28,7 @@ it('preserves complete card fingerprints, scope provenance and schema7/8 archive
  expect(personaCards.map(c=>c.id)).toEqual(['daughter','tsundere']);
  for(const c of personaCards)expect(createHash('sha256').update(c.prompt).digest('hex')).toBe(c.sha256);
  expect(personaCards.map(c=>c.sha256)).toEqual(['531c50771109e1ac0e80c43b5ca04515de3416dd74cc27d778806e1e8ae7c9f6','6e231a9d2a041f8bf1c448290107c1ae5710ced192a9e99d1e48104b03d0632a']);
- const root=mkdtempSync(join(tmpdir(),'bff-card-notes-')),p=paths(join(root,'source'));preparePaths(p);const db=openDatabase(p.database),store=new MemoryStore(db),notes=new ConversationNotes(db),signal=new AbortController().signal;
+ const root=mkdtempSync(join(tmpdir(),'bff-card-notes-')),p=paths(join(root,'source'));preparePaths(p);const db=openDatabase(p.database),store=new MemoryStore(db),notes=new ConversationNotes(db,undefined,async()=>true),signal=new AbortController().signal;
  try{
   const privateMemory=store.create({kind:'fact',subject:'秘密',content:'秘密主人数据',importance:3});const shared=store.update(privateMemory.id,{version:privateMemory.version,visibility:'shared'});
   const checks:(()=>void)[]=[];

@@ -4,7 +4,7 @@ import type {QQAction,QQConnection,Segment} from '../types.js';
 export class QQClient extends OneBotTransport implements QQConnection {
   beforeIo(guard:()=>void){try{guard();}catch(error){throw new Error('SEND_NOT_STARTED',{cause:error});}}
   async action(name:QQAction,params:Record<string,unknown>,guard:()=>void) {
-    const actions={history_private:'get_friend_msg_history',history_group:'get_group_msg_history',message:'get_msg',recall:'delete_msg',group_card:'set_group_card',like:'send_like',reaction:'set_msg_emoji_like',profile:'get_stranger_info',profile_update:'set_qq_profile',avatar:'set_qq_avatar',posts:'get_qzone_msg_list',post:'send_qzone_msg',space_profile:'get_qzone_profile',space_update:'set_qzone_profile',notices:'_get_group_notice',essence:'get_essence_msg_list',member_card:'get_group_member_info'};
+    const actions={history_private:'get_friend_msg_history',history_group:'get_group_msg_history',message:'get_msg',recall:'delete_msg',group_card:'set_group_card',like:'send_like',reaction:'set_msg_emoji_like',profile:'get_stranger_info',profile_update:'set_qq_profile',signature_update:'set_self_longnick',avatar:'set_qq_avatar',posts:'get_qzone_msg_list',post:'send_qzone_msg',space_profile:'get_qzone_profile',space_update:'set_qzone_profile',notices:'_get_group_notice',essence:'get_essence_msg_list',member_card:'get_group_member_info'};
     if(!Object.hasOwn(actions,name))throw new Error('QQ_TOOL_UNSUPPORTED');
     await this.readyToSend(guard);this.beforeIo(guard);
     return this.request(actions[name],params,30000);

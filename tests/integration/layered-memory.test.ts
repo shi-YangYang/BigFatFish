@@ -19,13 +19,22 @@ async function waitFor<T>(read:()=>T, done:(value:T)=>boolean) {
 it('uses trusted sender identity across desktop and OneBot, keeps group notes attributable and private experiences scoped',async()=>{
   const p=paths(mkdtempSync(join(tmpdir(),'bff-layered-')));preparePaths(p);
   const db=openDatabase(p.database),chat=new ChatService(db,p),channels=new Channels(db,chat),bot=await onebotFixture();
-  const inputs:EngineInput[]=[];
+  const inputs:EngineInput[]=[],reviews:EngineInput[]=[];
+  const newPhrase='请把这次活动的工作标题「潮汐小队」记到本群笔记，可以吗？';
   let oldNoteId='', probe:{queried?:unknown; removeError?:string; added?:unknown}={};
   const spy=vi.spyOn(DSHAdapter.prototype,'run').mockImplementation(async input=>{
+    if(input.prompt.startsWith('BFF_NOTE_REVIEW\n')){
+      reviews.push(input);
+      const {text,content,quote}=JSON.parse(input.prompt.slice('BFF_NOTE_REVIEW\n'.length));
+      expect(text).toContain(content);expect(text).toContain(quote);
+      expect(input).toMatchObject({ephemeral:true,resume:false,tools:[],persona:{name:'笔记核对员'}});
+      return '{"decision":"note"}';
+    }
+    if (input.prompt.startsWith('BFF_EMOTION_APPRAISAL')) return '{"changed":false}';
     if (input.prompt.startsWith('BFF_MEMORY_TURN_ANALYSIS')) return '{"items":[]}';
     inputs.push(input);input.onSessionReady();
-    if(input.prompt.startsWith('记下群事：')) {
-      const content=input.prompt.slice('记下群事：'.length);
+    if(input.prompt.startsWith('记下群事：')||input.prompt===newPhrase) {
+      const content=input.prompt===newPhrase?'潮汐小队':input.prompt.slice('记下群事：'.length);
       await input.tools!.find(t=>t.name==='memory_append')!.execute({content,quote:content},input.signal);
     }
     if(input.prompt.startsWith('核对同名笔记：')) {
@@ -80,6 +89,13 @@ it('uses trusted sender identity across desktop and OneBot, keeps group notes at
 
     const fact=chat.life.memories.create({kind:'fact',subject:'露营',content:'带手电',importance:3});
     chat.life.memories.update(fact.id,{version:fact.version,visibility:'shared'});
+    expect(reviews).toHaveLength(0);
+    await local(newPhrase);
+    await qq('20002','41002',newPhrase);
+    expect(reviews).toHaveLength(2);
+    expect(reviews[0]!.sessionId).not.toBe(reviews[1]!.sessionId);
+    expect(db.prepare('SELECT scope FROM conversation_notes WHERE content=? ORDER BY scope').all('潮汐小队'))
+      .toEqual([{scope:expect.stringMatching(/^local:/u)},{scope:'qq:10001:group:41002'}]);
     await qq('20002','41001','记下群事：露营集合带水');
     await qq('30003','41001','记下群事：露营集合带水');
     await qq('30003','41002','记下群事：露营要带隔壁群帐篷');

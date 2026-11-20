@@ -41,6 +41,9 @@ it('binds real OneBot interactions to the current chat, own messages and private
  const tools=Object.fromEntries(interactionTools(db,b.plugin,state,'10001',{kind:'private',id:'20002'},'20002','1','777',guard).map(t=>[t.name,t]));
  try{await tools.get_recent_messages!.execute({},signal);expect(b.requests.find(r=>r.action==='get_friend_msg_history')?.params).toMatchObject({user_id:'20002',count:20,disable_get_url:true});await expect(tools.get_message!.execute({id:'777'},signal)).rejects.toThrow('QQ_MESSAGE_SCOPE');await expect(tools.get_message!.execute({id:'555'},signal)).rejects.toThrow('QQ_MESSAGE_SCOPE');await expect(tools.recall_message!.execute({id:'8'},signal)).rejects.toThrow('QQ_RECALL_NOT_OWN');await tools.recall_message!.execute({id:'9'},signal);await tools.recall_message!.execute({id:'9'},signal);expect(b.requests.filter(r=>r.action==='delete_msg')).toHaveLength(1);await tools.send_like!.execute({},signal);await tools.set_message_reaction!.execute({id:'8',emojiId:'76'},signal);expect(b.requests.find(r=>r.action==='send_like')?.params).toEqual({user_id:'20002',times:1});
  const own=Object.fromEntries(selfTools('owner',b.plugin,state,state.options('10001'),library,guard).map(t=>[t.name,t]));expect(JSON.stringify(await own.get_qq_profile!.execute({},signal))).not.toContain('PRIVATE_EMAIL');await own.set_qq_profile!.execute({nickname:'新鱼'},signal);expect(b.requests.find(r=>r.action==='set_qq_profile')?.params).toEqual({nickname:'新鱼',personal_note:'原签名'});await expect(own.set_qq_avatar!.execute({image:'file:///secret'},signal)).rejects.toThrow('STICKER_VIEW_REQUIRED');const image=await own.get_avatar_image!.execute({id:'builtin-hello'},signal);await expect(own.set_qq_avatar!.execute({image:'builtin-hello'},signal)).rejects.toThrow('STICKER_VIEW_REQUIRED');own.get_avatar_image!.onImageResult!(image,true);await own.set_qq_avatar!.execute({image:'builtin-hello'},signal);expect(b.requests.find(r=>r.action==='set_qq_avatar')?.params.file).toMatch(/^base64:\/\//);await own.publish_qzone_post!.execute({content:'今天也在摇尾巴',image:'builtin-hello'},signal);expect(b.requests.find(r=>r.action==='send_qzone_msg')?.params.ugc_right).toBe(4);
+ const autoPost=selfTools('autonomous',b.plugin,state,state.options('10001'),library,guard).find(t=>t.name==='publish_qzone_post')!;
+ await autoPost.execute({content:'第二条来自自主活动'},signal);await own.publish_qzone_post!.execute({content:'第三条来自主人'},signal);
+ await autoPost.execute({content:'第三条来自主人'},signal);expect(b.requests.filter(r=>r.action==='send_qzone_msg')).toHaveLength(3);
  b.control.post='missing';await expect(own.publish_qzone_post!.execute({content:'回执缺失'},signal)).rejects.toThrow('QQ_POST_UNCONFIRMED');const sends=b.requests.filter(r=>r.action==='send_qzone_msg').length;await expect(own.publish_qzone_post!.execute({content:'回执缺失'},signal)).rejects.toThrow('QQ_POST_UNCONFIRMED');expect(b.requests.filter(r=>r.action==='send_qzone_msg')).toHaveLength(sends);expect(state.issues()[0]?.status).toBe('unknown');
  const group=Object.fromEntries(interactionTools(db,b.plugin,state,'10001',{kind:'group',id:'40004'},'20002','10',undefined,guard).map(t=>[t.name,t]));for(const card of ['A','A','B','A'])await group.set_group_card!.execute({card},signal);expect(b.requests.filter(r=>r.action==='set_group_card').map(r=>r.params.card)).toEqual(['A','B','A']);
  b.control.reactionReject=true;await expect(tools.set_message_reaction!.execute({id:'8',emojiId:'78'},signal)).rejects.toThrow('ACTION_REJECTED');
@@ -50,7 +53,7 @@ it('binds real OneBot interactions to the current chat, own messages and private
 
 it('persists unknown writes, allows A-B-A changes, bounds autonomous decisions and cancels before writes',async()=>{
  const db=new DatabaseSync(':memory:');migrate(db);let now=new Date(2026,10,7,1).getTime(),count=0;const state=new QQActionState(db,()=>now);const write=(v:string)=>state.write('10001','group_card',{card:v},'group:1',3,()=>{},async()=>({v,n:++count}));
- try{await write('A');await write('B');await write('A');expect(count).toBe(3);await expect(write('C')).rejects.toThrow('QQ_ACTION_DAILY_LIMIT');await expect(state.write('10001','post','x','self',2,()=>{},async()=>{throw new Error('SEND_UNKNOWN');})).rejects.toThrow();const restarted=new QQActionState(db,()=>now);await expect(restarted.write('10001','post','x','self',2,()=>{},async()=>{count++;})).rejects.toThrow('QQ_ACTION_UNCONFIRMED');expect(count).toBe(3);
+ try{await write('A');await write('B');await write('A');expect(count).toBe(3);await expect(write('C')).rejects.toThrow('QQ_ACTION_DAILY_LIMIT');await expect(state.write('10001','post','x','self',null,()=>{},async()=>{throw new Error('SEND_UNKNOWN');})).rejects.toThrow();const restarted=new QQActionState(db,()=>now);await expect(restarted.write('10001','post','x','self',null,()=>{},async()=>{count++;})).rejects.toThrow('QQ_ACTION_UNCONFIRMED');expect(count).toBe(3);
  let decisions=0;const auto=new QQAutonomy(state,()=>({accountId:'10001',options:state.options('10001'),guard:()=>{},run:async()=>{decisions++;}}));await auto.tick();for(let i=0;i<7;i++){now+=3600000;await auto.tick();}expect(decisions).toBe(6);const current=decisions;db.prepare("INSERT INTO settings VALUES('activities.paused','true')").run();now+=3600000;await auto.tick();expect(decisions).toBe(current);await auto.close();
  let release!:()=>void,wrote=false;db.prepare("DELETE FROM settings WHERE key='activities.paused'").run();db.prepare('DELETE FROM qq_self_clock').run();const pending=new QQAutonomy(state,()=>({accountId:'10001',options:state.options('10001'),guard:()=>{},run:async s=>{await new Promise<void>(r=>{release=r;});s.throwIfAborted();wrote=true;}}));await pending.tick();now+=3600000;const running=pending.tick();await Promise.resolve();pending.cancel();release();await running;expect(wrote).toBe(false);await pending.close();
  }finally{db.close();}
@@ -80,9 +83,53 @@ it('registers global tools only for the verified owner and triggers autonomous w
  const call=<T>(url:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,url,method,body);
  try{await call('/v1/models','POST',{id:'fixture',provider:'openai',baseURL:model.url,model:'fixture'});await call('/v1/model-routes','PUT',{chat:'fixture'});await call('/v1/channels/qq','PUT',{url:b.url,accountId:'10001',ownerId:'20002',friendIds:['30003'],groups:['40004'],enabled:true,replyEnabled:true,proactiveEnabled:false,revision:''});await wait(()=>db.prepare("SELECT config FROM plugin_config WHERE id='qq'").get()!==undefined);await new Promise(r=>setTimeout(r,50));
  model.controls.replyTools=[{name:'skip_reply',args:{}}];
- for(const [id,user,group] of [['1','20002',false],['2','30003',false],['3','20002',true]] as const){b.event({post_type:'message',message_type:group?'group':'private',self_id:'10001',user_id:user,...(group?{group_id:'40004'}:{}),message_id:id,message:[{type:'text',data:{text:'TOOLS_REGISTRATION_'+id}}]});await wait(()=>!!db.prepare("SELECT 1 FROM channel_deliveries WHERE id=? AND status NOT IN ('queued','generating','sending')").get(`10001:${group?'group:40004':'private:'+user}:${id}`));const request=model.requests.find(r=>r.body?.messages?.some(m=>m.role==='user'&&JSON.stringify(m.content).includes('TOOLS_REGISTRATION_'+id)));assert(request?.body?.tools,'expected the matching request and tool definitions');const names=request.body.tools.map(t=>{assert('function' in t,'expected OpenAI tool definitions');return t.function.name;});expect(names).toContain('get_recent_messages');expect(names.includes('publish_qzone_post')).toBe(id==='1');expect(names.includes('set_group_card')).toBe(group);}
+ for(const [id,user,group] of [['1','20002',false],['2','30003',false],['3','20002',true]] as const){b.event({post_type:'message',message_type:group?'group':'private',self_id:'10001',user_id:user,...(group?{group_id:'40004'}:{}),message_id:id,message:[{type:'text',data:{text:'TOOLS_REGISTRATION_'+id}}]});await wait(()=>!!db.prepare("SELECT 1 FROM channel_deliveries WHERE id=? AND status NOT IN ('queued','generating','sending')").get(`10001:${group?'group:40004':'private:'+user}:${id}`));const request=model.requests.find(r=>r.body?.messages?.some(m=>m.role==='user'&&JSON.stringify(m.content).includes('TOOLS_REGISTRATION_'+id)));assert(request?.body?.tools,'expected the matching request and tool definitions');const names=request.body.tools.map(t=>{assert('function' in t,'expected OpenAI tool definitions');return t.function.name;});expect(names).toContain('get_recent_messages');expect(names.includes('publish_qzone_post')).toBe(user==='20002');expect(names.includes('get_qzone_posts')).toBe(id==='1');expect(names.includes('set_group_card')).toBe(group);}
  // Advance the persisted due slot, while retaining the production 30-second timer.
  model.controls.replyTools=[{name:'publish_qzone_post',args:{content:'由后台自主触发的隔离动态'}}];db.prepare("INSERT INTO qq_self_clock VALUES('10001',0,'2000-01-01',0) ON CONFLICT(account_id) DO UPDATE SET next_at=0").run();
  for(let i=0;i<350;i++){if(b.requests.some(r=>r.action==='send_qzone_msg'))break;await new Promise(r=>setTimeout(r,100));}expect(b.requests.some(r=>r.action==='send_qzone_msg')).toBe(true);const opts=await call<Record<string,unknown>>('/v1/channels/qq/self-options');await call('/v1/channels/qq/self-options','PUT',{...opts,profile:false,posts:false});expect(await call('/v1/channels/qq/self-options')).toMatchObject({profile:false,posts:false});
  }finally{db.close();await runtime.stop();await b.close();await model.close();rmSync(p.root,{recursive:true,force:true});}
 },45000);
+
+it('checks clarification immediately before a profile write but always verifies an already dispatched change',async()=>{
+ const db=new DatabaseSync(':memory:');migrate(db);const state=new QQActionState(db),library=new StickerLibrary(db);
+ let fresh=true,block=true,sig='旧',reads=0,writes=0;
+ const client={action:async(name:string,params:Record<string,unknown>,guard:()=>void)=>{
+   if(name==='profile'){guard();reads++;return {user_id:'10001',nickname:writes?'外部换了昵称':'鱼',long_nick:sig};}
+   expect(name).toBe('signature_update');expect(params).toEqual({longNick:'新'});if(block)fresh=false;
+   try{guard();}catch(e){throw new Error('SEND_NOT_STARTED',{cause:e});}
+   writes++;sig=String(params.longNick);fresh=false;return {result:1}; // rejected-looking receipt, but the state did change
+ }} as unknown as import('../../apps/runtime/src/channels/types.js').QQConnection;
+ const tool=()=>selfTools('autonomous',client,state,state.options('10001'),library,()=>{},undefined,()=>{
+   if(!fresh)throw new Error('QQ_CLARIFICATION_EXPIRED');
+ }).find(t=>t.name==='set_qq_profile')!;
+ try{
+   await expect(tool().execute({signature:'新'},signal)).rejects.toThrow('SEND_NOT_STARTED');expect(writes).toBe(0);
+   block=false;fresh=true;reads=0;
+   expect(await tool().execute({signature:'新'},signal)).toMatchObject({status:'verified'});
+   expect(writes).toBe(1);expect(reads).toBe(2);
+ }finally{db.close();}
+});
+
+it('does not retry a signature with the full-profile action and persists unknown readbacks under the existing ledger key',async()=>{
+ const db=new DatabaseSync(':memory:');migrate(db);const state=new QQActionState(db),library=new StickerLibrary(db);
+ const actions:string[]=[];let reject=true,readback=false;
+ const client={action:async(name:string,params:Record<string,unknown>,guard:()=>void)=>{
+   guard();actions.push(name);
+   if(name==='profile'){
+     if(readback){readback=false;throw Error('ACTION_REJECTED');}
+     return {user_id:'10001',nickname:'鱼',long_nick:'旧'};
+   }
+   expect(name).toBe('signature_update');expect(params).toEqual({longNick:'新'});
+   if(reject)return {result:1};readback=true;return null;
+ }} as unknown as import('../../apps/runtime/src/channels/types.js').QQConnection;
+ const set=()=>selfTools('owner',client,state,state.options('10001'),library,()=>{}).find(t=>t.name==='set_qq_profile')!.execute({signature:'新'},signal);
+ try{
+   await expect(set()).rejects.toThrow('ACTION_REJECTED');
+   expect(actions.splice(0)).toEqual(['profile','signature_update','profile']);expect(state.issues()[0]?.status).toBe('failed');
+   reject=false;await expect(set()).rejects.toThrow('QQ_PROFILE_UNCONFIRMED');
+   expect(actions.splice(0)).toEqual(['profile','signature_update','profile']);
+   const legacy=createHash('sha256').update(JSON.stringify(['self',{nickname:'鱼',signature:'新'},null])).digest('hex');
+   expect(db.prepare("SELECT fingerprint,status FROM qq_operations ORDER BY rowid DESC LIMIT 1").get()).toMatchObject({fingerprint:legacy,status:'unknown'});
+   await expect(set()).rejects.toThrow('QQ_ACTION_UNCONFIRMED');expect(actions).toEqual(['profile']);
+ }finally{db.close();}
+});

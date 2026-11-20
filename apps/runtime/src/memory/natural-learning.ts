@@ -137,8 +137,8 @@ export function isConversationRequest(text: string) {
   return /^(?:(?:那|现在|下面|接下来|下一步|然后|咱们|我们|先|再)\s*)*(?:来聊|聊聊|谈谈|说说|换个(?:话题|问题)|说一下|问一下)|(?:^|[，,：:、])\s*(?:请|麻烦)?你(?:先|再|来|可以|能不能|帮我|要不要)?(?:问我|问问|说说|聊聊|介绍一下)/u.test(text.trim());
 }
 
-export function allowConversationNote(text: string) {
-  const speaker = {role:'other',scopeKey:'private'} as const;
-  return !shouldSkipMemory(text) && !isConversationRequest(text) && !text.split(/[。！？!?.；;\n]/u).some(clause => demographicStatements(clause,speaker).length > 0)
-    && !selectStatement(text, {role:'other',scopeKey:'qq:group:note'}, '');
+// A refusal or credential anywhere in the message also protects harmless-looking
+// excerpts. These privacy checks run locally, before any note-review request.
+export function blocksNoteForPrivacy(text: string) {
+  return secret.test(text) || optOut.test(text);
 }

@@ -55,9 +55,9 @@ it('carries only an explicit owner group command to OneBot; settles images and a
     await api('/v1/model-routes','PUT',{chat:'fixture'});await api('/v1/channels/qq/sticker-options','PUT',{networkEnabled:false,revision:'initial'});
     await api('/v1/channels/qq','PUT',{url:bot.url,accountId:'10001',ownerId:owner,groups:[group],enabled:true,replyEnabled:true,proactiveEnabled:false,token:'fixture-token',revision:''});
     for(let i=0;i<100;i++){if((await api<{health:{state:string}}>('/v1/channels/qq')).health.state==='online')break;await delay(20);}
-    let wires=await turn('大肥鱼发个说说',[()=>[say('我不能发说说')],b=>[has(b,post,{content:'早安！'})],()=>[say('发好了')]]);
+    let wires=await turn('大肥鱼发个说说',[b=>[has(b,post,{content:'早安！'})],()=>[say('发好了')]]);
     expect(wires.filter(r=>r.action==='send_qzone_msg').map(r=>r.params)).toEqual([{content:'早安！',ugc_right:4}]);
-    expect(names(requests[0]!)).not.toContain(profile);expect(names(requests[0]!)).not.toContain('get_qzone_posts');expect(names(requests[0]!)).not.toContain('get_qq_profile');
+    expect(names(requests[0]!)).toContain(profile);expect(names(requests[0]!)).not.toContain('get_qzone_posts');expect(names(requests[0]!)).not.toContain('get_qq_profile');
     wires=await turn('大肥鱼把你的 QQ 昵称改成小蓝',[b=>[has(b,profile,{nickname:'小蓝'}),say('提前报喜')],()=>[say('改好了')]]);
     expect(wires.filter(r=>r.action===profile).map(r=>r.params)).toEqual([{nickname:'小蓝',personal_note:'PRIVATE_SIGNATURE'}]);
     expect(requests).toHaveLength(2);expect(JSON.stringify(requests)).not.toContain('PRIVATE_SIGNATURE');
@@ -68,14 +68,16 @@ it('carries only an explicit owner group command to OneBot; settles images and a
     wires=await turn('大肥鱼你发一个说说呗',[b=>[has(b,post,{content:'晚安！'})],b=>[say(JSON.stringify(b.messages.at(-1)).includes('尚未确认')?'结果待核实':'没有权限')]]);
     expect(wires.filter(r=>r.action==='send_qzone_msg')).toHaveLength(1);expect(JSON.stringify(requests.at(-1)!.messages.at(-1))).toContain('尚未确认');expect(wires.at(-1)?.params.message).toEqual([{type:'text',data:{text:'没有拿到可确认的操作结果，我不会重复操作。'}}]);
     for(const [who,text,parts] of [['30003','大肥鱼发个说说',[]],[owner,'不要发说说',[]],[owner,'如果我说“大肥鱼发个说说”呢？',[]],[owner,'小明说：大肥鱼发个说说',[]],[owner,'大肥鱼发个说说',[{type:'reply',data:{id:'1'}}]]] as const){
-      wires=await turn(text,[b=>[has(b,post,{content:'不应发布'})]],who,[...parts]);expect(names(requests[0]!)).not.toContain(post);expect(wires.some(r=>r.action==='send_qzone_msg')).toBe(false);
+      const modelCanAct=who===owner&&!parts.length;
+      wires=await turn(text,[b=>[modelCanAct?say('不发布。'):has(b,post,{content:'不应发布'})]],who,[...parts]);
+      expect(names(requests[0]!).includes(post)).toBe(modelCanAct);expect(wires.some(r=>r.action==='send_qzone_msg')).toBe(false);
     }
     const opts=await api<Record<string,unknown>>('/v1/channels/qq/self-options');
     await api('/v1/channels/qq/self-options','PUT',{...opts,posts:false,profile:true});
     const db=new DatabaseSync(p.database,{readOnly:true});
     const assertUnavailable=async(text:string,tool:string,notice:string)=>{
-      const captured=await turn(text,[()=>[say('已经办好了！')]]);
-      expect(names(requests[0]!)).not.toContain(tool);expect(requests).toHaveLength(1);
+      const captured=await turn(text,[()=>[say(notice)]]);
+      expect(names(requests[0]!)).not.toContain(tool);expect(requests).toHaveLength(1);expect(JSON.stringify(requests[0]!.messages)).toContain(tool===post?'发说说的开关已关闭':'当前连接不支持');
       expect(captured.filter(r=>r.action==='send_qzone_msg'||r.action===profile)).toHaveLength(0);
       expect(captured.filter(r=>r.action==='send_group_msg').map(r=>r.params.message)).toEqual([[{type:'text',data:{text:notice}}]]);
       const request=createHash('sha256').update('10001:group:'+group+':'+id).digest('hex');

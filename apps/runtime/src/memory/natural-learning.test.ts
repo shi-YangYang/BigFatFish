@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { allowConversationNote, selectStatement } from './natural-learning.js';
+import { blocksNoteForPrivacy, selectStatement } from './natural-learning.js';
 
 const owner = {role:'owner' as const,scopeKey:'owner'};
 const group = {role:'other' as const,scopeKey:'qq:11:group:22'};
@@ -12,7 +12,6 @@ it('accepts first-person preferences, habits, explicit facts, commitments and mi
     ['我预约了下周三的面试。','experience'],['练了两个月，今天终于拿到驾照啦！','experience']
   ]) {
     expect(selectStatement(text!,owner,at), text).toMatchObject({kind,quote:text});
-    expect(allowConversationNote(text!)).toBe(false);
   }
   expect(selectStatement('我以前特别喜欢香菜。 现在碰都不想碰了。',owner,at))
     .toMatchObject({subject:'主人对香菜的喜好',content:'主人不喜欢香菜',replaces:true});
@@ -32,8 +31,8 @@ it('uses the full input to rule out secrets, hearsay, hypotheticals, temporary f
     '我是你的主人','记住，我是主人','我叫你去取快递。','我喜欢的不是乌龙茶。','以后叫我爸爸，不要叫爸爸']) {
     expect(selectStatement(text,owner,at),text).toBeNull();
   }
-  expect(allowConversationNote('验证码是123456，我喜欢喝茶')).toBe(false);
-  expect(allowConversationNote('不要保存这件事，群里要集合')).toBe(false);
-  expect(allowConversationNote('记下群事：露营带手电')).toBe(true);
+  expect(blocksNoteForPrivacy('验证码是123456，我喜欢喝茶')).toBe(true);
+  expect(blocksNoteForPrivacy('不要保存这件事，群里要集合')).toBe(true);
+  expect(blocksNoteForPrivacy('记下群事：露营带手电')).toBe(false);
   expect(selectStatement('我们群想周六集合。',group,at)).toBeNull();
 });

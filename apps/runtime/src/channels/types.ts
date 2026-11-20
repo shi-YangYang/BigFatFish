@@ -14,4 +14,4 @@ export interface QQMessageIssue {
   at: string;
 }
 
-export type QQAction = 'history_private'|'history_group'|'message'|'recall'|'group_card'|'like'|'reaction'|'profile'|'profile_update'|'avatar'|'posts'|'post'|'space_profile'|'space_update'|'notices'|'essence'|'member_card';
+export type QQAction = 'history_private'|'history_group'|'message'|'recall'|'group_card'|'like'|'reaction'|'profile'|'profile_update'|'signature_update'|'avatar'|'posts'|'post'|'space_profile'|'space_update'|'notices'|'essence'|'member_card';

@@ -31,8 +31,11 @@ export class NoteScope {
     const visible = new Set(Array.from(rows, row => String(row.id)));
     return [...ids].every(id => visible.has(id));
   }
+  assertAuthor(author:string) {
+    if (this.author && author !== this.author) throw new InputError('INVALID_MEMORY_SOURCE');
+  }
   append(source: {id:string;author:string}, content: string, quote: string) {
-    if (this.author && source.author !== this.author) throw new InputError('INVALID_MEMORY_SOURCE');
+    this.assertAuthor(source.author);
     const existing = this.db.prepare('SELECT id FROM conversation_notes WHERE scope=? AND author=? AND content=?').get(this.key, source.author, content);
     if (existing) return {id:String(existing.id)};
     const count = this.db.prepare(`SELECT count(*) AS n FROM conversation_notes WHERE ${this.where}`).get(...this.params)!.n;

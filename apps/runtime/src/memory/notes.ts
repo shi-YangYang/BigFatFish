@@ -1,7 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { EngineTool } from '../ai/engine.js';
 import { InputError, object, string } from '../ai/types.js';
-import { allowConversationNote } from './natural-learning.js';
+import { blocksNoteForPrivacy } from './natural-learning.js';
+import type {ReviewNote} from './note-review.js';
 import { NoteScope } from './note-scope.js';
 import type { DisclosedMemory } from './public-session.js';
 import { fuseRanks } from './rank-fusion.js';
@@ -10,7 +11,7 @@ import type { MemoryStore } from './store.js';
 import type { MemoryAudience } from './types.js';
 
 export class ConversationNotes {
-  constructor(private db: DatabaseSync, private semantic?: SemanticIndex) {}
+  constructor(private db: DatabaseSync, private semantic?: SemanticIndex, private review?:ReviewNote) {}
 
   validateStored() {
     for (const row of this.db.prepare('SELECT * FROM conversation_notes').iterate()) {
@@ -25,6 +26,7 @@ export class ConversationNotes {
     seen: (ids: string[]) => void = () => {}, seenMemories?: (items: DisclosedMemory[]) => void): EngineTool[] {
     const notes = typeof scope === 'string' ? new NoteScope(this.db,scope,audience === 'owner') : scope;
     let writes = 0;
+    const reviews=new Map<string,Promise<boolean>>(); // bounded by this turn's two-write budget
     const check = (signal: AbortSignal) => { signal.throwIfAborted(); guard(); };
     const write = (signal: AbortSignal) => {
       check(signal);
@@ -62,8 +64,19 @@ export class ConversationNotes {
         execute:async (args,signal) => {
           write(signal);
           const b = object(args), content = string(b.content,2000), quote = string(b.quote,2000);
-          if (!source.text || !allowConversationNote(source.text)) return {saved:false};
+          if (!source.text || blocksNoteForPrivacy(source.text)) return {saved:false};
           if (!source.text.includes(quote) || !source.text.includes(content)) throw new InputError('INVALID_MEMORY_SOURCE');
+          notes.assertAuthor(source.author);
+          if (!this.review) return {saved:false};
+          const key=JSON.stringify([content,quote]);
+          let approval=reviews.get(key);
+          if (!approval) {
+            approval=this.review({text:source.text,content,quote},signal).catch(()=>false);
+            reviews.set(key,approval);
+          }
+          const approved=await approval;
+          check(signal); // authorization can change while the reviewer is running
+          if (approved!==true) return {saved:false};
           const note = notes.append(source,content,quote);
           seen([note.id]); this.semantic?.schedule();
           return note;
