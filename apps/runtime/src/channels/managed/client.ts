@@ -5,7 +5,7 @@ import { stableId } from '../protocol.js';
 import type { QQContact } from './types.js';
 
 /** Only this fixed set of read/config/login operations is exposed to the manager. */
-export type NapCatAction='QQLogin/CheckLoginStatus'|'QQLogin/GetQQLoginInfo'|'QQLogin/RefreshQRcode'|'OB11Config/SetConfig';
+export type NapCatAction='QQLogin/CheckLoginStatus'|'QQLogin/SetQuickLogin'|'QQLogin/GetQQLoginInfo'|'QQLogin/RefreshQRcode'|'OB11Config/SetConfig';
 export class NapCatClient {
  private credential='';
  constructor(private port:number,private token:string){}

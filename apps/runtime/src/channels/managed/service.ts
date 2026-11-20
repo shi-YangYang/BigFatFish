@@ -16,7 +16,7 @@ const qrcode=createRequire(import.meta.url)('qrcode') as {toDataURL:(text:string
 async function freePort(){const server=createServer();await new Promise<void>((r,j)=>{server.once('error',j);server.listen(0,'127.0.0.1',r);});const address=server.address() as {port:number};await new Promise<void>((r,j)=>server.close(e=>e?j(e):r()));return address.port;}
 export function onebotConfig(state:ManagedState,native:boolean){return {network:{httpServers:[],httpSseServers:[],httpClients:[],websocketClients:[],plugins:[],websocketServers:[{name:'bigfatfish',enable:true,host:native?'127.0.0.1':'0.0.0.0',port:native?state.botPort:3001,messagePostFormat:'array',reportSelfMessage:false,token:state.botToken,enableForcePushEvent:true,debug:false,heartInterval:30000}]},musicSignUrl:'',enableLocalFile2Url:true,parseMultMsg:false,imageDownloadProxy:''};}
 export class ManagedQQ {
- private resumeIntent?:{revision:string;accountId:string};private activationVersion=0;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
+ private pendingQuickLogin?:{id:string;revision:string};private quickAcceptedUntil=0;private rememberLogin=false;private resumeIntent?:{revision:string;accountId:string};private activationVersion=0;private componentTouched=false;private stateValid=true;private state:ManagedState;private platform:ComponentPlatform;private client?:NapCatClient;private view:ManagedQQStatus;
  private job?:Promise<void>;private control?:AbortController;private generation=0;private running=false;private closed=false;private timer?:ReturnType<typeof setTimeout>;private configuredAccount='';private qrUrl='';
  // Applying OneBot configuration may start its listener asynchronously. Track the write separately from the verified identity.
  private appliedAccount='';private readinessDeadline=0;private pollBlocked=false;
@@ -30,9 +30,14 @@ export class ManagedQQ {
   try{privateDirectory(this.directory);assertRegular(this.stateFile);if(existsSync(this.stateFile))this.state=JSON.parse(readFileSync(this.stateFile,'utf8')) as ManagedState;
    if(!/^[a-f0-9]{24}$/.test(this.state.id)||![this.state.webToken,this.state.botToken].every(x=>/^[a-f0-9]{64}$/.test(x))||typeof this.state.installed!=='boolean')throw new Error();
   }catch{this.state=initial;this.stateValid=false;}
+  // Old installs have no login marker. An invalid marker is not an account to log in as.
+  if(typeof this.state.restartAccount!=='string'||!/^[1-9][0-9]{0,31}$/.test(this.state.restartAccount))delete this.state.restartAccount;
   this.platform=new ComponentPlatform(this.directory,this.state);this.view={phase:this.state.installed?'ready':'missing',engine:this.platform.native?'native':'docker',supported:this.platform.supported,version:VERSION,busy:false};if(!this.stateValid){this.view.phase='error';this.view.error='QQ_COMPONENT_STATE_INVALID';}
  }
- initialize(){if(!this.stateValid)return;if(this.channels.status().config?.mode==='managed'&&this.channels.status().config?.enabled)this.action('start');}
+ initialize(){
+  if(!this.stateValid)return;const {config}=this.channels.status();
+  if(config?config.mode==='managed'&&config.enabled:this.state.installed&&this.state.restartAccount)this.action('start');
+ }
  status(){return {...this.view};}
  contactList(){return {...this.lists,accountId:this.contactsAccount||undefined};}
  private clearContacts(){this.contactsSequence++;this.contactsAccount='';this.lists={friends:[],groups:[]};}
@@ -82,7 +87,7 @@ export class ManagedQQ {
    if(this.closed)throw new InputError('RUNTIME_STOPPING',503);
    // Cancel installation/start before queued cleanup, preventing late orphan creation.
    const pending=this.job;this.control?.abort();this.generation++;this.running=false;this.clearContacts();clearTimeout(this.timer);this.view={...this.view,phase:'stopping',busy:true,qr:undefined,account:undefined};
-   this.cancelConnection();const config=this.channels.status();if(config.config?.mode==='managed'&&config.config.enabled)this.channels.enable(false);
+   this.forgetRestart();this.cancelConnection();const config=this.channels.status();if(config.config?.mode==='managed'&&config.config.enabled)this.channels.enable(false);
    const job=(async()=>{await pending;if(this.state.installed||this.componentTouched)await this.platform.stop();this.componentTouched=false;this.view.phase=this.state.installed?'ready':'missing';this.view.error=undefined;})().catch(error=>{this.view.phase='error';this.view.error=this.error(error);}).finally(()=>{if(this.job===job){this.job=undefined;this.view.busy=false;}});this.job=job;return this.status();
   }
   if(action==='install'&&this.running)throw new InputError('QQ_COMPONENT_BUSY',409);
@@ -90,7 +95,7 @@ export class ManagedQQ {
   if(action==='refresh')return this.launch('login',async()=>{if(!this.running||!this.client)throw new InputError('QQ_COMPONENT_NOT_STARTED',409);await this.client.call('QQLogin/RefreshQRcode');this.qrUrl='';await this.poll(this.generation);});
   if(this.running)throw new InputError('QQ_COMPONENT_BUSY',409);
   const current=this.channels.status();
-  this.resumeIntent=current.config?.mode==='managed'&&current.config.enabled?{revision:current.revision,accountId:current.config.accountId}:undefined;
+  this.rememberLogin=true;this.resumeIntent=current.config?.mode==='managed'&&current.config.enabled?{revision:current.revision,accountId:current.config.accountId}:undefined;
   return this.launch('starting',(signal,generation)=>this.startComponent(signal,generation));
  }
  /** One user intent owns preparation, login and restoration of the saved scope. */
@@ -100,7 +105,7 @@ export class ManagedQQ {
   if(this.job)throw new InputError('QQ_COMPONENT_BUSY',409);
   const current=this.channels.status();
   if(current.config?.enabled&&current.config.mode!=='managed')throw new InputError('QQ_EXTERNAL_ACTIVE',409);
-  this.resumeIntent=current.config?.mode==='managed'?{revision:current.revision,accountId:current.config.accountId}:undefined;
+  this.rememberLogin=true;this.resumeIntent=current.config?.mode==='managed'?{revision:current.revision,accountId:current.config.accountId}:undefined;
   // Only an explicit retry may restart an unreachable component or an expired QQ session.
   const restart=this.running&&this.pollBlocked&&['QQ_WEBUI_UNAVAILABLE','QQ_COMPONENT_AUTH','QQ_ACCOUNT_OFFLINE','QQ_LOGIN_INITIALIZING','QQ_LOGIN_RECONNECTING'].includes(this.view.error??'');
   if(this.pollBlocked)this.appliedAccount='';
@@ -113,17 +118,28 @@ export class ManagedQQ {
    this.view.phase='starting';await this.startComponent(signal,generation);
   });
  }
- cancelConnection(){this.resumeIntent=undefined;this.activationVersion++;}
- pause(){this.cancelConnection();return this.channels.status().config?this.channels.enable(false):this.channels.status();}
+ cancelConnection(){this.pendingQuickLogin=undefined;this.quickAcceptedUntil=0;this.resumeIntent=undefined;this.activationVersion++;}
+ private forgetRestart(){this.rememberLogin=false;if(this.state.restartAccount){delete this.state.restartAccount;this.persist();}}
+ pause(){this.forgetRestart();this.cancelConnection();return this.channels.status().config?this.channels.enable(false):this.channels.status();}
  private async startComponent(signal:AbortSignal,generation:number){
    if(!this.state.installed)throw new InputError('QQ_COMPONENT_NOT_INSTALLED',409);
    const current=this.channels.status();if(current.config?.enabled&&current.config.mode!=='managed')throw new InputError('QQ_EXTERNAL_ACTIVE',409);
    for(const path of ['qq','work','work/config','work/plugins'])privateDirectory(join(this.directory,path));
-   this.state.webPort=await freePort();this.state.botPort=await freePort();if(this.state.webPort===this.state.botPort)this.state.botPort=await freePort();this.persist();
+   // Docker binds these ports for the container's lifetime. A stopped instance keeps its addresses.
+   const valid=(port:number)=>Number.isInteger(port)&&port>0&&port<=65535;
+   if(this.platform.native||!valid(this.state.webPort)||!valid(this.state.botPort)||this.state.webPort===this.state.botPort){
+    this.state.webPort=await freePort();do{this.state.botPort=await freePort();}while(this.state.botPort===this.state.webPort);this.persist();
+   }
+   // The manager chooses exactly one quick-login path; never also enable WebUI auto-login.
    writePrivate(join(this.directory,'work','config','webui.json'),{host:this.platform.native?'127.0.0.1':'0.0.0.0',port:this.platform.native?this.state.webPort:6099,token:this.state.webToken,loginRate:10,autoLoginAccount:''});
    writePrivate(join(this.directory,'work','config','onebot11.json'),onebotConfig(this.state,this.platform.native));
    signal.throwIfAborted();
-   try{this.componentTouched=true;await this.platform.start(signal);signal.throwIfAborted();this.running=true;this.pollBlocked=false;this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
+   const latest=this.channels.status(),saved=latest.config;
+   const restartAccount=!this.rememberLogin?undefined:!saved?this.state.restartAccount:
+    saved.mode==='managed'&&saved.enabled&&this.resumeIntent?.revision===latest.revision?saved.accountId:undefined;
+   try{this.componentTouched=true;const restore=await this.platform.start(signal,restartAccount);signal.throwIfAborted();
+   this.pendingQuickLogin=restore==='request-quick-login'&&restartAccount?{id:restartAccount,revision:latest.revision}:undefined;this.quickAcceptedUntil=0;
+   this.running=true;this.pollBlocked=false;this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
    await this.poll(generation);}
    catch(error){this.running=false;await this.platform.stop();this.componentTouched=false;throw error;}
 
@@ -153,6 +169,23 @@ export class ManagedQQ {
    if(status.loginPhase==='reconnecting')throw new InputError('QQ_LOGIN_RECONNECTING',409);
    if(status.loginPhase==='offline'||status.isOffline===true)throw new InputError('QQ_ACCOUNT_OFFLINE',409);
    if(!status.loginError&&(status.qrLoginAccepted===true||status.isLogin===true))throw new InputError('QQ_LOGIN_INITIALIZING',409);
+   // New Docker containers do not bake an account into their immutable environment. Wait for the
+   // login service (a QR is ready), then use its normal quick-login operation once, never per poll.
+   if(this.pendingQuickLogin&&!status.loginError&&!status.qrLoginAccepted&&(status.loginPhase==='waiting_qrcode'||status.qrcodeurl)){
+    const target=this.pendingQuickLogin;this.pendingQuickLogin=undefined;
+    const saved=this.channels.status();
+    if(this.rememberLogin&&target.revision===saved.revision&&(!saved.config?this.state.restartAccount===target.id:saved.config.mode==='managed'&&saved.config.enabled&&saved.config.accountId===target.id)){
+     try{
+      await this.client!.call('QQLogin/SetQuickLogin',{uin:target.id});
+      if(generation!==this.generation||!this.running)return;this.quickAcceptedUntil=Date.now()+6000;
+     }catch(error){
+      if(generation!==this.generation||!this.running)return;
+      if(!(error instanceof InputError)||error.message!=='QQ_COMPONENT_REQUEST_FAILED')throw error;
+      // The provider declined this session. Leave the normal QR visible; do not retry on refresh.
+     }
+    }
+   }
+   if(this.quickAcceptedUntil>Date.now()&&!status.loginError)throw new InputError('QQ_LOGIN_INITIALIZING',409);
    this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.clearContacts();
    const url=typeof status.qrcodeurl==='string'&&status.qrcodeurl.length<4096?status.qrcodeurl:'';
    const qr=url?(this.view.qr&&url===this.qrUrl?this.view.qr:await qrcode.toDataURL(url,{width:240,margin:2})):undefined;
@@ -160,6 +193,7 @@ export class ManagedQQ {
    this.view={...this.view,phase:'login',account:undefined,qr,error:status.loginError?'QQ_LOGIN_FAILED':undefined,loginPhase:typeof status.loginPhase==='string'?status.loginPhase:undefined};
    return;
   }
+  this.pendingQuickLogin=undefined;this.quickAcceptedUntil=0;
   const info=await this.client!.call('QQLogin/GetQQLoginInfo');if(generation!==this.generation)return;
   if(info.online!==true)throw new InputError('QQ_LOGIN_INITIALIZING',409);
   const id=stableId(info.uin);
@@ -185,6 +219,8 @@ export class ManagedQQ {
    }
   }
   if(generation!==this.generation)return;
+  // Remember identity only after NapCat and OneBot agree. This never grants reply permissions.
+  if(this.rememberLogin&&this.state.restartAccount!==id){this.state.restartAccount=id;this.persist();}
   const intent=this.resumeIntent,saved=this.channels.status();
   this.resumeIntent=undefined;
   if(intent&&intent.accountId===id&&intent.revision===saved.revision&&saved.config?.mode==='managed'&&saved.config.accountId===id){

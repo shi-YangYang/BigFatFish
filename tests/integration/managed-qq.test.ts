@@ -26,26 +26,37 @@ it('one-action connection prepares, logs in and resumes only the saved account a
  const p=paths(mkdtempSync(join(tmpdir(),'bff-managed-qq-')));let account='',server:ReturnType<typeof createServer>|undefined,ws:WebSocketServer|undefined;let state:ManagedState|undefined;const calls:string[]=[];let friends=[{user_id:'20002',nickname:'主人'}],groups=[{group_id:'30003',group_name:'测试群'}],contactsFail=false;let contactGate:Promise<void>|undefined,contactRequested:(()=>void)|undefined;let statusGate:Promise<void>|undefined,statusRequested:(()=>void)|undefined;
  const install=vi.spyOn(ComponentPlatform.prototype,'install').mockRejectedValueOnce(new Error('fixture download unavailable')).mockImplementation(async()=>{await delay(20);});
  vi.spyOn(ComponentPlatform.prototype,'check').mockResolvedValue();
- vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async function(this:ComponentPlatform){
+ let validTicket='10001';const quickAttempts:string[]=[];
+ const start=vi.spyOn(ComponentPlatform.prototype,'start').mockImplementation(async function(this:ComponentPlatform,_signal,restartAccount){
   state=JSON.parse(readFileSync(join(this.directory,'manager.json'),'utf8'));
   expect(JSON.parse(readFileSync(join(this.directory,'work','config','onebot11.json'),'utf8')).enableLocalFile2Url).toBe(true);
   server=createServer(async(req,res)=>{let data='';for await(const chunk of req)data+=chunk;res.setHeader('Content-Type','application/json');
    if(req.url==='/api/auth/login'){expect(JSON.parse(data).hash).toBe(createHash('sha256').update(state!.webToken+'.napcat').digest('hex'));res.end(JSON.stringify({code:0,data:{Credential:'fixture-credential'}}));return;}
    expect(req.headers.authorization).toBe('Bearer fixture-credential');let result:unknown={};
    if(req.url?.endsWith('CheckLoginStatus'))result={isLogin:!!account,coreReady:!!account,loginPhase:'qrcode',qrcodeurl:'https://example.invalid/fixture-qr'};
+   if(req.url?.endsWith('SetQuickLogin')){
+    const uin=String(JSON.parse(data).uin);quickAttempts.push(uin);
+    if(uin!==validTicket){res.end(JSON.stringify({code:-1,message:'登录态已失效，请重新登录。'}));return;}account=uin;
+   }
    if(req.url?.endsWith('GetQQLoginInfo'))result={uin:account,nick:'测试QQ',online:true};
    if(req.url?.endsWith('SetConfig')){const config=JSON.parse(JSON.parse(data).config);expect(config.network.websocketServers[0].token).toBe(state!.botToken);expect(config.network.websocketClients).toEqual([]);expect(config.enableLocalFile2Url).toBe(true);}
    res.end(JSON.stringify({code:0,data:result}));
   });await new Promise<void>(r=>server!.listen(state!.webPort,'127.0.0.1',r));
   ws=new WebSocketServer({port:state!.botPort,host:'127.0.0.1'});await new Promise<void>(r=>ws!.once('listening',r));
   ws.on('connection',(socket,req)=>{expect(req.headers.authorization).toBe(`Bearer ${state!.botToken}`);socket.on('message',async raw=>{const request=JSON.parse(raw.toString());calls.push(request.action);if(request.action==='get_status'&&statusGate){statusRequested?.();await statusGate;}const data=request.action==='get_login_info'?{user_id:account}:request.action==='get_status'?{online:true}:request.action==='get_friend_list'?friends:request.action==='get_group_list'?groups:{};if(request.action==='get_friend_list'&&contactGate){const gate=contactGate;contactGate=undefined;contactRequested?.();await gate;}const failed=contactsFail&&request.action==='get_friend_list';if(socket.readyState===1)socket.send(JSON.stringify({echo:request.echo,status:failed?'failed':'ok',retcode:failed?1200:0,data}));});});
+  return restartAccount?'request-quick-login':undefined;
  });
  const stop=vi.spyOn(ComponentPlatform.prototype,'stop').mockImplementation(async()=>{if(ws){for(const client of ws.clients)client.terminate();await new Promise<void>(r=>ws!.close(()=>r()));ws=undefined;}if(server){await new Promise<void>(r=>server!.close(()=>r()));server=undefined;}});
- const runtime=await startRuntime(p);const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body),base='/v1/channels/qq/component',status=()=>call<ManagedQQStatus>(base);
+ let runtime=await startRuntime(p);const call=<T>(route:string,method='GET',body?:unknown)=>requestRuntime<T>(runtime.connection,route,method,body),base='/v1/channels/qq/component',status=()=>call<ManagedQQStatus>(base);
  try{
   expect((await status()).phase).toBe('missing');await call(base+'/connect','POST');await until(status,s=>s.phase==='error'&&!s.busy);
   await call(base+'/connect','POST');const qr=await until(status,s=>s.phase==='login'&&!s.busy);expect(qr.qr).toMatch(/^data:image\/png;base64,/);expect(JSON.stringify(qr)).not.toContain(state!.webToken);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();
   expect(install).toHaveBeenCalledTimes(2);account='10001';await call(base+'/refresh','POST');await until(status,s=>s.phase==='online'&&!s.busy);const list=await call<{friends:unknown[];groups:unknown[]}>(base+'/contacts');expect(list.friends).toHaveLength(1);expect(list.groups).toHaveLength(1);
+  // Desktop shutdown is not an explicit disconnect. Restore a scanned session even before reply setup.
+  expect(start.mock.calls[0]?.[1]).toBeUndefined();
+  await runtime.stop();account='';runtime=await startRuntime(p);
+  await until(status,s=>s.phase==='online'&&!s.busy);expect(start.mock.calls.at(-1)?.[1]).toBe('10001');
+  expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();
   const settings={accountId:account,ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],replyEnabled:true,proactiveEnabled:false,revision:''};
   await expect(call(base+'/settings','PUT',{...settings,accountId:'99999'})).rejects.toThrow('QQ_ACCOUNT_CHANGED');
   await expect(call(base+'/settings','PUT',{...settings,ownerId:account})).rejects.toThrow('QQ_OWNER_IS_BOT');
@@ -55,9 +66,18 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   await until(status,s=>!s.busy);expect((await call<ChannelStatus>('/v1/channels/qq')).config).toBeNull();expect((await status()).operationError).toBe('CANCELLED');
   await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
   await call(base+'/settings','PUT',settings);await until(status,s=>!s.busy);const channel=await call<ChannelStatus>('/v1/channels/qq');expect(channel.config).toMatchObject({mode:'managed',accountId:'10001',ownerId:'20002',friendIds:['20003'],groupReplyMode:'all',groups:['30003'],enabled:true});expect(JSON.stringify(channel)).not.toContain(state!.botToken);
+  // Existing installations have only a saved channel. If QQ declines its ticket, stay on QR, without a login loop.
+  await runtime.stop();account='';validTicket='';
+  const markerPath=join(p.data,'qq-component','manager.json'),legacy=JSON.parse(readFileSync(markerPath,'utf8'));
+  delete legacy.restartAccount;writeFileSync(markerPath,JSON.stringify(legacy));
+  runtime=await startRuntime(p);await until(status,s=>s.phase==='login'&&!!s.qr&&!s.busy);
+  expect(start.mock.calls.at(-1)?.[1]).toBe('10001');const starts=start.mock.calls.length;
+  await call(base+'/refresh','POST');await until(status,s=>s.phase==='login'&&!!s.qr&&!s.busy);expect(start).toHaveBeenCalledTimes(starts);expect(quickAttempts).toEqual(['10001','10001']);
+  account='10001';await call(base+'/refresh','POST');await until(status,s=>s.phase==='online'&&!s.busy);
+  const restored=await call<ChannelStatus>('/v1/channels/qq');expect(restored.config).toMatchObject({ownerId:'20002',friendIds:['20003'],groups:['30003'],enabled:true});
   // Explicit refresh reads new contacts without changing saved scope; concurrent clicks share the read.
   const contactList=()=>call<{friends:{id:string;name:string}[];groups:{id:string;name:string}[];accountId?:string;error?:string}>(base+'/contacts');
-  const scopeBefore={config:channel.config,revision:channel.revision};
+  const scopeBefore={config:restored.config,revision:restored.revision};
   friends=[...friends,{user_id:'20005',nickname:'新好友'}];groups=[...groups,{group_id:'30005',group_name:'新群聊'}];
   expect((await contactList()).friends).toHaveLength(1);
   let releaseContacts!:()=>void;contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});let reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
@@ -76,7 +96,7 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   const switchedRefresh=call(base+'/contacts/refresh','POST');const switchedResult=expect(switchedRefresh).rejects.toThrow(/QQ_ACCOUNT_CHANGED|CANCELLED/);await reachedContacts;account='40004';releaseContacts();await switchedResult;
   expect(await contactList()).toEqual({friends:[],groups:[]});account='10001';await call(base+'/contacts/refresh','POST');
   await expect(call(base+'/settings','PUT',settings)).rejects.toThrow('CHANNEL_VERSION_CONFLICT');
-  await expect(call('/v1/channels/qq','PUT',{...channel.config,revision:channel.revision})).rejects.toThrow('QQ_MANAGED_CONFIGURATION_REQUIRED');
+  await expect(call('/v1/channels/qq','PUT',{...restored.config,revision:restored.revision})).rejects.toThrow('QQ_MANAGED_CONFIGURATION_REQUIRED');
   // An already logged-in paused account reconnects without a second settings save.
   await call('/v1/channels/qq/stop','POST');await call(base+'/connect','POST');await until(status,s=>s.phase==='online'&&!s.busy);
   expect((await call<ChannelStatus>('/v1/channels/qq')).config?.enabled).toBe(true);
@@ -103,6 +123,9 @@ it('one-action connection prepares, logs in and resumes only the saved account a
   contactGate=new Promise<void>(resolve=>{releaseContacts=resolve;});reachedContacts=new Promise<void>(resolve=>{contactRequested=resolve;});
   const stoppingRefresh=call(base+'/contacts/refresh','POST'),cancelledRefresh=expect(stoppingRefresh).rejects.toThrow('CANCELLED');await reachedContacts;
   await call(base+'/stop','POST');releaseContacts();await cancelledRefresh;await until(status,s=>s.phase==='ready'&&!s.busy);expect(await contactList()).toEqual({friends:[],groups:[]});
+  const beforeShutdown=start.mock.calls.length;await runtime.stop();account='';runtime=await startRuntime(p);
+  expect((await status()).phase).toBe('ready');expect(start).toHaveBeenCalledTimes(beforeShutdown);
+  await call(base+'/connect','POST');await until(status,s=>s.phase==='login'&&!!s.qr&&!s.busy);expect(start.mock.calls.at(-1)?.[1]).toBeUndefined();
  }finally{await runtime.stop();rmSync(p.root,{recursive:true,force:true});}
 },25000);
 it('confirms the scanned account once the listener is ready and rechecks after transient WebUI loss',async()=>{

@@ -5,6 +5,7 @@ import { join,resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { InputError } from '../../ai/types.js';
+import { stableId } from '../protocol.js';
 import { windowsAcl } from '../../windows-acl.js';
 import { assertRegular,privateFile } from '../../paths.js';
 import type { ManagedState } from './types.js';
@@ -57,13 +58,27 @@ async function download(url:string,path:string,expected:string,limit:number,sign
 export function privateDirectory(path:string){assertRegular(path,true);mkdirSync(path,{recursive:true,mode:0o700});if(process.platform==='win32')windowsAcl('restrict',[{path,directory:true}]);}
 export function writePrivate(path:string,value:unknown){privateFile(path);writeFileSync(path,JSON.stringify(value));}
 function commandEnvironment(){const result:NodeJS.ProcessEnv={};for(const key of ['PATH','HOME','USERPROFILE','SystemRoot','WINDIR','LOCALAPPDATA','APPDATA','TEMP','TMP','DOCKER_CONFIG'])if(process.env[key])result[key]=process.env[key];return result;}
+interface BindMount {Source:string;Target:string;ReadOnly?:boolean}
+interface DockerComponent {
+ Id:string;Image:string;State:{Running:boolean};Config:{Env?:string[];Labels:Record<string,string>};
+ HostConfig:{Mounts?:Array<BindMount&{Type:string}>;Binds?:string[];PortBindings?:Record<string,Array<{HostIp:string;HostPort:string}>>;
+   Privileged?:boolean;PidMode?:string;NetworkMode:string;PidsLimit:number;SecurityOpt?:string[];RestartPolicy:{Name:string}};
+}
+function compatible(old:DockerComponent,image:string,state:ManagedState,mounts:BindMount[],buildKey:string){
+ const h=old.HostConfig,bindings=h?.PortBindings,actual=h?.Mounts,bundle=old.Config.Labels['org.bigfatfish.bundle'];
+ const port=(key:string,value:number)=>bindings?.[key]?.length===1&&bindings[key][0]?.HostIp==='127.0.0.1'&&bindings[key][0]?.HostPort===String(value);
+ return old.Image===image&&(!bundle||bundle===buildKey)&&!h?.Privileged&&!h.PidMode&&['default','bridge'].includes(h?.NetworkMode)&&
+  h.PidsLimit===256&&h.SecurityOpt?.includes('no-new-privileges')&&h.RestartPolicy?.Name==='no'&&
+  !!bindings&&Object.keys(bindings).length===2&&port('6099/tcp',state.webPort)&&port('3001/tcp',state.botPort)&&
+  !h.Binds?.length&&actual?.length===mounts.length&&mounts.every(m=>actual.some(a=>a.Type==='bind'&&a.Source===m.Source&&a.Target===m.Target&&!!a.ReadOnly===!!m.ReadOnly));
+}
 export class ComponentPlatform {
  readonly native=process.platform==='win32';readonly supported=this.native?process.arch==='x64':['darwin','linux'].includes(process.platform)&&['arm64','x64'].includes(process.arch);
  private child?:ChildProcess;private dockerHost='';private image=IMAGE;
  constructor(readonly directory:string,private state:ManagedState,readonly bundle=fileURLToPath(new URL('./napcat',import.meta.url))){}
  private async docker(args:string[],timeout=15000,signal?:AbortSignal){
   try{return (await exec('docker',[...(this.dockerHost?['--host',this.dockerHost]:[]),...args],{env:commandEnvironment(),encoding:'utf8',timeout,maxBuffer:2_000_000,windowsHide:true,signal})).stdout;}
-  catch(error){if(signal?.aborted)throw new InputError('CANCELLED');throw new InputError((error as NodeJS.ErrnoException).code==='ENOENT'?'QQ_DOCKER_MISSING':'QQ_DOCKER_FAILED',409);}
+  catch(error){if(signal?.aborted)throw new InputError('CANCELLED');if(['run','start'].includes(args[0]??'')&&/port is already allocated|address already in use|ports are not available/i.test(String((error as {stderr?:string}).stderr)))throw new InputError('QQ_COMPONENT_PORT_BUSY',409);throw new InputError((error as NodeJS.ErrnoException).code==='ENOENT'?'QQ_DOCKER_MISSING':'QQ_DOCKER_FAILED',409);}
  }
  async check(){
   if(!this.supported)throw new InputError('QQ_PLATFORM_UNSUPPORTED',409);
@@ -123,39 +138,99 @@ export class ComponentPlatform {
   }finally{rmSync(archive,{force:true});rmSync(staging,{recursive:true,force:true});}
  }
  private get name(){return `bigfatfish-qq-${this.state.id}`;}
- private async owned(){
-  const names=(await this.docker(['ps','-a','--filter',`name=^/${this.name}$`,'--format','{{.Names}}'])).trim();if(!names)return false;
-  const data=JSON.parse(await this.docker(['inspect',this.name]))[0];
-  if(data?.Config?.Labels?.['org.bigfatfish.qq']!==this.state.id||data?.Config?.Labels?.['org.bigfatfish.root']!==resolve(this.directory)||![IMAGE,this.image].includes(data?.Config?.Image))throw new InputError('QQ_COMPONENT_OWNERSHIP',409);
+ // Docker config/image IDs can change on upgrade. Pin the exact instance locally rather than
+ // trusting a container's name or its self-reported labels when its image is no longer current.
+ private get containerRecord(){return join(this.directory,'container.json');}
+ private rememberContainer(container:string,image:string){
+  if(!/^[0-9a-f]{64}$/.test(container)||!/^sha256:[0-9a-f]{64}$/.test(image))throw new InputError('QQ_COMPONENT_OWNERSHIP',409);
+  const file=this.containerRecord,tmp=file+'.tmp';assertRegular(file);
+  writePrivate(tmp,{component:this.state.id,root:resolve(this.directory),container,image});renameSync(tmp,file);
+ }
+ private hasContainerRecord(container:string,image:string){
+  const reject=()=>new InputError('QQ_COMPONENT_OWNERSHIP',409);
+  const file=this.containerRecord;assertRegular(file);
+  if(!existsSync(file))return false;
+  if(process.platform!=='win32'&&(lstatSync(file).mode&0o077)!==0)throw reject();
+  const record=(()=>{try{return JSON.parse(readFileSync(file,'utf8'));}catch{throw reject();}})();
+  if(record?.component!==this.state.id||record.root!==resolve(this.directory)||record.container!==container||record.image!==image)throw reject();
   return true;
  }
- async start(signal:AbortSignal=new AbortController().signal){
-  verifyBundle(this.bundle);await this.check();
+ private async owned(){
+  const names=(await this.docker(['ps','-a','--filter',`name=^/${this.name}$`,'--format','{{.Names}}'])).trim();if(!names)return undefined;
+  const data=JSON.parse(await this.docker(['inspect',this.name]))[0];
+  const reject=()=>new InputError('QQ_COMPONENT_OWNERSHIP',409);
+  if(data?.Config?.Labels?.['org.bigfatfish.qq']!==this.state.id||data.Config.Labels['org.bigfatfish.root']!==resolve(this.directory)||
+     !/^[0-9a-f]{64}$/.test(data.Id??'')||!/^sha256:[0-9a-f]{64}$/.test(data.Image??''))throw reject();
+  if(!this.hasContainerRecord(data.Id,data.Image)){
+   // Migration for installs predating the record requires the currently trusted image, too.
+   if(data.Image!==this.image||![IMAGE,this.image].includes(data.Config.Image))throw reject();
+   this.rememberContainer(data.Id,data.Image);
+  }
+  return data as DockerComponent;
+ }
+ private async stopOwned(container:DockerComponent){
+  if(!container.State.Running)return;
+  // The pinned image's PID 1 is bash, not QQ. Signal only its exact QQ child in a private PID
+  // namespace, as the account running QQ, so a normal restart gives the client time to close.
+  if(container.HostConfig&&!container.HostConfig.Privileged&&!container.HostConfig.PidMode){
+   const numericId=(key:string)=>{
+    const entries=container.Config.Env?.filter(item=>item.startsWith(key+'='));
+    const value=entries?.length===1?entries[0]!.slice(key.length+1):'';
+    return /^(0|[1-9]\d{0,9})$/.test(value)&&Number(value)<0xffffffff?value:undefined;
+   };
+   const uid=numericId('NAPCAT_UID'),gid=numericId('NAPCAT_GID');
+   if(uid!==undefined&&gid!==undefined)await this.docker(['exec','--user',uid+':'+gid,container.Id,'/bin/sh','-c',[
+    'for p in $(cat /proc/1/task/1/children); do',
+    ' [ "$(readlink /proc/$p/exe)" = /opt/QQ/qq ] || continue',
+    ' kill -TERM "$p" || break',
+    ' for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$p" 2>/dev/null || break; sleep 0.25; done',
+    ' break','done',
+   ].join('\n')],4000).catch(()=>{}); // PID 1 can exit while docker exec is completing.
+  }
+  await this.docker(['stop','--time','4',container.Id]);
+ }
+ async start(signal:AbortSignal=new AbortController().signal,restartAccount?:string):Promise<void|'request-quick-login'>{
+  const account=restartAccount===undefined?undefined:stableId(restartAccount);
+  const manifest=verifyBundle(this.bundle);await this.check();
   if(this.native){
    if(this.child)throw new InputError('QQ_COMPONENT_BUSY',409);
    const directory=join(this.directory,'windows');
    overlayWindowsShell(this.bundle,directory);
    assertRegular(directory,true);const executable=join(directory,'node.exe'),entry=join(directory,'index.js');assertRegular(executable);assertRegular(entry);
    const quote=(value:string)=>'"'+value.replace(/(\\*)"/g,'$1$1\\"').replace(/(\\+)$/,'$1$1')+'"';
-   const launch=Buffer.from(JSON.stringify({executable,command:`${quote(executable)} ${quote(entry)}`,cwd:directory})).toString('base64');
+   const launch=Buffer.from(JSON.stringify({executable,command:[quote(executable),quote(entry),...(account?['-q',account]:[])].join(' '),cwd:directory})).toString('base64');
    const script=readFileSync(new URL('./windows-job.ps1',import.meta.url),'utf8');
    this.child=spawn(join(process.env.SystemRoot!,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{cwd:directory,windowsHide:true,env:{...commandEnvironment(),BIGFATFISH_QQ_WINDOWS_LAUNCH:launch,NAPCAT_QQ_DATA_DIR:join(this.directory,'qq'),NAPCAT_WORKDIR:join(this.directory,'work')},stdio:['pipe','ignore','ignore']});
    const child=this.child;await new Promise<void>((resolve,reject)=>{child.once('spawn',resolve);child.once('error',()=>{this.child=undefined;reject(new InputError('QQ_COMPONENT_START_FAILED'));});});
    child.once('exit',()=>{if(this.child===child)this.child=undefined;});return;
   }
   await this.ensureImage(signal);
-  if(await this.owned())await this.docker(['rm','-f',this.name]);
-  const s=this.state;
-  await this.docker(['run','-d','--pull=never','--name',this.name,'--restart=no','--log-driver','none','-e',`NAPCAT_UID=${process.getuid?.()??1000}`,'-e',`NAPCAT_GID=${process.getgid?.()??1000}`,'--label',`org.bigfatfish.qq=${s.id}`,'--label',`org.bigfatfish.root=${resolve(this.directory)}`,'--security-opt','no-new-privileges','--pids-limit','256',
+  const s=this.state,shell=join(this.bundle,'shell');
+  const mounts:BindMount[]=[
+   {Source:join(this.directory,'qq'),Target:'/app/.config/QQ'}, {Source:join(this.directory,'work/config'),Target:'/app/napcat/config'},
+   {Source:join(this.directory,'work/plugins'),Target:'/app/napcat/plugins'},
+   ...readdirSync(shell).filter(name=>name.endsWith('.mjs')||name.endsWith('.js')||['native','static','worker','node_modules','package.json'].includes(name)).map(name=>({Source:join(shell,name),Target:'/app/napcat/'+name,ReadOnly:true})),
+  ];
+  const old=await this.owned(),legacyAccount=old?.Config.Env?.find(item=>item.startsWith('ACCOUNT='))?.slice(8);
+  if(old){
+   await this.stopOwned(old);signal.throwIfAborted();
+   if((!legacyAccount||legacyAccount===account)&&compatible(old,this.image,s,mounts,manifest.buildKey)){
+    await this.docker(['start',old.Id],15000,signal);
+    return !legacyAccount&&account?'request-quick-login':undefined;
+   }
+   // A new image, different bundle mounts or an obsolete fixed account requires replacement.
+   await this.docker(['rm',old.Id]);
+   if(this.hasContainerRecord(old.Id,old.Image))rmSync(this.containerRecord,{force:true});
+  }
+  const created=await this.docker(['run','-d','--pull=never','--name',this.name,'--restart=no','--log-driver','none','-e',`NAPCAT_UID=${process.getuid?.()??1000}`,'-e',`NAPCAT_GID=${process.getgid?.()??1000}`,'--label',`org.bigfatfish.qq=${s.id}`,'--label',`org.bigfatfish.root=${resolve(this.directory)}`,'--label',`org.bigfatfish.bundle=${manifest.buildKey}`,'--security-opt','no-new-privileges','--pids-limit','256',
    '-p',`127.0.0.1:${s.webPort}:6099`,'-p',`127.0.0.1:${s.botPort}:3001`,
-   '--mount',`type=bind,source=${join(this.directory,'qq')},target=/app/.config/QQ`,
-   '--mount',`type=bind,source=${join(this.directory,'work','config')},target=/app/napcat/config`,
-   '--mount',`type=bind,source=${join(this.directory,'work','plugins')},target=/app/napcat/plugins`,
-   ...readdirSync(join(this.bundle,'shell')).filter(name=>name.endsWith('.mjs')||name.endsWith('.js')||['native','static','worker','node_modules','package.json'].includes(name)).flatMap(name=>['--mount',`type=bind,source=${join(this.bundle,'shell',name)},target=/app/napcat/${name},readonly`]),this.image],15000,signal);
+   ...mounts.flatMap(m=>['--mount',`type=bind,source=${m.Source},target=${m.Target}${m.ReadOnly?',readonly':''}`]),this.image],15000,signal);
+  this.rememberContainer(created.trim(),this.image);
+  return account?'request-quick-login':undefined;
  }
  async stop(){
   if(this.native){const child=this.child;if(!child||child.exitCode!==null||!child.pid)return;
    await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(new InputError('QQ_COMPONENT_STOP_FAILED')),10000);child.once('exit',()=>{clearTimeout(timer);resolve();});child.kill();});this.child=undefined;
-  }else{await this.check();const record=join(this.directory,'image.json');assertRegular(record);if(existsSync(record)){const saved=JSON.parse(readFileSync(record,'utf8'));if(saved.archiveSha256===archiveFor(process.arch).sha256&&/^sha256:[a-f0-9]{64}$/.test(saved.id))this.image=saved.id;}else this.image=await this.inspectImage(IMAGE)??IMAGE;if(await this.owned())await this.docker(['rm','-f',this.name]);}
+  }else{await this.check();const record=join(this.directory,'image.json');assertRegular(record);if(existsSync(record)){const saved=JSON.parse(readFileSync(record,'utf8'));if(saved.archiveSha256===archiveFor(process.arch).sha256&&/^sha256:[a-f0-9]{64}$/.test(saved.id))this.image=saved.id;}else this.image=await this.inspectImage(IMAGE)??IMAGE;const owned=await this.owned();if(owned)await this.stopOwned(owned);}
  }
 }

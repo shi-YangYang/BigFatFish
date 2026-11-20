@@ -60,11 +60,12 @@ it.skipIf(process.platform==='win32')('executes Docker CLI using the local diges
  const root=make(),p=platform(root),bin=join(root,'bin'),log=join(root,'docker.jsonl');mkdirSync(bin);
  const executable=join(bin,'docker');
  const architecture=process.arch==='arm64'?'arm64':'amd64';
- writeFileSync(executable,`#!${process.execPath}\nconst fs=require('node:fs');let a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');if(a[0]==='--host')a=a.slice(2);if(a[0]==='context')console.log(JSON.stringify([{Endpoints:{docker:{Host:'unix:///fixture/docker.sock'}}}]));else if(a[0]==='info')console.log('linux');else if(a[0]==='image')console.log(JSON.stringify([{Id:${JSON.stringify(id)},Os:'linux',Architecture:${JSON.stringify(architecture)}}]));else if(a[0]==='ps')console.log('');else if(a[0]!=='run')process.exit(17);\n`);chmodSync(executable,0o755);vi.stubEnv('PATH',`${bin}:${process.env.PATH}`);
+ writeFileSync(executable,`#!${process.execPath}\nconst fs=require('node:fs');let a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');if(a[0]==='--host')a=a.slice(2);if(a[0]==='context')console.log(JSON.stringify([{Endpoints:{docker:{Host:'unix:///fixture/docker.sock'}}}]));else if(a[0]==='info')console.log('linux');else if(a[0]==='image')console.log(JSON.stringify([{Id:${JSON.stringify(id)},Os:'linux',Architecture:${JSON.stringify(architecture)}}]));else if(a[0]==='ps')console.log('');else if(a[0]==='run')console.log('f'.repeat(64));else process.exit(17);\n`);chmodSync(executable,0o755);vi.stubEnv('PATH',`${bin}:${process.env.PATH}`);
  const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);
- await p.install(new AbortController().signal);await p.start();
+ await p.install(new AbortController().signal);await expect(p.start(undefined,'10001')).resolves.toBe('request-quick-login');
  const calls=readFileSync(log,'utf8').trim().split('\n').map(line=>JSON.parse(line) as string[]);const run=calls.find(args=>args.includes('run'))!;
  expect(calls.some(args=>args.includes('pull'))).toBe(false);expect(fetcher).not.toHaveBeenCalled();expect(run.at(-1)).toBe(id);expect(run).toContain('--pull=never');
+ expect(run.some(arg=>arg.startsWith('ACCOUNT='))).toBe(false);
  expect(run).toContain('127.0.0.1:53001:3001');expect(run).toContain('no-new-privileges');expect(run).toContain('--restart=no');
  expect(run).toContain(`type=bind,source=${join(p.bundle,'shell/napcat.mjs')},target=/app/napcat/napcat.mjs,readonly`);
  expect(run).toContain(`type=bind,source=${join(p.bundle,'shell/chunk-fixture.js')},target=/app/napcat/chunk-fixture.js,readonly`);
@@ -80,4 +81,54 @@ it('rejects an unrelated same-name container even if its labels match',async()=>
   throw new Error('must not mutate');
  });
  await expect(p.start()).rejects.toThrow('QQ_COMPONENT_OWNERSHIP');expect(docker.mock.calls.some(([args])=>(args as string[])[0]==='rm')).toBe(false);
+});
+it('reuses a stopped compatible container across the first scan, and replaces only an incompatible owned deployment',async()=>{
+ const p=platform(make());Object.defineProperty(p,'native',{value:false});vi.spyOn(p,'check').mockResolvedValue();
+ const containerId='f'.repeat(64),calls:string[][]=[];let exists=false,running=false;
+ let availableImage=id,containerImage=id,reportedContainerId=containerId,failRemove=false,failRun=false;
+ let env:string[]=[],build='fixture',mounts:{Type:string;Target:string;Source:string;ReadOnly:boolean}[]=[];
+ vi.spyOn(p as unknown as {docker:(args:string[])=>Promise<string>},'docker').mockImplementation(async(args:string[])=>{
+  calls.push(args);const [op]=args;
+  if(op==='image')return JSON.stringify([{Id:availableImage,Os:'linux',Architecture:process.arch==='arm64'?'arm64':'amd64'}]);
+  if(op==='ps')return exists?'bigfatfish-qq-'+state.id:'';
+  if(op==='inspect')return JSON.stringify([{Id:reportedContainerId,Image:containerImage,Config:{Image:containerImage,Env:env,Labels:{'org.bigfatfish.qq':state.id,'org.bigfatfish.root':p.directory,'org.bigfatfish.bundle':build}},State:{Running:running},
+   HostConfig:{NetworkMode:'default',PidsLimit:256,RestartPolicy:{Name:'no'},SecurityOpt:['no-new-privileges'],Mounts:mounts,PortBindings:{'6099/tcp':[{HostIp:'127.0.0.1',HostPort:String(state.webPort)}],'3001/tcp':[{HostIp:'127.0.0.1',HostPort:String(state.botPort)}]}}}]);
+  if(op==='run'){
+   mounts=args.flatMap((x,i)=>x==='--mount'?[args[i+1]!]:[]).map(x=>({Type:'bind',Target:x.match(/,target=([^,]+)/)![1]!,Source:x.match(/,source=([^,]+)/)![1]!,ReadOnly:x.endsWith(',readonly')}));
+   env=args.flatMap((x,i)=>x==='-e'?[args[i+1]!]:[]);running=exists=true;containerImage=availableImage;
+   if(failRun){running=false;reportedContainerId='2'.repeat(64);build='fixture';throw new Error('port busy');}return reportedContainerId;
+  }else if(op==='stop'){expect(args.at(-1)).toBe(containerId);running=false;}
+  else if(op==='start'){expect(args[1]).toBe(reportedContainerId);running=true;}
+  else if(op==='rm'){expect(running).toBe(false);expect(args).toEqual(['rm',containerId]);if(failRemove)throw new Error('rm failed');exists=false;}
+  else if(op!=='exec')throw new Error('unexpected '+op);
+  return '';
+ });
+ await p.start();await p.stop();
+ await expect(p.start(undefined,'10001')).resolves.toBe('request-quick-login');
+ expect(calls.filter(x=>x[0]==='start')).toHaveLength(1);expect(calls.filter(x=>x[0]==='run')).toHaveLength(1);
+ expect(calls.some(x=>x[0]==='rm')).toBe(false);
+ const terminate=calls.find(x=>x[0]==='exec');
+ expect(terminate?.slice(0,4)).toEqual(['exec','--user',`${process.getuid?.()??1000}:${process.getgid?.()??1000}`,containerId]);
+ expect(terminate?.at(-1)).toContain('= /opt/QQ/qq');
+ // A legacy container already asking for the same account must not receive a second login request.
+ env.push('ACCOUNT=10001');build='';
+ await p.stop();await expect(p.start(undefined,'10001')).resolves.toBeUndefined();
+ expect(calls.filter(x=>x[0]==='run')).toHaveLength(1);
+ // A changed bundle cannot leave obsolete per-file source mounts in use.
+ build='previous-bundle';await p.stop();await p.start(undefined,'10001');
+ expect(calls.filter(x=>x[0]==='run')).toHaveLength(2);expect(calls.filter(x=>x[0]==='rm')).toHaveLength(1);
+ // Even with matching labels, an obsolete image requires a private record binding both exact IDs.
+ await p.stop();availableImage='sha256:'+'e'.repeat(64);
+ const file=join(p.directory,'container.json'),original=readFileSync(file,'utf8');rmSync(file);
+ await expect(p.start()).rejects.toThrow('QQ_COMPONENT_OWNERSHIP');
+ writeFileSync(file,original,{mode:0o600});reportedContainerId='0'.repeat(64);
+ await expect(p.start()).rejects.toThrow('QQ_COMPONENT_OWNERSHIP');
+ reportedContainerId=containerId;await p.start();
+ expect(calls.filter(x=>x[0]==='rm')).toHaveLength(2);
+ expect(JSON.parse(readFileSync(file,'utf8')).image).toBe(availableImage);
+ // A failed removal keeps its receipt. A successful removal followed by a failed port bind must
+ // leave the replacement discoverable through the normal trusted-current-image migration path.
+ failRemove=true;await expect(p.start()).rejects.toThrow('rm failed');expect(existsSync(file)).toBe(true);
+ failRemove=false;failRun=true;await expect(p.start()).rejects.toThrow('port busy');expect(existsSync(file)).toBe(false);
+ failRun=false;await p.start();expect(JSON.parse(readFileSync(file,'utf8')).container).toBe(reportedContainerId);
 });
