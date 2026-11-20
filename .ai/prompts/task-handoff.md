@@ -4,7 +4,11 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec062 NapCat 源码内置
+## 当前任务：QQ 群里的主人指令
+
+上轮 NapCat 快照已在隔离工作树本地提交为 `976d219`（`codex/qq-napcat`），未推送。随后修复主人在获准群聊发说说、改自己昵称，以及看图与文字同批时过早结束。QQ 修复的[独立复验通过](../../specs/spec-063-qq-reply-tools/acceptance-r1.md)，工作树中未提交，原 dev 和真实实例未切换。采用本地合成模型和 OneBot 测试端，没有实发说说或更改真实账号。外部验证目录沿用上一轮，新增 qq-reply 子目录。
+
+## 上一任务：Spec062 NapCat 源码内置
 
 2026-11-20 用户要求“内置到我们的代码里”，并明确选择“源码纳入仓库，由我们维护”。按 [Spec062](../../specs/spec-062-vendored-napcat/spec.md) 与 [Decision030](../decisions/030-vendored-napcat.md) 将固定源码原样保存、接管构建和运行适配；不把原有限制许可改成 MIT。上游 Nov12 已清空发布，原 Windows 下载404、DockerHub仓库404。
 

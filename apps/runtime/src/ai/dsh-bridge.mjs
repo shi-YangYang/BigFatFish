@@ -1,5 +1,6 @@
 /* global fetch, AbortSignal */
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import { Buffer } from 'node:buffer';
 import { createServer } from 'node:http';
 export const inject = ['agents', 'tools', 'attachments'];
 export async function apply(ctx) {
@@ -17,11 +18,21 @@ export async function apply(ctx) {
   // Public waterfall clears only that override; adapter defaults remain logged.
   ctx.on('agent/request', async (_event, next) => { const config = { ...await next() }; delete config.maxTokens; return config; });
   const tools=JSON.parse(process.env.BFF_TOOLS||'[]');
+  // An acknowledgement cannot commit a reply before a lookup/image/write in
+  // the same model batch has returned. Leave pure reply batches on the fast path.
+  const finalNames=new Set(tools.filter(t=>t.concludesTurn).map(t=>t.name));
+  let premature=new Set();
+  ctx.on('session/event',(session,event)=>{
+    if(session.id!==process.env.BFF_SESSION||event.type!=='assistant/message')return;
+    const calls=event.data.message.content.filter(b=>b.type==='tool-call');
+    premature=new Set(calls.some(b=>!finalNames.has(b.name))?calls.filter(b=>finalNames.has(b.name)).map(b=>b.id):[]);
+  });
   ctx.tools.guard(exec => tools.some(t=>t.name===exec.name) ? undefined : 'denied');
   function fields(schema){return Object.fromEntries(Object.entries(schema.properties??{}).map(([name,value])=>[name,{...node(value),...(schema.required?.includes(name)?{required:true}:{})}]));}function node(schema){const value={...schema};if(schema.type==='object'){delete value.required;value.properties=fields(schema);value.additionalProperties=false;}if(schema.type==='array')value.items=node(schema.items);return value;}
   for(const tool of tools){const parameters=fields(tool.parameters);
    ctx.tools.register(defineTool({name:tool.name,description:tool.description,parameters,output:{schema:{type:'string'},render:(_args,value)=>tool.resultKind==='image'?JSON.parse(value):[{type:'text',text:value}]},async execute(args,exec){
-    const response=await fetch(target,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({tool:tool.name,args,sessionId:process.env.BFF_SESSION}),signal:exec.signal,redirect:'error'});if(!response.ok)throw new Error('TOOL_DENIED');
+    if(tool.concludesTurn&&premature.has(exec.callId))return JSON.stringify({status:'not_queued',notice:'本批还有实际操作，回复尚未暂存。先读取本批结果，再单独提交最终回复；不重复已经执行的操作。'});
+    const response=await fetch(target,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({tool:tool.name,args,sessionId:process.env.BFF_SESSION}),signal:exec.signal,redirect:'error'});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.notice||'TOOL_DENIED');}
     const {result:value,imageReceipt}=await response.json();
     if(tool.resultKind==='image'){
       if(typeof imageReceipt!=='string')throw new Error('TOOL_IMAGE_RECEIPT_REQUIRED');

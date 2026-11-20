@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'node:http';
-export async function onebotFixture(){
+export async function onebotFixture(overrides:Record<string,(params:Record<string,unknown>)=>unknown>={}){
  const controls={online:true,account:'10001',token:'fixture-token',send:'ok',healthDelay:0,media:'',inlineMedia:false};const requests:{action:string;params:Record<string,unknown>;echo:string}[]=[];
  let loginGate:{entered:()=>void;wait:Promise<void>}|undefined;
  let mediaGate:{entered:()=>void;wait:Promise<void>}|undefined;
@@ -10,6 +10,7 @@ export async function onebotFixture(){
  const server=createServer(),wss=new WebSocketServer({noServer:true});const clients=new Set<WebSocket>();
  server.on('upgrade',(req,socket,head)=>{if(req.headers.authorization!==`Bearer ${controls.token}`){socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');return;}wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws,req));});
  wss.on('connection',ws=>{clients.add(ws);ws.on('close',()=>clients.delete(ws));ws.on('message',raw=>{const r=JSON.parse(raw.toString());requests.push(r);const reply=(data:unknown,status='ok',retcode=0,echo=r.echo)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({status,retcode,data,echo}));};
+  if(Object.hasOwn(overrides,r.action)){reply(overrides[r.action]!(r.params));return;}
   if(r.action==='get_login_info'){const gate=loginGate;loginGate=undefined;if(gate){gate.entered();void gate.wait.then(()=>reply({user_id:controls.account}));}else setTimeout(()=>reply({user_id:controls.account}),controls.healthDelay);}
   else if(r.action==='get_status')reply({online:controls.online,good:true});
   else if(r.action==='get_version_info')reply({app_name:'protocol-fixture'});

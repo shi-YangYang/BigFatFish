@@ -11,6 +11,23 @@ import { fileURLToPath } from 'node:url';
 import { privateFile, assertRegular, type DataPaths } from '../paths.js';
 import { windowsAcl } from '../windows-acl.js';
 import type { AgentEngine, EngineInput, EngineTool } from './engine.js';
+// Do not pass exceptions, upstream response bodies, arguments or credentials
+// into model history. Only fixed, actionable local outcomes cross this boundary.
+const toolNotices=new Map<string,string>(Object.entries({
+  QQ_ACTION_DAILY_LIMIT:'该操作已达到今天的次数限制，不是没有这个能力。',
+  QQ_TOOL_UNSUPPORTED:'当前连接的 QQ 服务不支持这个操作。',
+  ACTION_REJECTED:'QQ 服务拒绝了这次操作，不能报告成功。',
+  SEND_NOT_STARTED:'这次操作未能开始，请检查连接及设置。',
+  QQ_REQUESTED_TOOL_PENDING:'本条明确要求的实际操作还未尝试。先用本轮提供的发说说或改昵称工具，再按回执回复。',
+  QQ_COMMAND_MISMATCH:'参数与这条群消息授权的操作不一致，没有执行。',
+  QQ_POST_UNCONFIRMED:'说说结果尚未确认，不要重发或声称已发表。',
+  QQ_PROFILE_UNCONFIRMED:'未能确认资料已更新，不要重试或声称已改好。',
+  QQ_ACTION_UNCONFIRMED:'之前操作结果尚未确认，不要重试或声称成功。',
+  SEND_UNKNOWN:'QQ 回执未知，不要重试或声称成功。',
+  STICKER_VIEW_REQUIRED:'需要先实际查看这张表情，再选择发送。',
+  STICKER_NOT_FOUND:'这张表情没有找到，换用列表中可用的本地表情。',
+  STICKER_CHANGED:'表情或来源设置已更改，重新选择启用的表情或用文字回复。',
+}));
 export class DSHAdapter implements AgentEngine {
   private children = new Set<DeepSeekHarness>();
   constructor(private p: DataPaths) {}
@@ -57,7 +74,7 @@ export class DSHAdapter implements AgentEngine {
             const result=JSON.stringify({result:value,...(imageReceipt?{imageReceipt}:{})});if(result.length>(imageReceipt?2_800_000:65536))throw new Error();
             if(imageReceipt)imageResults.set(imageReceipt,{tool,value,presented:false});else input.onTool?.({name:tool.name,state:'completed'});
             res.end(result);return;
-          }catch{toolFailed=true;input.onTool?.({name:tool.name,state:'failed'});res.writeHead(403).end('{}');return;}
+          }catch(error){toolFailed=true;input.onTool?.({name:tool.name,state:'failed'});const notice=error instanceof Error?toolNotices.get(error.message):undefined;res.writeHead(403).end(JSON.stringify({notice}));return;}
         }
         if (data.ready === true && Number.isInteger(data.port) && data.port > 0 && data.port < 65536) childPort = data.port;
         else if (data.sessionId === input.sessionId && !input.signal.aborted) {

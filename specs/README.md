@@ -105,3 +105,4 @@
 - [Spec 060：跨平台运行与编译 CI](spec-060-platform-ci/spec.md)：[独立验收 PASS](spec-060-platform-ci/acceptance.md)；CI 专注系统运行与编译，安装包改由用户手动生成；未提交/推送。
 - [Spec 061：Windows Runtime 权限初始化](spec-061-windows-acl/spec.md)：[R2 独立验收 PASS](spec-061-windows-acl/acceptance-r2.md)；修复退出竞态与强杀恢复测试，本机平台检查 47 passed / 5 skipped，新 Windows CI 待验证。
 - [Spec 062：NapCat 源码内置](spec-062-vendored-napcat/spec.md)：[R1 独立验收 PASS](spec-062-vendored-napcat/acceptance-r1.md)；固定源码、本地构建及组件分发已在隔离 worktree 完成，保留第三方许可与回滚证据；未应用原工作区、未提交/推送。
+- [Spec 063：QQ 群里的主人指令与回复工具](spec-063-qq-reply-tools/spec.md)
