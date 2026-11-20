@@ -1,3 +1,4 @@
+import { isBuiltinPlatform } from '../plugins/builtin.js';
 import {classifyLegacyMemories, validAttribution} from '../memory/attribution.js';
 import {canShareMemory, type MemoryAttribution} from '../memory/types.js';
 import {ConversationNotes} from '../memory/notes.js';
@@ -67,6 +68,12 @@ export const groups = {
 } as const;
 export type Scope = keyof typeof groups;
 type Row = Record<string, SQLInputValue>;
+// Retired installers are not portable account data. Only the unsuffixed platform
+// configs are restored, with their sessions disabled just as in older archives.
+function retiredPlatformPackage(row: Row) {
+  return typeof row.id === 'string' && row.id.startsWith('sdk:') && isBuiltinPlatform(row.id.slice(4));
+}
+
 interface Payload {
   version: 1;
   schema: number;
@@ -227,6 +234,7 @@ export async function exportArchive(
                 : `SELECT * FROM ${table}`,
             )
             .all() as Row[];
+          if (table === 'plugin_config') tables[table] = tables[table].filter(row => !retiredPlatformPackage(row));
           for (const row of tables[table]) {
             if (table === "models" || table === "plugin_config")
               row.secret =
@@ -323,6 +331,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
             importedColumns.some((c) => !Object.hasOwn(row, c))
           )
             throw new Error("INVALID_ARCHIVE_COLUMNS");
+          if (table === 'plugin_config' && retiredPlatformPackage(row)) continue;
           if (table === 'memories' && !legacyMemory) {
             const actor = {role:row.actor_role,personKey:row.person_key,scopeKey:row.scope_key} as MemoryAttribution;
             if (!validAttribution(actor) || (row.visibility === 'shared' && !canShareMemory(actor))) throw new Error('INVALID_ARCHIVE_MEMORY');

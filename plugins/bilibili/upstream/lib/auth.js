@@ -6,6 +6,9 @@ const PASSPORT = 'https://passport.bilibili.com'
 const INTERVAL = 2000
 const TTL = 180000
 const terminal = new Set(['success', 'expired', 'cancelled', 'error'])
+class AccountResponseError extends AuthError {
+  constructor(code) { super(code); this.code = code }
+}
 async function request(fetcher, url, { signal, credentials } = {}) {
   try {
     const response = await fetcher(url, {
@@ -16,7 +19,12 @@ async function request(fetcher, url, { signal, credentials } = {}) {
         ...(credentials ? { cookie: `SESSDATA=${credentials.sessdata}; bili_jct=${credentials.bili_jct}${credentials.buvid3 ? '; buvid3=' + credentials.buvid3 : ''}` } : {}),
       },
     })
-    if (!response.ok) throw Error()
+    if (!response.ok) {
+      await response.body?.cancel()
+      if (credentials && response.status === 401) throw new AccountResponseError('BILI_LOGIN_REQUIRED')
+      if (credentials && [403, 412, 429].includes(response.status)) throw new AccountResponseError('BILI_ACCESS_LIMITED')
+      throw Error()
+    }
     const reader = response.body.getReader()
     const chunks = []; let size = 0
     try {
@@ -29,9 +37,13 @@ async function request(fetcher, url, { signal, credentials } = {}) {
       }
     } finally { await reader.cancel().catch(() => {}) }
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    if (credentials && body.code === -101) throw new AccountResponseError('BILI_LOGIN_REQUIRED')
+    if (credentials && [-412, -352, -799, -509, -10403, 12015, -105].includes(body.code)) throw new AccountResponseError('BILI_ACCESS_LIMITED')
     if (body.code !== 0) throw Error()
     return { data: body.data, response }
-  } catch {
+  } catch (error) {
+    if (error instanceof AccountResponseError) throw error
+    if (credentials) throw new AccountResponseError('BILI_VERIFICATION_UNAVAILABLE')
     throw new AuthError(signal?.aborted ? '登录已取消。' : 'B 站登录请求失败，请稍后重试。')
   }
 }
@@ -39,9 +51,10 @@ async function request(fetcher, url, { signal, credentials } = {}) {
 export async function verifyAccount(input, { fetch: fetcher = globalThis.fetch, signal } = {}) {
   const credentials = parseManualCookie(input)
   const { data } = await request(fetcher, 'https://api.bilibili.com/x/web-interface/nav', { credentials, signal })
+  if (data?.isLogin === false) throw new AccountResponseError('BILI_LOGIN_REQUIRED')
   if (data?.isLogin !== true || !/^[1-9]\d{0,19}$/.test(String(data?.mid ?? ''))
     || (typeof data.mid === 'number' && !Number.isSafeInteger(data.mid)))
-    throw new AuthError('登录验证失败，旧登录态未替换。')
+    throw new AccountResponseError('BILI_VERIFICATION_UNAVAILABLE')
   let name = typeof data.uname === 'string' ? data.uname.slice(0, 200) : ''
   for (const secret of Object.values(credentials)) if (secret) name = name.split(secret).join('[redacted]')
   return { mid: String(data.mid), name }

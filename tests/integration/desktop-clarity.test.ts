@@ -71,6 +71,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     page.setDefaultTimeout(4000);
     const calls: { command: string; args: Record<string, unknown> }[] = [];
     let routes = {};
+    let resumePhase: string | undefined;
     await page.exposeFunction('fixtureInvoke', (command: string, args: Record<string, unknown> = {}) => {
       calls.push({ command, args });
       if (command === 'desktop_settings') return { complete: true, dataDir: '/fixture/data', background: true, autostart: false };
@@ -78,11 +79,11 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
       if (command === 'runtime_request') {
         const data: Record<string, unknown> = {
           '/v1/model-routes': routes,
-          '/v1/plugins': [{ id: 'bilibili', manifest: { name: 'B站', version: '1.0', source: 'bundled plugins/bilibili', license: 'MIT', permissions: ['activity.bilibili'], tools: [] }, installed: true, enabled: true, health: 'ready', config: {} }],
-          '/v1/bilibili': { enabled: false, revision: 'fixture', accountState: 'unverified', health: {} },
+          '/v1/plugins': [...['qq','bilibili','douyin'].map(id => ({ id, manifest: { id, name: id, tools: [] }, enabled: true, installed: true })), { id: 'hello-fish', manifest: { name: '问候工具', version: '1.0', source: 'extensions/hello-fish', license: 'MIT', permissions: ['tools.execute'], tools: [] }, installed: true, enabled: true, health: 'ready', config: {} }],
+          '/v1/bilibili': { enabled: !!resumePhase, revision: 'fixture', accountState: 'unverified', health: {}, connection: {phase: resumePhase} },
           '/v1/bilibili/tasks': [{ id: 'v1', bvid: 'BVfixture', status: 'completed', result: { evidence: { title: '一段海边视频' }, summary: '海边日落' }, createdAt: '2026-11-07T08:00:00Z' }],
           '/v1/bilibili/tasks/v1/share': { status: 'sent' },
-          '/v1/douyin': { revision: 'fixture', config: { enabled: false, accountId: '', executablePath: '', pythonPath: 'python3', headless: false }, accountState: 'unverified', browser: { state: 'stopped' } },
+          '/v1/douyin': { revision: 'fixture', connection: {phase: resumePhase, loginState: 'verification'}, config: { enabled: !!resumePhase, accountId: '', executablePath: '', pythonPath: 'python3', headless: false }, accountState: resumePhase === 'online' ? 'verified' : 'unverified', browser: { state: 'closed' } },
           '/v1/activities': { tasks: [], schedules: [] },
         };
         return data[String(args.route)] ?? {};
@@ -92,11 +93,16 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.addInitScript(() => { Object.assign(window, { __TAURI_INTERNALS__: { invoke: (command: string, args: unknown) => (window as unknown as { fixtureInvoke: (command: string, args: unknown) => unknown }).fixtureInvoke(command, args) } }); });
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop-clarity.html')}`;
     await page.goto(`${url}?plugins`);
-    await page.getByRole('heading', { name: 'B站', exact: true }).waitFor();
-    expect(await page.getByText('bundled plugins/bilibili', { exact: true }).count()).toBe(0);
+    await page.getByRole('heading', { name: '问候工具', exact: true }).waitFor();
+    for (const name of ['qq', 'bilibili', 'douyin']) expect(await page.getByRole('heading', { name, exact:true }).count()).toBe(0);
+    expect(await page.getByRole('button', { name: '停用并撤销执行', exact: true }).count()).toBe(1);
+    expect(await page.getByText('extensions/hello-fish', { exact: true }).count()).toBe(0);
     await page.getByRole('button', { name: '插件信息', exact: true }).click();
-    await page.getByText('activity.bilibili', { exact: true }).waitFor();
-    expect(await page.getByRole('button', { name: '高级配置', exact: true }).count()).toBe(0);
+    await page.getByText('tools.execute', { exact: true }).waitFor();
+    const advanced = page.getByRole('button', { name: '高级配置', exact: true });
+    expect(await advanced.getAttribute('aria-expanded')).toBe('false');
+    await advanced.click();
+    await page.getByLabel('配置（不接受密钥）', { exact:true }).waitFor();
     await page.keyboard.press('Escape');
     await page.goto(`${url}?media`);
     await page.getByText('先配置语音输入模型。', { exact: true }).waitFor();
@@ -140,5 +146,20 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: `build/desktop-clarity/browser/connection-${width}.png` });
     }
+    for (const [tab,connectName,loginLabel] of [['bili','连接 B站','需要登录'],['douyin','连接抖音','需要验证']]) {
+      resumePhase = 'restoring';
+      await page.goto(`${url}?${tab}`);
+      await page.getByText('正在恢复登录', {exact:true}).waitFor();
+      expect(await page.getByRole('button', {name:connectName,exact:true}).count()).toBe(0);
+      resumePhase = 'login-required';
+      await page.reload();
+      await page.getByText(loginLabel, {exact:true}).waitFor();
+      expect(await page.getByRole('button', {name:connectName,exact:true}).isEnabled()).toBe(true);
+      expect(await page.getByRole('alert').count()).toBe(0);
+    }
+    resumePhase = 'online';
+    await page.reload();
+    await page.getByText('已连接', {exact:true}).waitFor();
+    expect(await page.getByRole('button', {name:'连接抖音',exact:true}).count()).toBe(0);
   } finally { await browser.close(); await server.close(); }
 }, 30000);

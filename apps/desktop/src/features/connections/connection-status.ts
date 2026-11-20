@@ -52,7 +52,7 @@ export function qqStatus(mode: QQMode, channel: ChannelStatus, component?: Manag
 function accountStatus(enabled: boolean, accountState: string) {
   if (!enabled) return '未启用';
   const labels: Record<string, string> = {
-    verified: '已连接', unverified: '待验证', 'signed-out': '未登录',
+    verified: '已连接', unverified: '待验证', 'signed-out': '未登录', anonymous: '匿名浏览',
     'login-required': '需要登录', 'account-mismatch': '账号不符', 'expired-or-unavailable': '登录失效或暂不可用',
   };
   return labels[accountState] ?? '未连接';
@@ -61,6 +61,8 @@ function accountStatus(enabled: boolean, accountState: string) {
 export function biliStatus(status: BiliStatus) {
   const phase = status.connection?.phase;
   if (status.health?.error || phase === 'error') return { label: '连接异常', error: status.health?.error ?? status.connection.error ?? 'BILI_LOGIN_FAILED' };
+  if (phase === 'restoring') return { label: '正在恢复登录', connecting: true };
+  if (phase === 'login-required') return { label: '需要登录' };
   if (phase === 'expired') return { label: '二维码已过期' };
   if (phase === 'connecting') return { label: '连接中', connecting: true };
   if (phase === 'login') return { label: status.connection.login?.status === 'scanned' ? '等待手机确认' : '等待扫码', connecting: true };
@@ -70,12 +72,18 @@ export function biliStatus(status: BiliStatus) {
 export function douyinStatus(status: DouyinStatus) {
   const phase = status.connection?.phase;
   if (phase === 'error') return { label: '连接异常', error: status.connection.error ?? 'DOUYIN_LOGIN_REQUIRED' };
+  if (phase === 'restoring') return { label: '正在恢复登录', connecting: true };
+  if (phase === 'login-required') {
+    const label = status.connection.loginState === 'verification' ? '需要验证'
+      : status.connection.loginState === 'confirmation' ? '需要手机确认' : '需要登录';
+    return { label };
+  }
   if (phase === 'connecting') return { label: '正在打开登录', connecting: true };
   if (phase === 'login') {
     const label = { verification: '等待验证', confirmation: '等待手机确认' }[status.connection.loginState ?? ''] ?? '等待浏览器登录';
     return { label, connecting: true };
   }
-  const connected = status.config.enabled && status.accountState === 'verified' && status.browser?.state === 'ready';
+  const connected = status.config.enabled && status.accountState === 'verified' && (phase === 'online' || status.browser?.state === 'ready');
   const label = status.config.enabled && status.accountState === 'verified' && !connected ? '未连接' : accountStatus(status.config.enabled, status.accountState);
   return { label, connected };
 }
@@ -85,6 +93,6 @@ export function connectionTone(label: string): "success" | "warning" | "danger" 
   if (["已连接", "已登录"].includes(label)) return "success";
   if (["连接异常", "登录失败", "账号不符"].includes(label)) return "danger";
   if (["状态待更新", "暂时无法获取状态", "二维码已过期", "登录失效或暂不可用"].includes(label)) return "warning";
-  if (/^(正在|等待|连接中|需要登录|待验证)/.test(label)) return "info";
+  if (/^(正在|等待|连接中|需要|待验证)/.test(label)) return "info";
   return "neutral";
 }

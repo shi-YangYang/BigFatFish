@@ -12,6 +12,9 @@ type Item = {
   health: string;
   config: Record<string, unknown>;
 };
+// Also keep older Runtime responses out of the extension manager during an upgrade.
+const isPlatform = (id: string) => ["qq", "bilibili", "douyin"].includes(id);
+
 export function Plugins({ fail }: { fail: (e: unknown) => void }) {
   const [detail, setDetail] = useState<string>();
   const [configs, setConfigs] = useState<Record<string, string>>({});
@@ -21,7 +24,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(""),
     [args, setArgs] = useState('{"name":"主人"}');
-  const reload = () => api<Item[]>("/v1/plugins").then(setItems);
+  const reload = () => api<Item[]>("/v1/plugins").then(list => setItems(list.filter(item => !isPlatform(item.id))));
   useEffect(() => {
     void reload().catch(fail);
   }, [fail]);
@@ -44,6 +47,8 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
           accept=".bff-plugin"
           onChange={(e) => {
             const file = e.target.files?.[0];
+            setManifest(undefined);
+            setBundle(undefined);
             if (!file) return;
             if (file.size > 24000000) {
               fail("PLUGIN_ARCHIVE_INVALID");
@@ -54,6 +59,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
               .then(JSON.parse)
               .then(async (b) => {
                 const m = await api<Manifest>("/v1/plugins/inspect", "POST", b);
+                if (isPlatform(m.id)) throw new Error("PLATFORM_BUILTIN");
                 setBundle(b);
                 setManifest(m);
               })
@@ -131,7 +137,7 @@ export function Plugins({ fail }: { fail: (e: unknown) => void }) {
           {detail === item.id && <Drawer title={item.manifest.name} close={() => setDetail(undefined)}>
             <div className="page-section">
               <dl className="detail-list"><div><dt>版本</dt><dd>{item.manifest.version}</dd></div><div><dt>来源</dt><dd>{item.manifest.source}</dd></div><div><dt>许可</dt><dd>{item.manifest.license}</dd></div><div><dt>权限</dt><dd>{item.manifest.permissions.join("、")}</dd></div></dl>
-              {!["qq", "bilibili", "douyin"].includes(item.id) && <Disclosure title="高级配置"><Field>配置（不接受密钥）<Textarea value={configs[item.id] ?? JSON.stringify(item.config)} onChange={e => setConfigs({ ...configs, [item.id]: e.target.value })} /></Field></Disclosure>}
+              <Disclosure title="高级配置"><Field>配置（不接受密钥）<Textarea value={configs[item.id] ?? JSON.stringify(item.config)} onChange={e => setConfigs({ ...configs, [item.id]: e.target.value })} /></Field></Disclosure>
           {item.enabled && item.manifest.tools.length > 0 && (
             <Disclosure  title={<>工具调试</>}>
 

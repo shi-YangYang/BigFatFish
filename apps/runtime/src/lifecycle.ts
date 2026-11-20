@@ -1,7 +1,7 @@
 import {transcribe,synthesize} from './ai/media.js';
 import {InputError,object,string} from './ai/types.js';
-import {Plugins,registerPlugins,readBundle} from './plugins/service.js';
-import {fileURLToPath} from 'node:url';
+import {Plugins,registerPlugins} from './plugins/service.js';
+import {migrateActivityOwnership} from './plugins/builtin.js';
 import { join } from 'node:path';
 import { Douyin } from './douyin/service.js';
 import { registerDouyin } from './douyin/routes.js';
@@ -112,15 +112,9 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       plugins=new Plugins(db,p);chat.plugins=plugins;registerPlugins(app,plugins);
       channels = new Channels(db,chat);await channels.initialize();
       managedQQ=new ManagedQQ(p,channels);registerChannels(app,channels,()=>managedQQ!.resume(),()=>managedQQ!.pause());registerManagedQQ(app,managedQQ);managedQQ.initialize();
+      migrateActivityOwnership(db);
       bilibili=new Bilibili(db,chat,channels,p,adapters?.bilibili);await bilibili.initialize();registerBilibili(app,bilibili);
       const queue=new TaskQueue(db);queue.onPause=()=>channels!.pauseSelfActivity();douyin=new Douyin(db,chat,queue,p,adapters?.douyin);activities=new Activities(db,queue,chat,bilibili,douyin);registerDouyin(app,douyin,activities);
-      plugins.platform={stop:async id=>{if(id==='bilibili')await bilibili!.suspend();if(id==='douyin')await douyin!.stop();},reload:async(id,path)=>{if(id==='bilibili')await bilibili!.reload(path);if(id==='douyin')await douyin!.reload(path);}};
-      for(const id of ['bilibili','douyin'])if(!plugins.list().some(x=>x.id===id)){
-       const path=fileURLToPath(new URL(`../plugin-catalog/${id}.bff-plugin`,import.meta.url));
-       if(existsSync(path)){const bundle=readBundle(path);await plugins.install(bundle);await plugins.enable(id,bundle.manifest.permissions,{});}
-      }
-      bilibili.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='bilibili'))plugins!.check('bilibili');};
-      douyin.assertPlugin=()=>{if(plugins!.list().some(x=>x.id==='douyin'))plugins!.check('douyin');};
       plugins.capability=async(method,args,signal,guard)=>{const b=object(args);if(method==='personality.read')return chat!.config.persona();if(method==='memory.search')return chat!.life.memories.list(b);if(method==='memory.propose')return chat!.life.memories.insert({...b,status:'candidate'});if(method==='channel.propose')throw new InputError('QQ_APPROVAL_REMOVED',410);if(method==='channel.send')return channels!.send(b,guard);if(method==='media.transcribe')return transcribe(chat!.config,{data:string(b.data,3000000),mimeType:string(b.mimeType,100)},signal);if(method==='media.synthesize')return synthesize(chat!.config,b,signal);throw new Error('PLUGIN_HOST_DENIED');};
       chat.events.on('message',event=>void plugins!.event('message',event));
       await plugins.initialize();
@@ -138,6 +132,8 @@ export async function startRuntime(p: DataPaths, port = 0, adapters?: {bilibili?
       } finally { if (existsSync(temporary)) unlinkSync(temporary); }
       db.prepare('INSERT INTO audit(event, at) VALUES (?, ?)').run('runtime.started', connection.startedAt);
       log('runtime.started', { pid: process.pid, port: connection.port });
+      bilibili.restoreConnection();
+      douyin.restoreConnection();
     } finally { initialized(); }
     return { connection, stop, finished };
   } catch (error) {

@@ -13,7 +13,8 @@ cpSync('plugins/bilibili','dist/plugins/bilibili',{recursive:true});
 cpSync('plugins/douyin','dist/plugins/douyin',{recursive:true});
 cpSync('services/douyin','dist/services/douyin',{recursive:true,filter:source=>!source.includes('__pycache__')});
 
-await import('./plugin-catalog.mjs');
+// Do not distribute obsolete installable copies on an incremental build.
+for (const id of ['qq','bilibili','douyin']) rmSync(`dist/runtime/plugin-catalog/${id}.bff-plugin`,{force:true});
 cpSync('plugins/sdk','dist/plugin-sdk',{recursive:true});
 
 copyFileSync('scripts/pack-plugin.mjs','dist/plugin-sdk/pack-plugin.mjs');

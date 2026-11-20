@@ -44,7 +44,7 @@ export function Bilibili({fail}:{fail:(e:unknown)=>void}){
    <ActionRow className="platform-connect-actions">
     {!connected&&!connecting&&<Button variant="primary" busy={busy&&busyAction==='connect'} disabled={busy} onClick={()=>void run('connect',()=>api('/v1/bilibili/connect','POST',{revision:status.revision}))}>{connection?.phase==='expired'?'重新获取二维码':connection?.phase==='error'?'重试连接':'连接 B站'}</Button>}
     {(status.enabled||connecting)&&<Button busy={busy&&busyAction==='disconnect'} disabled={busy} onClick={()=>void run('disconnect',()=>api('/v1/bilibili/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
-    {!status.enabled&&!connecting&&<Button variant="ghost" busy={busy&&busyAction==='enable'} disabled={busy} onClick={()=>void run('enable',()=>api('/v1/bilibili','PUT',{enabled:true,revision:status.revision}))}>暂不登录</Button>}
+    {!status.enabled&&!connecting&&<Button variant="ghost" busy={busy&&busyAction==='enable'} disabled={busy} onClick={()=>void run('enable',()=>api('/v1/bilibili','PUT',{enabled:true,anonymous:true,revision:status.revision}))}>暂不登录</Button>}
     {!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>{setSettingsError('');setSettingsOpen(true);}}>导入凭据</Button>}
    </ActionRow>
   </Card>

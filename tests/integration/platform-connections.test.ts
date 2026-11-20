@@ -50,7 +50,7 @@ function douyinFixture(d:ReturnType<typeof data>){
  vi.spyOn(service.browser,'close').mockImplementation(async()=>{service.browser.context=undefined;});
  vi.spyOn(service.browser,'account').mockImplementation(async()=>({loggedIn,id}));
  vi.spyOn(mcp,'callMcp').mockImplementation(async options=>{calls.push(options.tool);if(hold){waiting=true;await new Promise<void>(r=>{release=r;});}return {ok:true,loggedIn,needLogin:!loggedIn};});
- return {service,q,calls,login:(value='12345')=>{loggedIn=true;id=value;},hold:()=>{hold=true;waiting=false;},waiting:()=>waiting,release:()=>release()};
+ return {service,q,calls,login:(value='12345')=>{loggedIn=true;id=value;},hold:()=>{hold=true;waiting=false;},waiting:()=>waiting,release:()=>{hold=false;release();}};
 }
 it('抖音 configuration acknowledgement rejects invalid drafts and resolves only after settings are saved',async()=>{
  const d=data(),f=douyinFixture(d),app=Fastify();
@@ -74,7 +74,8 @@ it('抖音 configuration acknowledgement rejects invalid drafts and resolves onl
   expect(response.statusCode).toBe(200);
   expect(response.json()).toMatchObject({config:{enabled:true,headless:true,accountId:'12345'}});
   const saved=d.db.prepare("SELECT config,revision FROM plugin_config WHERE id='douyin'").get()!;
-  expect(saved.revision).toBe(response.json().revision);expect(JSON.parse(saved.config as string)).toEqual(response.json().config);
+  const {restoreOnStart,...savedSettings}=JSON.parse(saved.config as string);
+  expect(restoreOnStart).toBe(false);expect(saved.revision).toBe(response.json().revision);expect(savedSettings).toEqual(response.json().config);
   await until(f.waiting);expect(f.service.status().connection.phase).toBe('connecting');
   const stopped=f.service.disconnect();f.release();await stopped;
  }finally{f.release();await app.close();await f.service.close();await f.q.close();d.clean();}

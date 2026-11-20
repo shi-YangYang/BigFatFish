@@ -92,7 +92,7 @@ Desktop/Web 也可在「设置 → 扩展」选择插件文件、查看权限并
 
 升级时修改外部目录 manifest.version 和代码，重新打包，先 inspect 再 `plugins update FILE`。候选写入新唯一目录，旧进程排空后启用；初始化/健康失败恢复旧版本及其配置/存储快照。新增权限导致停用且清空授权，需再次明确授权。`plugins remove ID` 卸载代码并保留作用域存储；重新安装相同ID可继续使用数据。更新、卸载都不清除鱼的人格、历史和长期记忆。
 
-QQ 已内置，`qq` 是保留标识，插件安装、更新和管理接口不能替换它。QQ 功能随 Runtime 更新，第三方扩展仍可申请 `channel.send` 在获准范围发送消息。
+QQ、B站、抖音都随 Runtime 发布，在「连接」中管理。`qq`、`bilibili`、`douyin` 是保留标识，扩展包不能替换这些平台。第三方扩展仍可申请 `channel.send` 在获准范围发送消息。
 
 ## 产物与 manifest
 
