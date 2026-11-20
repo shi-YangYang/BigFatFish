@@ -1,6 +1,6 @@
 # QQ 渠道
 
-BigFatFish 可以在应用内准备原版 NapCat、扫码登录并设置回复范围，也保留连接已有 OneBot 11 服务的方式。NapCat 是独立的第三方组件，遵循其自身的[许可证](https://github.com/NapNeko/NapCatQQ/blob/9335843246e3b7a17944861f3ac8731a259732c2/LICENSE)，不属于大肥鱼的 MIT 授权。请使用专用 QQ 账号，扫码与设备验证由用户完成。
+BigFatFish 使用仓库内固定源码构建的 NapCat，在应用内准备 QQ 运行环境、扫码登录并设置回复范围，也保留连接已有 OneBot 11 服务的方式。NapCat 是独立的第三方组件，遵循其自身的[许可证](../third_party/napcat/LICENSE)，不属于大肥鱼的 MIT 授权。请使用专用 QQ 账号，扫码与设备验证由用户完成。
 
 ## 快速连接
 
@@ -53,7 +53,7 @@ OpenAI 兼容模型的新调用会保存受限错误码：`MODEL_HTTP_502` 等�
 - 主动媒体可通过 CLI JSON 发送 PNG/JPEG 图片、WAV/SILK 语音，单个最多 2 MB，总段数据不超过 2.8 MB。P7支持单独发送最多2MB的TXT/PDF文件，upload_private_file/upload_group_file本身即实际发送，不再发送第二条消息。长媒体与视频仍不支持。
 - 手动发送只接受本机认证入口明确提供的媒体字节，经格式和大小校验后转为 OneBot `base64://`；不接受任意 URL、路径或入站缓存文件名。协议服务仍可能因媒体编码或账号状态拒绝请求。
 
-此边界依据固定 NapCat `98d781d19815d1625b24d717ce280ecf0a4f6d0c` 的 `packages/napcat-onebot/api/msg.ts`（`handleOb11FileLikeMessage`、`handleObfuckName`）及 `packages/napcat-common/src/file.ts`：缓存名未命中可回落到本地文件解析，因此不透传缓存名。OneBot 11 标准 `message/segment.md` 明确支持图片/语音 base64 输入。详情和许可见 [上游记录](upstreams.md)。没有复制这些上游实现。
+此边界依据固定 NapCat `98d781d19815d1625b24d717ce280ecf0a4f6d0c` 的 `packages/napcat-onebot/api/msg.ts`（`handleOb11FileLikeMessage`、`handleObfuckName`）及 `packages/napcat-common/src/file.ts`：缓存名未命中可回落到本地文件解析，因此不透传缓存名。OneBot 11 标准 `message/segment.md` 明确支持图片/语音 base64 输入。详情和许可见 [上游记录](upstreams.md)。协议适配仍由大肥鱼实现；固定版上游原始源码另存于第三方目录。
 
 ## CLI
 
@@ -93,11 +93,27 @@ node dist/cli/src/main.js channels stop --json
 
 ## 内置组件的固定来源与验证
 
-- NapCat v4.18.42，commit `9335843246e3b7a17944861f3ac8731a259732c2`。
-- macOS/Linux：官方 `mlikiowa/napcat-docker`，固定 manifest digest `sha256:696e9574a0f6fb2f86cbecba8a32048f2a5823117dc9b13c6c02637ad890fa8b`，amd64/arm64。仅映射回环端口、挂载本实例数据，不启用 privileged、host network 或 Docker socket 挂载；上游原始日志不转交应用日志。
-- Windows x64：[官方原版 Windows.Node 包](https://github.com/NapNeko/NapCatQQ/releases/download/v4.18.42/NapCat.Shell.Windows.Node.zip)，SHA256 `77397ac38d66f46383e48f08f35d5f9d37ec575c22069f62d6c600e73b4521ed`。内含 QQ 运行所需文件与 Node；校验后受限解包，用 Windows Job Object 管理独立进程树，不执行上游系统安装器。
-- 内部 WebUI 认证、扫码与配置 API 由 Runtime 封装，不向前端暴露凭据或任意请求代理。好友/群发现仅使用明确的只读 OneBot 操作。
-- 组件安装、Docker 与界面的早期验证记录见 [Spec 023 实施计划](../specs/spec-023-managed-qq/plan.md)。
+NapCat 4.18.42 源码位于 `third_party/napcat/`，归档 commit `9335843246e3b7a17944861f3ac8731a259732c2`。原版许可禁止商业使用并限制修改版公开发布，详见[来源和许可边界](../third_party/NAPCAT-NOTICE.md)。本轮没有修改第三方原始源码。
+
+```sh
+npm run napcat:verify
+npm run build:napcat
+```
+
+构建使用独立锁定的 pnpm 9.15.9、上游 lockfile 和生产依赖 lockfile，禁用依赖安装脚本。首次需联网安装依赖；源码复制到 `build/napcat-work/` 后依次编译 WebUI、shell 和内置插件，结果为 `build/napcat/`，同时复制到 Runtime 资源目录。后续复用输入和全部输出 SHA256 都吻合的缓存。Node 使用项目要求的 24.x。原生 `.node`、DLL、EXE 为上游附带的预编译资源，不能称为本项目原生编译结果。
+
+`desktop:dev` 和 `release:prepare` 自动准备该产物；独立 CLI 在 `build:node` 后额外执行一次 `build:napcat` 才能使用托管 QQ。轻量 `test:platform` 不下载或重建整个 NapCat；缺失或损坏的本地产物会明确报错，不回退下载旧 shell。
+
+- macOS/Linux 先检查本机已有的固定原版 digest `sha256:696e9574a0f6fb2f86cbecba8a32048f2a5823117dc9b13c6c02637ad890fa8b`。缺失时从 [4.18.42 归档](https://github.com/XingYunStar/NapCatQQ/releases/tag/v4.18.42) 下载对应 `napcat-docker-v4.18.42-<arch>.tar`，核对下表后导入；不再访问失效的 DockerHub 仓库。
+- 容器以已确认的内容寻址 Image ID 和 `--pull=never` 启动，只读挂载本地编译的 shell、WebUI、native 资源及依赖。配置、插件、QQ 数据仍使用原有实例目录；仅映射回环端口，不启用 privileged、host network 或 Docker socket 挂载。容器清理仍核对实例标签、根目录及精确镜像身份。
+- Windows x64 使用[归档 Windows.Node 包](https://github.com/XingYunStar/NapCatQQ/releases/download/v4.18.42/NapCat.Shell.Windows.Node.zip)，SHA256 `77397ac38d66f46383e48f08f35d5f9d37ec575c22069f62d6c600e73b4521ed`。QQ/Node 引导文件校验解包后，将本地 shell 放入 `windows/napcat/`，原版 `index.js` 从这里导入。每次启动更新程序副本，不覆盖 `work/` 和 `qq/`；继续由 Windows Job Object 管理独立进程树，不执行系统安装器。
+
+| Docker 架构 | SHA256 |
+| --- | --- |
+| amd64 | `85e3fd02b58fd836a0177734b6ff77a896000bcfcf209b3b200d7e8b8452df7c` |
+| arm64 | `0d14594844e9135c760e710754a8778d98649de2ca837fce5a61b69b7d39954d` |
+
+内部 WebUI 认证、扫码与配置 API 仍由 Runtime 封装，不向前端暴露凭据或任意请求代理。本轮验证包含真实源码构建、隔离 Docker CLI 参数、校验失败、Windows shell 文件替换、既有托管 QQ 协议回归；没有启动真实 QQ，没有实测 Windows 原生启动。早期真实账号结果不能代替这一版本的真机验证。
 
 ## 表情回复
 

@@ -37,7 +37,7 @@ function lockDevelopment(directory) {
   return () => { db.exec('ROLLBACK'); db.close(); };
 }
 export async function prepareNode(root, track, signal) {
-  for (const args of [['node_modules/typescript/bin/tsc', '-p', 'tsconfig.node.json'], ['scripts/copy-runtime-assets.mjs']]) {
+  for (const args of [['node_modules/typescript/bin/tsc', '-p', 'tsconfig.node.json'], ['scripts/copy-runtime-assets.mjs'], ['scripts/build-napcat.mjs', '--copy-runtime']]) {
     const handle = track(launch(process.execPath, args, { cwd: root, detached: process.platform !== 'win32' }));
     const result = await handle.exited;
     signal?.throwIfAborted();

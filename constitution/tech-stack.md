@@ -11,7 +11,7 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 | 本机语义检索 | 可选的中文 BGE small zh v1.5 INT8 由 Node worker 使用 ONNX Runtime WASM 在本机 CPU 运行。模型按需下载。SQLite 保存可重建的向量索引。 |
 | 共享界面 | React 19、Vite 8、TypeScript。beUI 组件以源码引入，Tailwind 4 和 Motion 用于样式与交互，Desktop/Web 构建均携带 beUI 许可证。 |
 | 桌面宿主 | Tauri 2、Rust 1.90+，使用 autostart 与 updater 插件。原生宿主负责本机凭据、IPC、启动和维护。 |
-| 平台与外部依赖 | QQ 使用原版 NapCat 和 OneBot；B站复用 whale，抽帧使用 ffmpeg；抖音使用专用 Chromium、Playwright/CDP、独立 Python FastMCP 辅助服务。按平台启用和准备相应依赖。 |
+| 平台与外部依赖 | QQ 使用仓库内固定 NapCat 源码的本地构建产物和 OneBot；B站复用 whale，抽帧使用 ffmpeg；抖音使用专用 Chromium、Playwright/CDP、独立 Python FastMCP 辅助服务。按平台启用和准备相应依赖。 |
 | 构建与检查 | npm scripts、TypeScript、Vitest、ESLint。发行准备与 Dockerfile 固定 Node 24.20.0，便携包携带目标平台的 Node 与生产依赖。 |
 
 具体版本以 [package.json](../package.json)、[package-lock.json](../package-lock.json) 和 [Rust 清单](../apps/desktop/src-tauri/Cargo.toml) 为准。第三方代码来源与许可证见 [上游记录](../docs/upstreams.md)。
@@ -25,6 +25,7 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 | `apps/desktop/src/` | React 入口和双端业务界面。`features/` 按聊天、连接、我的鱼、设置分区；`components/` 放通用组件和 beUI，`api/` 封装请求及事件传输，`hooks/`、`styles/`、`assets/` 放共享钩子、样式及资源。 |
 | `apps/desktop/src-tauri/src/`、`apps/web/src/` | 前者是 Rust 宿主，后者提供浏览器登录及 Web 管理设置，复用桌面业务组件。HTTPS 网关位于 `apps/runtime/src/web/`。 |
 | `plugins/`、`services/douyin/` | 尚未内置的 B站/抖音适配代码、普通源码 SDK 和抖音 Python 辅助服务。第三方插件示例在 `examples/hello-fish/`。 |
+| `third_party/napcat/` | 原样保存的 NapCat 固定源码、许可和预编译资源；独立上游 workspace 仅用于第三方构建，不属于大肥鱼业务分包。自有构建入口为 `scripts/build-napcat.mjs`。 |
 | `infra/docker/`、`infra/systemd/`、`scripts/` | Linux 部署配置；构建资源复制、开发进程管理、独立发行及签名归档脚本。 |
 | `tests/integration/`、`tests/fixtures/` | Vitest 跨模块检查、协议与界面夹具。模块级测试随源码存放。 |
 | `docs/`、`.github/` | 使用与开发指南、设计资料、阶段记录；贡献指南、安全问题报告和 CI 工作流。 |
@@ -38,6 +39,7 @@ BigFatFish 以一个 Node.js Runtime 管理一条鱼的数据和平台连接。�
 | --- | --- |
 | 安装锁定依赖 | `npm ci` |
 | 构建 Runtime/CLI 及其资源 | `npm run build:node` |
+| 构建内置 NapCat | `npm run build:napcat`；`napcat:verify` 核对1111个原始文件。构建工具和生产依赖独立锁定；`desktop:dev` / `release:prepare` 自动调用，轻量 CI 不调用源码构建，只增加无需下载的组件夹具检查。 |
 | 启动或查询后台 | `npm run cli -- start`、`npm run cli -- status`；以前台进程运行用 `npm run runtime` |
 | 桌面联调 | `npm run desktop:dev` 编译并托管本仓库的 Runtime、Vite 和 Tauri。退出开发窗口时回收开发进程，后端源码变更后需重新运行。 |
 | 构建桌面前端或 Web | `npm run build:desktop`、`npm run build:web`；`npm run build` 构建 Node 和两个前端。 |

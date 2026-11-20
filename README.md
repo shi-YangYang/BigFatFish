@@ -19,6 +19,7 @@ npm run desktop:dev
 
 ```bash
 npm run build:node
+npm run build:napcat # 使用托管 QQ 时需要
 npm run cli -- start
 npm run cli -- status
 npm run cli -- logs --lines 30
@@ -109,6 +110,6 @@ docker run --rm bigfatfish:local node scripts/smoke.mjs
 - 安装与扩展见 [安装与迁移](docs/install-and-migrate.md) 和 [开发者指南与 SDK](docs/developer.md)。
 - 参与开发前阅读 [项目协作规范](.ai/AGENTS.md)、[贡献指南](.github/CONTRIBUTING.md) 和 [当前规格](specs/README.md)。社区约定与安全问题报告见 [行为准则](docs/CODE_OF_CONDUCT.md) 和 [安全说明](.github/SECURITY.md)。
 
-项目采用 [MIT 许可证](LICENSE)。集成第三方代码前需单独核对其许可证与使用条件。
+大肥鱼自有代码采用 [MIT 许可证](LICENSE)。内置 NapCat 等第三方内容保留各自授权，其中 NapCat 限制商业使用及修改版公开发布，详见[第三方来源与许可](third_party/NAPCAT-NOTICE.md)。集成或再分发前需单独核对许可证与使用条件。
 
 QQ 真实账号已确认扫码登录和文字回复。图片识别、其他平台账号以及 Windows 安装的验证范围各自记录，详见[QQ 验证记录](docs/qq.md)和[开发记录](docs/progress/development.md)。

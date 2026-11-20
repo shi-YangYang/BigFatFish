@@ -4,7 +4,13 @@
 
 用户明确要求：「以后，我不让你commit，你就不要commit」。仅在用户明确要求时提交对应任务，本地提交授权不含推送。下方阶段记录中的自动提交授权已经撤销。
 
-## 当前任务：Spec061 Windows Runtime ACL
+## 当前任务：Spec062 NapCat 源码内置
+
+2026-11-20 用户要求“内置到我们的代码里”，并明确选择“源码纳入仓库，由我们维护”。按 [Spec062](../../specs/spec-062-vendored-napcat/spec.md) 与 [Decision030](../decisions/030-vendored-napcat.md) 将固定源码原样保存、接管构建和运行适配；不把原有限制许可改成 MIT。上游 Nov12 已清空发布，原 Windows 下载404、DockerHub仓库404。
+
+本轮唯一工作目录为 `/Users/yang/project/BigFatFish-napcat-20261120-s9kv_ghl/workspace`（638b946 的隔离 worktree），原 `/Users/yang/project/BigFatFish` 的 tracked 项目文件和 TARGET 不变；首轮 Vitest 写入 ignored 依赖缓存的例外已记录，后续使用独立依赖副本。事务根已有 roles.json、BASELINE.platform.ts、原文件哈希清单，四角色固定为本地 platform.ts 修改副本、DIFF.patch、VERIFICATION.txt、ROLLBACK.sh。真实源码构建、定向组件验证及同输入基线/修改/回滚已完成，回退 hash 与原件一致。首轮 R1（检出换行变化）已由新实施者修复，新独立[验收 PASS](../../specs/spec-062-vendored-napcat/acceptance-r1.md)，协调者已全文读取实施与两轮验收，无待返工。完整 binary 补丁已实际重建、摘要与模式一致，最终文档快照结果见事务根 VERIFICATION.txt。当前修改仅在隔离 worktree，原 tracked 727 文件未变；未授权提交/推送，未启用真实 QQ、Docker 容器或 Windows 原生。已满足代码交付停止条件，不重复通过的检查。若以后提交这份工作副本，须保留上游原已跟踪但被其 ignore 命中的 pnpm-lock.yaml 和公开 WebUI .env（完整补丁已包含），不可只 git add -A 而漏文件。
+
+## 上一任务：Spec061 Windows Runtime ACL
 
 2026-11-09 用户明确要求「commit and push」，授权保存本轮已独立验收的 R2 修复并推送 origin/dev。沿用本机 47 passed / 5 skipped 的实际验证，不重复测试。当前 PR #3 为 dev → main；实际提交和推送结果以 Git 为准。本次授权不包含合并或后续自动提交。
 

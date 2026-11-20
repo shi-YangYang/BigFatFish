@@ -123,7 +123,7 @@ export class ManagedQQ {
    writePrivate(join(this.directory,'work','config','webui.json'),{host:this.platform.native?'127.0.0.1':'0.0.0.0',port:this.platform.native?this.state.webPort:6099,token:this.state.webToken,loginRate:10,autoLoginAccount:''});
    writePrivate(join(this.directory,'work','config','onebot11.json'),onebotConfig(this.state,this.platform.native));
    signal.throwIfAborted();
-   try{this.componentTouched=true;await this.platform.start();signal.throwIfAborted();this.running=true;this.pollBlocked=false;this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
+   try{this.componentTouched=true;await this.platform.start(signal);signal.throwIfAborted();this.running=true;this.pollBlocked=false;this.readinessDeadline=0;this.appliedAccount='';this.configuredAccount='';this.qrUrl='';this.client=new NapCatClient(this.state.webPort,this.state.webToken);
    await this.poll(generation);}
    catch(error){this.running=false;await this.platform.stop();this.componentTouched=false;throw error;}
 

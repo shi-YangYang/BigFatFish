@@ -17,14 +17,16 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "npm run build:node && vitest run",
-    "test:platform": "npm run build:node && vitest run apps/runtime/src/windows-acl.test.ts tests/integration/lifecycle.test.ts tests/integration/cli-input.test.ts tests/integration/stop-completion.test.ts tests/integration/desktop-dev.test.ts tests/integration/maintenance-cli.test.ts tests/integration/update.test.ts",
+    "test:platform": "npm run build:node && vitest run apps/runtime/src/windows-acl.test.ts tests/integration/lifecycle.test.ts tests/integration/cli-input.test.ts tests/integration/stop-completion.test.ts tests/integration/desktop-dev.test.ts tests/integration/maintenance-cli.test.ts tests/integration/update.test.ts tests/integration/vendored-napcat.test.ts",
     "cli": "node dist/cli/src/main.js",
     "runtime": "node dist/runtime/src/main.js",
     "desktop:dev": "node scripts/desktop-dev.mjs",
     "desktop:build": "npm run release:prepare && cd apps/desktop && tauri build",
     "frontend:dev": "vite --config apps/desktop/vite.config.ts",
-    "release:prepare": "npm run build:node && npm run build:web && node scripts/prepare-release.mjs",
-    "build:web": "vite build --config apps/web/vite.config.ts"
+    "release:prepare": "npm run build:node && npm run build:napcat && npm run build:web && node scripts/prepare-release.mjs",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "napcat:verify": "node scripts/napcat-source.mjs",
+    "build:napcat": "node scripts/build-napcat.mjs --copy-runtime"
   },
   "dependencies": {
     "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-alpha.2",
