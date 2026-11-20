@@ -52,13 +52,13 @@ it('restricts network sources, decodes real image bytes and revokes pending loca
   for(const ip of ['127.0.0.1','169.254.169.254','10.0.0.1','100.64.0.1','192.168.1.1','172.31.1.1','::1'])expect(publicIPv4(ip)).toBe(false);expect(publicIPv4('8.8.8.8')).toBe(true);
   const control=new AbortController(),turn=new StickerTurn(library,()=>control.signal.throwIfAborted(),network),tool=async(name:string,args:unknown)=>{const t=turn.tools().find(t=>t.name===name)!,result=await t.execute(args,control.signal);t.onImageResult?.(result,true);return result;};
   await expect(tool('send_sticker',{id:local.id})).rejects.toThrow('STICKER_VIEW_REQUIRED');
-  const found=await tool('search_stickers',{query:'开心'}) as {id:string}[];expect(found).toHaveLength(1);const id=found[0]!.id;
+  const found=await tool('search_stickers',{query:'开心'}) as {id:string}[];expect(found.map(x=>x.id)).toEqual([local.id,expect.stringMatching(/^web-/)]);const id=found[1]!.id;
   const viewed=await tool('get_sticker_image',{id}) as {image:{data:string;mimeType:string}};expect(viewed.image.mimeType).toBe('image/png');expect((await sharp(Buffer.from(viewed.image.data,'base64')).metadata()).width).toBe(32);
   await tool('send_sticker',{id});expect(turn.segment()?.type).toBe('image');expect(fetches).toHaveLength(2);expect(fetches[1]).toBe('https://img.aigengtu.com/0_preview/meme/001.webp');
   library.saveOptions({networkEnabled:false,revision:'initial'});expect(()=>turn.segment()).toThrow('STICKER_CHANGED');
   const localTurn=new StickerTurn(library,()=>control.signal.throwIfAborted(),network),invoke=async(name:string,args:unknown)=>{const t=localTurn.tools().find(t=>t.name===name)!,result=await t.execute(args,control.signal);t.onImageResult?.(result,true);return result;};
   await invoke('get_sticker_image',{id:local.id});await invoke('send_sticker',{id:local.id});library.update(local.id,{revision:local.revision,enabled:false});expect(()=>localTurn.segment()).toThrow('STICKER_CHANGED');
-  control.abort();await expect(invoke('list_stickers',{})).rejects.toThrow();
+  control.abort();await expect(invoke('search_stickers',{source:'local'})).rejects.toThrow();
  }finally{db.close();}
 });
 
@@ -101,7 +101,7 @@ it('bounds concurrent uploads and refuses a corrupt raster before persistence',a
 
 it('reserves the per-turn image budget before parallel downloads resolve',async()=>{
  const db=new DatabaseSync(':memory:');migrate(db);const library=new StickerLibrary(db);let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});
- const network=new NetworkStickers();vi.spyOn(network,'search').mockResolvedValue(Array.from({length:4},(_,i)=>({id:'web-'+i,name:'开心',description:'',url:'https://img.aigengtu.com/0_preview/meme/001.webp'})));const image=(await png()).toString('base64');const load=vi.spyOn(network,'image').mockImplementation(async()=>{await gate;return {data:image,mimeType:'image/png',bytes:Buffer.from(image,'base64').length};});
+ const network=new NetworkStickers();vi.spyOn(network,'search').mockResolvedValue(Array.from({length:4},(_,i)=>({id:'web-'+i,name:'开心',description:'',rank:103,url:'https://img.aigengtu.com/0_preview/meme/001.webp'})));const image=(await png()).toString('base64');const load=vi.spyOn(network,'image').mockImplementation(async()=>{await gate;return {data:image,mimeType:'image/png',bytes:Buffer.from(image,'base64').length};});
  try{const turn=new StickerTurn(library,()=>{},network),tools=turn.tools(),signal=new AbortController().signal;await tools.find(t=>t.name==='search_stickers')!.execute({query:'开心'},signal);const view=(id:string)=>tools.find(t=>t.name==='get_sticker_image')!.execute({id},signal);const pending=['web-0','web-1','web-2'].map(view);await expect(view('web-3')).rejects.toThrow('STICKER_VIEW_LIMIT');await expect(view('web-0')).rejects.toThrow('STICKER_VIEW_BUSY');expect(load).toHaveBeenCalledTimes(3);release();await Promise.all(pending);}finally{release();db.close();vi.restoreAllMocks();}
 });
 

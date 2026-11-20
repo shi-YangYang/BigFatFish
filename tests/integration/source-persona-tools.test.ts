@@ -67,3 +67,18 @@ it('real DSH queues split messages and poke once, permits explicit silence and s
  const spy=vi.spyOn(DSHAdapter.prototype,'run').mockImplementation(async input=>{await input.tools!.find(t=>t.name==='send_message')!.execute({messages:['A','B']},input.signal);return '';});try{bot.controls.send='malformed';bot.event(incoming('3'));expect((await done('3')).find(r=>r.id==='10001:private:20002:3')!.status).toBe('unknown');expect(bot.requests.filter(r=>r.action.startsWith('send_'))).toHaveLength(4);}finally{spy.mockRestore();}
  }finally{await rt.stop();await model.close();await bot.close();rmSync(p.root,{recursive:true,force:true});}
 },60000);
+
+it('only retains a presented reaction, reuses it in a later reply and does not re-enable it',async()=>{
+ const db=new DatabaseSync(':memory:');migrate(db);const library=new StickerLibrary(db),sig=new AbortController().signal;
+ const bytes=(await sharp({create:{width:8,height:8,channels:3,background:'pink'}}).png().toBuffer()).toString('base64');
+ const turn=()=>new QQReplyTurn(new StickerTurn(library,()=>{},new NetworkStickers()),library,'20002',['file'],async()=>bytes,()=>{},true,[1]);
+ const tools=(r:QQReplyTurn)=>Object.fromEntries(r.tools().map(t=>[t.name,t]));
+ const save=async()=>{const t=tools(turn()),v=await t.get_message_images!.execute({index:1},sig);t.get_message_images!.onImageResult!(v,true);return t.collect_sticker!.execute({index:1,name:'呆住',note:'接愣住的梗'},sig);};
+ try{
+  expect(turn().context()).toContain('标作表情的图片序号：1');
+  expect(await save()).toMatchObject({status:'saved'});const saved=library.list()[0]!;
+  expect(await save()).toEqual({status:'already_saved',id:saved.id});expect(library.list()).toHaveLength(1);
+  const r=turn(),t=tools(r),view=await t.get_sticker_image!.execute({id:saved.id},sig);t.get_sticker_image!.onImageResult!(view,true);await t.send_sticker!.execute({id:saved.id},sig);expect(r.output('')[0]).toMatchObject({stickerId:saved.id});
+  library.update(saved.id,{revision:saved.revision,enabled:false});expect(await save()).toEqual({status:'disabled'});expect(library.list()).toHaveLength(1);expect(await t.search_stickers!.execute({source:'local'},sig)).toEqual([]);
+ }finally{db.close();}
+});

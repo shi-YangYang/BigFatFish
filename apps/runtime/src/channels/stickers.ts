@@ -29,6 +29,12 @@ export class StickerLibrary {
  image(id:string){const r=this.row(id);return {data:r.data,mimeType:r.mimeType};}
  assertEnabled(id:string,revision?:string){const r=this.row(id);if(!r.enabled||revision&&revision!==r.revision)throw new InputError('STICKER_CHANGED',409);return r;}
  async add(input:unknown,guard:()=>void=()=>{}){const b=object(input),name=string(b.name,40),description=string(b.description,200,true),image=await validateStickerImage(b.data);guard();return this.insert({id:randomUUID(),name,description,builtin:0,...image});}
+ // Only the already-presented, validated inbound image can enter through this path.
+ collect(image:Awaited<ReturnType<typeof validateStickerImage>>,name:string,description:string){
+  const existing=this.db.prepare('SELECT id,enabled FROM qq_stickers WHERE bytes=? AND data=? ORDER BY enabled DESC,rowid LIMIT 1').get(image.bytes,image.data);
+  if(existing)return existing.enabled?{status:'already_saved',id:String(existing.id)}:{status:'disabled'};
+  const r=this.insert({id:randomUUID(),name,description,builtin:0,...image});return {status:'saved',id:r.id};
+ }
  note(id:string,description:string,revision:string){this.assertEnabled(id,revision);this.db.prepare('UPDATE qq_stickers SET description=?,revision=? WHERE id=?').run(string(description,200,true),randomUUID(),id);return this.info(id);}
  update(id:string,input:unknown){const b=object(input),r=this.row(id);if(b.revision!==r.revision)throw new InputError('STICKER_CHANGED',409);if(typeof b.enabled!=='boolean')throw new InputError('INVALID_REQUEST');this.db.prepare('UPDATE qq_stickers SET enabled=?,revision=? WHERE id=?').run(b.enabled?1:0,randomUUID(),id);return this.info(id);}
  remove(id:string){const r=this.row(id);if(r.builtin)throw new InputError('BUILTIN_STICKER',409);this.db.prepare('DELETE FROM qq_stickers WHERE id=?').run(id);return {deleted:true};}

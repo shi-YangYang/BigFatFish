@@ -44,7 +44,7 @@ export function segments(input:unknown,outbound=false):Segment[] {
         if(!image&&!voice&&!document)throw new InputError('UNSUPPORTED_MEDIA_FORMAT');
         return {type:b.type as Segment['type'],data:{file,...(document?{name:String(d.name)}:{})}};
       }
-      return {type:b.type as Segment['type'],data:{...( /^[a-zA-Z0-9_-]{1,200}(\.[a-zA-Z0-9]{1,8})?$/.test(file)?{file}:{}),...(typeof d.name==='string'?{name:d.name.slice(0,100)}:{})}};
+      return {type:b.type as Segment['type'],data:{...( /^[a-zA-Z0-9_-]{1,200}(\.[a-zA-Z0-9]{1,8})?$/.test(file)?{file}:{}),...(typeof d.name==='string'?{name:d.name.slice(0,100)}:{}),...(b.type==='image'&&[1,2,'1','2'].includes(d.sub_type as number|string)?{stickerHint:'1'}:{})}};
     }
     throw new InputError('UNSUPPORTED_MESSAGE_TYPE');
   });

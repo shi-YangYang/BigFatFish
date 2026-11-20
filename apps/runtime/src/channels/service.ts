@@ -22,7 +22,7 @@ import {QQClient} from './onebot/client.js';
 import {migrateQQOwnership} from './builtin.js';
 import type { SendResult, ChannelStatus, QQConnection, QQConfig, QQDelivery, Segment, Target } from './types.js';
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
-const clarificationTools=new Set(['send_message','memory_query','get_recent_messages','get_message','get_group_notices','get_group_essence','get_mentioned_member_card','web_search','web_fetch','list_stickers','search_stickers','get_sticker_image']);
+const clarificationTools=new Set(['send_message','memory_query','get_recent_messages','get_message','get_group_notices','get_group_essence','get_mentioned_member_card','web_search','web_fetch','search_stickers','get_sticker_image']);
 type DeliveryAuthorization={kind:'reply';assertScope:()=>void}|{kind:'proactive';assertScope:()=>void};
 export class Channels {
   readonly stickers:StickerLibrary;
@@ -44,10 +44,12 @@ export class Channels {
   selfOptions(){if(!this.config)throw new InputError('CHANNEL_NOT_CONFIGURED',409);return this.selfState.options(this.config.accountId);}
   saveSelfOptions(value:unknown){const result=this.selfState.save(this.selfOptions().accountId,value);this.exchanges.clear();this.autonomy.cancel();return result;}
   private selfSnapshot(){const c=this.config;if(this.closing||!c?.enabled||this.client?.health().state!=='online'||!this.client.action||!this.chat.config.routes().chat)return;const revision=this.revision,options=this.selfState.options(c.accountId);const guard=()=>{if(this.closing||!this.config?.enabled||this.revision!==revision||this.config.accountId!==c.accountId||this.selfState.options(c.accountId).revision!==options.revision)throw new InputError('PERMISSION_REVOKED');if(this.selfState.paused())throw new InputError('ACTIVITIES_PAUSED');};return {accountId:c.accountId,options,guard,run:async(signal:AbortSignal)=>{guard();await this.chat.liveQQ(selfTools('autonomous',this.client,this.selfState,options,this.stickers,guard),signal);}};}
-  async initialize(){await this.stickers.initialize();this.client.initialize({event:value=>this.receive(value),status:s=>{if(s.state!=='online')this.exchanges.clear();}});if(this.config?.enabled)this.start();}
+  async initialize(){await this.stickers.initialize();this.client.initialize({event:value=>this.receive(value),status:s=>{if(s.state==='online')this.warmStickers();else{this.exchanges.clear();this.stickerNetwork.cancelRefresh();}}});if(this.config?.enabled)this.start();}
   private audit(event:string,id=''){this.db.prepare('INSERT INTO audit(event,at) VALUES(?,?)').run(`qq.${event}${id?':'+id:''}`,new Date().toISOString());}
   status():ChannelStatus {return {config:this.config,hasToken:!!this.db.prepare("SELECT secret FROM plugin_config WHERE id='qq'").get()?.secret,revision:this.revision,health:this.client.health(),builtin:true};}
-  private invalidate(){this.exchanges.clear();this.autonomy.cancel();for(const control of this.mediaControls)control.abort();for(const id of this.running)this.chat.cancel(id);this.client.stop();}
+  private warmStickers(){if(!this.closing&&this.config?.enabled&&this.config.replyEnabled&&this.stickers.options().networkEnabled)this.stickerNetwork.prewarm();}
+  saveStickerOptions(input:unknown){const result=this.stickers.saveOptions(input);if(!result.networkEnabled)this.stickerNetwork.cancelRefresh();else if(this.client.health().state==='online')this.warmStickers();return result;}
+  private invalidate(){this.stickerNetwork.cancelRefresh();this.exchanges.clear();this.autonomy.cancel();for(const control of this.mediaControls)control.abort();for(const id of this.running)this.chat.cancel(id);this.client.stop();}
   save(input:unknown){
     if(this.closing)throw new InputError('RUNTIME_STOPPING',503);
     const b=object(input),config=configuration(b);
@@ -120,9 +122,10 @@ export class Channels {
       }
       if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);
       const accountId=this.config!.accountId;
-      const stickerTurn=new StickerTurn(this.stickers,()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);},this.stickerNetwork,this.stickerHistory.recent(accountId,event.target));
+      const stickerTurn=new StickerTurn(this.stickers,()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);},this.stickerNetwork,this.stickerHistory.recent(accountId,event.target),JSON.stringify([accountId,event.target.kind,event.target.id]));
       const turnGuard=()=>{mediaControl.signal.throwIfAborted();if(!this.allowed(event.target,revision))throw new InputError('PERMISSION_REVOKED',403);};
-      const replyTurn=new QQReplyTurn(stickerTurn,this.stickers,event.author,event.parts.filter(p=>p.type==='image'&&p.data.file).slice(0,2).map(p=>p.data.file!),async file=>{turnGuard();if(!this.client.media)throw new InputError('MEDIA_BYTES_UNAVAILABLE');return this.client.media('image',file,turnGuard);},turnGuard,!!this.client.poke);
+      const images=event.parts.filter(p=>p.type==='image'&&p.data.file).slice(0,2);
+      const replyTurn=new QQReplyTurn(stickerTurn,this.stickers,event.author,images.map(p=>p.data.file!),async file=>{turnGuard();if(!this.client.media)throw new InputError('MEDIA_BYTES_UNAVAILABLE');return this.client.media('image',file,turnGuard);},turnGuard,!!this.client.poke,images.flatMap((p,i)=>p.data.stickerHint==='1'?[i+1]:[]));
       // Pokes have synthetic text and no message identity. Media recognition
       // and quoted messages also cannot supply the sender's own original words.
       const isOwnText=!!event.identity && event.parts.every(p=>p.type==='text'||(p.type==='at' && p.data.qq===accountId));

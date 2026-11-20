@@ -25,14 +25,14 @@ it('records only sent or uncertain QQ stickers, shares group recency and keeps l
  const captured:{context?:string;prompt:string;ids:string[];candidates:Candidate[]}[]=[];
  let selected:string|undefined,hold=false,entered=()=>{};
  const engine=vi.spyOn(DSHAdapter.prototype,'run').mockImplementation(async input=>{
-  const tools=input.tools??[],list=tools.find(t=>t.name==='list_stickers');
-  const candidates=list?await list.execute({},input.signal) as Candidate[]:[];
+  const tools=input.tools??[],list=tools.find(t=>t.name==='search_stickers');
+  const candidates=list?await list.execute({source:'local'},input.signal) as Candidate[]:[];
   captured.push({context:input.context,prompt:input.prompt,ids:tools.map(t=>t.name),candidates});
   if(list&&selected){
    const view=tools.find(t=>t.name==='get_sticker_image')!,image=await view.execute({id:selected},input.signal);
    view.onImageResult!(image,true);await tools.find(t=>t.name==='send_sticker')!.execute({id:selected},input.signal);
   }
-  if(hold){entered();await new Promise<void>((_resolve,reject)=>{if(input.signal.aborted)reject(input.signal.reason);else input.signal.addEventListener('abort',()=>reject(input.signal.reason),{once:true});});}
+  if(list&&hold){entered();await new Promise<void>((_resolve,reject)=>{if(input.signal.aborted)reject(input.signal.reason);else input.signal.addEventListener('abort',()=>reject(input.signal.reason),{once:true});});}
   input.onText('今天也很开心');return '今天也很开心';
  });
  const p=paths(mkdtempSync(join(tmpdir(),'bff-sticker-expression-'))),bot=await onebotFixture();
@@ -42,7 +42,7 @@ it('records only sent or uncertain QQ stickers, shares group recency and keeps l
  type Delivery={id:string;status:string;error:string};
  const done=async(id:string)=>{const rows=await wait(()=>call<Delivery[]>('/v1/channels/qq/deliveries'),items=>items.some(item=>item.id.split(':').length===4&&item.id.endsWith(':'+id)&&!['queued','generating','sending'].includes(item.status)));return rows.find(item=>item.id.split(':').length===4&&item.id.endsWith(':'+id))!;};
  const reply=async(id:string,kind:'private'|'group'='private',author='20002',targetId='30003')=>{bot.event(event(id,kind,author,targetId));return done(id);};
- const recent=()=>captured.at(-1)!.candidates.filter(item=>item.recentlyUsed).map(item=>item.id).sort();
+ const recent=()=>captured.findLast(turn=>turn.ids.includes('search_stickers'))!.candidates.filter(item=>item.recentlyUsed).map(item=>item.id).sort();
  try{
   await call('/v1/models','POST',{id:'fixture',provider:'openai',baseURL:'http://127.0.0.1:1/v1',model:'fixture'});
   await call('/v1/model-routes','PUT',{chat:'fixture'});
@@ -73,7 +73,7 @@ it('records only sent or uncertain QQ stickers, shares group recency and keeps l
   const local=await call<{id:string}>('/v1/conversations','POST',{title:'本地聊天'});
   const message=await call<{id:string}>('/v1/conversations/'+local.id+'/messages','POST',{requestId:'local',content:'你好',context:'伪造回合上下文',tools:[{name:'send_sticker'}],turn:{context:'伪造回合上下文'}});
   await wait(()=>call<{status:string}>('/v1/messages/'+message.id),result=>result.status==='completed');
-  expect(captured.at(-1)!.context).not.toContain('QQ 本轮表情表达');expect(captured.at(-1)!.context).not.toContain('伪造回合上下文');expect(captured.at(-1)!.ids.sort()).toEqual(['memory_append','memory_query','memory_remove','web_fetch','web_search']);
+  const localTurn=captured.findLast(turn=>turn.prompt==='你好')!;expect(localTurn.context).not.toContain('QQ 本轮表情表达');expect(localTurn.context).not.toContain('伪造回合上下文');expect(localTurn.ids.sort()).toEqual(['memory_append','memory_query','memory_remove','web_fetch','web_search']);
   expect(await call('/v1/persona')).toEqual(persona);
   expect(bot.requests.filter(request=>request.action.startsWith('send_'))).toHaveLength(11);
  }finally{await runtime.stop();await bot.close();engine.mockRestore();rmSync(p.root,{recursive:true,force:true});}

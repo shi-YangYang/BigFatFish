@@ -32,8 +32,8 @@ it('offers unused local and network candidates before truncation while retaining
  const network=new NetworkStickers(async()=>Buffer.from(JSON.stringify({gallery:{'DeepSeek娘':{images:Array.from({length:10},(_,i)=>({name:i===0?'开心 庆祝':'开心',story:{zh:'笑'},preview:`https://img.aigengtu.com/0_preview/meme/${i}.webp`}))}}})));
  try{
   const a=await library.add({name:'开心A',description:'开心',data:bytes}),b=await library.add({name:'开心B',description:'开心',data:bytes});
-  const turn=new StickerTurn(library,()=>{},network,[a.id]),list=()=>turn.tools().find(t=>t.name==='list_stickers')!.execute({},signal);
-  expect(await list()).toEqual([{id:b.id,name:b.name,description:b.description,recentlyUsed:false},{id:a.id,name:a.name,description:a.description,recentlyUsed:true}]);
+  const turn=new StickerTurn(library,()=>{},network,[a.id]),list=()=>turn.tools().find(t=>t.name==='search_stickers')!.execute({source:'local'},signal);
+  expect(await list()).toEqual([{id:b.id,name:b.name,description:b.description,source:'本地',recentlyUsed:false},{id:a.id,name:a.name,description:a.description,source:'本地',recentlyUsed:true}]);
   expect(library.list().map(item=>item.id)).toEqual([a.id,b.id]);
   library.update(b.id,{enabled:false,revision:b.revision});
   expect(await list()).toMatchObject([{id:a.id,recentlyUsed:true}]);
@@ -46,6 +46,39 @@ it('offers unused local and network candidates before truncation while retaining
   const candidates=await networkTurn.tools().find(t=>t.name==='search_stickers')!.execute({query:'开心'},signal) as {recentlyUsed:boolean}[];
   expect(candidates.slice(0,2).map(item=>item.recentlyUsed)).toEqual([false,false]);expect(candidates[2]!.recentlyUsed).toBe(true);
   library.saveOptions({networkEnabled:false,revision:'initial'});
-  expect(new StickerTurn(library,()=>{},network).tools().map(t=>t.name)).not.toContain('search_stickers');
+  expect(await new StickerTurn(library,()=>{},network).tools().find(t=>t.name==='search_stickers')!.execute({query:'开心'},signal)).toEqual([]);
+ }finally{db.close();}
+});
+
+it('rotates relevant unseen previews per chat, including alternate captions and mood words',async()=>{
+ const rows=Array.from({length:23},(_,i)=>({name:'鱼的日常'+i,alt:i<20?'笑嘻嘻捧着小红花':i===20?'晚安睡觉':'其他素材',preview:'https://img.aigengtu.com/meme/'+i+'.webp'}));
+ const net=new NetworkStickers(async()=>Buffer.from(JSON.stringify({gallery:{'DeepSeek娘':{images:rows}}})));
+ const s=new AbortController().signal,search=(q:string,chat:string)=>net.search(q,s,[],chat);
+ const first=await search('来个开心的表情','group:A'),next=await search('开心','group:A');
+ expect(new Set([...first,...next].map(v=>v.id)).size).toBe(16);
+ expect(await search('来个开心的表情','private:B')).toEqual(first);
+ expect(await search('小红花','group:A')).toHaveLength(8);
+ expect(await search('晚安','group:A')).toHaveLength(1);
+ expect(await search('企鹅','group:A')).toEqual([]);
+});
+
+it('one discovery pool interleaves equal sources, respecting relevance, use, inventory and the network switch',async()=>{
+ const db=new DatabaseSync(':memory:');migrate(db);const library=new StickerLibrary(db),s=new AbortController().signal;
+ const bytes=(await sharp({create:{width:8,height:8,channels:3,background:'#727272'}}).png().toBuffer()).toString('base64');let reads=0;
+ const rows=Array.from({length:12},(_,i)=>({name:i===0?'开心庆祝':'开心',preview:'https://img.aigengtu.com/meme/t'+i+'.webp'}));
+ const net=new NetworkStickers(async()=>{reads++;return Buffer.from(JSON.stringify({gallery:{'DeepSeek娘':{images:rows}}}));});
+ try{
+  for(let i=0;i<9;i++)await library.add({name:'藏品'+i,description:'开心',data:bytes});
+  const old=library.list()[0]!.id,turn=(recent:string[]=[])=>new StickerTurn(library,()=>{},net,recent).tools();
+  expect(turn().some(t=>t.name==='list_stickers')).toBe(false);
+  const find=(recent:string[]=[])=>turn(recent).find(t=>t.name==='search_stickers')!,invoke=async(args:Record<string,string>,recent:string[]=[])=>await find(recent).execute(args,s) as {id:string;source:string}[];
+  expect((await invoke({source:'local'})).length).toBe(9);expect(reads).toBe(0);
+  await expect(invoke({})).rejects.toThrow();
+  const mix=await invoke({query:'开心'},[old]);
+  expect(mix.map(x=>x.source)).toEqual(Array.from({length:8},(_,i)=>i%2?'梗鲸':'本地'));expect(mix.map(x=>x.id)).not.toContain(old);
+  expect((await invoke({query:'开心 庆祝'}))[0]!.source).toBe('梗鲸');
+  const exhausted=await invoke({query:'开心'},library.list().map(i=>i.id));expect(exhausted.every(i=>i.source==='梗鲸')).toBe(true);
+  library.saveOptions({networkEnabled:false,revision:'initial'});
+  expect((await invoke({query:'开心'})).every(i=>i.source==='本地')).toBe(true);expect(reads).toBe(1);
  }finally{db.close();}
 });

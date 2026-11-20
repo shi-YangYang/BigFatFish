@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {InputError,object,string} from '../ai/types.js';
 import {STICKER_LIMITS,validateStickerImage} from './stickers.js';
+import {searchTerms,stickerMatch} from './sticker-search.js';
 import {stickerRecency} from './sticker-history.js';
 const catalogURL='https://aigengtu.com/gallery-index.json';
 export function stickerURL(value:string,catalog=false){
@@ -20,29 +21,78 @@ export async function fetchStickerBytes(value:string,signal:AbortSignal,catalog=
  });
 }
 interface NetworkSticker {id:string;name:string;description:string;url:string}
+interface IndexedSticker extends NetworkSticker {title:string;body:string}
+interface Refresh {control:AbortController;done:Promise<void>;waiters:number;detached:boolean}
 export class NetworkStickers {
- private cached?:{at:number;items:NetworkSticker[]};
+ private cached?:{at:number;items:IndexedSticker[]};
  private catalogRetryAt=0;
+ private refresh?:Refresh;
+ private shown=new Map<string,string[]>();
  private imageRetries=new Map<string,number>();
  private images=new Map<string,{at:number;image:Awaited<ReturnType<typeof validateStickerImage>>}>();
  constructor(private fetchBytes=fetchStickerBytes,private now=Date.now){}
- async search(query:string,signal:AbortSignal,recent:readonly string[]=[]){
-  signal.throwIfAborted();
-  query=string(query,80).toLowerCase();
-  if(!this.cached||this.now()-this.cached.at>15*60*1000){
-   if(this.now()<this.catalogRetryAt&&!this.cached)throw new InputError('STICKER_NETWORK_UNAVAILABLE');
-   if(this.now()>=this.catalogRetryAt)try{
-   const bytes=await this.fetchBytes(catalogURL,AbortSignal.any([signal,AbortSignal.timeout(2500)]),true),payload=object(JSON.parse(bytes.toString('utf8'))),gallery=object(payload.gallery),group=object(gallery['DeepSeek娘']);
+ cancelRefresh(){const job=this.refresh;this.refresh=undefined;job?.control.abort();}
+ private startRefresh():Refresh{
+  if(this.refresh)return this.refresh;
+  const job:Refresh={control:new AbortController(),waiters:0,detached:false,done:Promise.resolve()};
+  this.refresh=job;
+  job.done=(async()=>{
+   const signal=AbortSignal.any([job.control.signal,AbortSignal.timeout(10000)]);
+   const bytes=await this.fetchBytes(catalogURL,signal,true),payload=object(JSON.parse(bytes.toString('utf8'))),group=object(object(payload.gallery)['DeepSeek娘']);
    if(!Array.isArray(group.images)||group.images.length>10000)throw new InputError('STICKER_SOURCE_INVALID');
-   const items:NetworkSticker[]=[];
-   for(const raw of group.images){try{const row=object(raw),url=stickerURL(string(row.preview??row.original,1000)).href,name=string(row.name??row.alt,80),story=row.story?object(row.story):{},description=typeof story.zh==='string'?story.zh.slice(0,200):name;
-    if(/色情|性交|乳房|乳交|胸交|口交|手淫|自慰|淫荡|高潮|精液|射精|鸡巴|阴茎|阴道|裸露|裸体|发情|媚药|强奸|调教|深喉|颜射|足交|舔脚|性奴|性癖/i.test(name+' '+description))continue;
-    items.push({id:'web-'+createHash('sha256').update(url).digest('hex').slice(0,24),name,description,url});
+   const items:IndexedSticker[]=[],urls=new Set<string>();
+   for(const raw of group.images){try{
+    const row=object(raw),url=stickerURL(string(row.preview??row.original,1000)).href;
+    if(urls.has(url))continue;
+    const name=string(row.name??row.alt,80),alt=typeof row.alt==='string'?row.alt.slice(0,200):'',story=row.story?object(row.story):{},description=typeof story.zh==='string'?story.zh.slice(0,200):alt||name;
+    if(/色情|性交|乳房|乳交|胸交|口交|手淫|自慰|淫荡|高潮|精液|射精|鸡巴|阴茎|阴道|裸露|裸体|发情|媚药|强奸|调教|深喉|颜射|足交|舔脚|性奴|性癖/i.test(name+' '+alt+' '+description))continue;
+    urls.add(url);items.push({id:'web-'+createHash('sha256').update(url).digest('hex').slice(0,24),name,description,url,title:(name+' '+alt).toLowerCase(),body:description.toLowerCase()});
    }catch{/* malformed entries cannot become download targets */}}
    signal.throwIfAborted();this.cached={at:this.now(),items};this.catalogRetryAt=0;
-   }catch(error){signal.throwIfAborted();this.catalogRetryAt=this.now()+60_000;if(!this.cached)throw error;}
+  })().catch(()=>{if(!job.control.signal.aborted)this.catalogRetryAt=this.now()+60_000;}).finally(()=>{if(this.refresh===job)this.refresh=undefined;});
+  return job;
+ }
+ private async waitCold(job:Refresh,signal:AbortSignal){
+  job.waiters++;
+  let timer:ReturnType<typeof setTimeout>|undefined,abort:()=>void=()=>{};
+  try{
+   await Promise.race([job.done,new Promise<void>((resolve,reject)=>{
+    abort=()=>reject(signal.reason);signal.addEventListener('abort',abort,{once:true});
+    timer=setTimeout(()=>{job.detached=true;resolve();},2500);if(signal.aborted)abort();
+   })]);
+  }finally{
+   clearTimeout(timer);signal.removeEventListener('abort',abort);job.waiters--;
+   if(signal.aborted&&!job.detached&&!job.waiters&&this.refresh===job)this.cancelRefresh();
   }
-  signal.throwIfAborted();const terms=query.split(/[\s，,]+/).filter(Boolean);return this.cached!.items.filter(item=>(this.imageRetries.get(item.url)??0)<=this.now()).map(item=>({item,score:terms.reduce((n,t)=>n+(item.name.toLowerCase().includes(t)?3:0)+(item.description.toLowerCase().includes(t)?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||stickerRecency(a.item.id,recent)-stickerRecency(b.item.id,recent)).slice(0,8).map(x=>x.item);
+ }
+ // Never prefetch images or disclose a conversation/query. Tests with a real
+ // transport should remain offline unless they explicitly call search().
+ prewarm(){
+  if(this.fetchBytes===fetchStickerBytes&&process.env.NODE_ENV==='test')return;
+  if(this.now()<this.catalogRetryAt||(this.cached&&this.now()-this.cached.at<=15*60*1000))return;
+  this.startRefresh().detached=true;
+ }
+ markShown(scope:string,ids:string[]){
+  if(!ids.length)return;
+  const prior=this.shown.get(scope)??[];this.shown.delete(scope);
+  this.shown.set(scope,[...ids,...prior.filter(id=>!ids.includes(id))].slice(0,48));
+  if(this.shown.size>64)this.shown.delete(this.shown.keys().next().value!);
+ }
+ async search(query:string,signal:AbortSignal,recent:readonly string[]=[],scope='default',mark=true){
+  signal.throwIfAborted();const terms=searchTerms(string(query,80));
+  if(!terms.length)return [];
+  if(!this.cached||this.now()-this.cached.at>15*60*1000){
+   if(this.now()>=this.catalogRetryAt){
+    const job=this.startRefresh();
+    if(this.cached)job.detached=true;else if(!job.detached)await this.waitCold(job,signal);
+   }
+   signal.throwIfAborted();if(!this.cached)throw new InputError('STICKER_NETWORK_UNAVAILABLE');
+  }
+  const shown=this.shown.get(scope)??[];
+  const matches=this.cached.items.filter(item=>(this.imageRetries.get(item.url)??0)<=this.now()).map(item=>({item,rank:stickerMatch(terms,item.title,item.body)}))
+   .filter(x=>x.rank>0).sort((a,b)=>b.rank-a.rank||stickerRecency(a.item.id,recent)-stickerRecency(b.item.id,recent)||stickerRecency(a.item.id,shown)-stickerRecency(b.item.id,shown)).slice(0,8);
+  if(mark)this.markShown(scope,matches.map(({item})=>item.id));
+  return matches.map(({item:{name,description,url,id},rank})=>({name,description,url,id,rank}));
  }
  async image(item:NetworkSticker,signal:AbortSignal){
   signal.throwIfAborted();stickerURL(item.url);
