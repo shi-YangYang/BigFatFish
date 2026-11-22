@@ -44,7 +44,7 @@ it.skipIf(!existsSync(executable))('keeps existing persona details while simplif
     const prompt = page.getByLabel('完整人设', { exact: true });
     expect(await prompt.inputValue()).toBe(defaultPersona.cardPrompt);
     await prompt.fill('完整的自定义人设');
-    await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '关闭', exact: true }).click();
     expect(await customize.evaluate(element => element === document.activeElement)).toBe(true);
     await customize.click();
     expect(await prompt.inputValue()).toBe('完整的自定义人设');
@@ -109,7 +109,7 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.getByLabel('配置（不接受密钥）', { exact:true }).waitFor();
     await page.keyboard.press('Escape');
     await page.goto(`${url}?media`);
-    await page.getByText('先配置语音输入模型。', { exact: true }).waitFor();
+    await page.getByRole('heading', { name: '语音输入', exact: true }).waitFor();
     expect(await page.getByRole('button', { name: '选择文件', exact: true }).count()).toBe(0);
     await page.getByRole('button', { name: '设置语音输入模型', exact: true }).click();
     await page.getByRole('heading', { name: '模型设置', exact: true }).waitFor();
@@ -143,7 +143,6 @@ it.skipIf(!existsSync(executable))('keeps optional settings out of the primary f
     await page.getByRole('button', {name:'连接抖音',exact:true}).waitFor();
     expect(await page.getByRole('tab',{name:'互动',exact:true}).count()).toBe(0);
     expect(await page.getByLabel('视频 ID', { exact: true }).count()).toBe(0);
-    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '连接设置', exact: true }).click();
     await page.getByRole('dialog', { name: '连接设置', exact: true }).waitFor();
     await page.getByLabel('浏览器路径', { exact: true }).waitFor();

@@ -104,6 +104,16 @@ export function Models({
     if (!direct) { setEditorOpen(false); return; }
     if (!hasDraft || window.confirm("放弃未保存的模型配置？")) dismiss?.();
   }
+  async function deleteEdited() {
+    if (!stored || waiting || !window.confirm(`删除模型「${stored.label}」？`)) return;
+    setBusy(true);
+    try {
+      await api("/v1/models/" + stored.id, "DELETE");
+      setEditorOpen(false); setForm(blank); setServiceId(""); setKey(""); setPurpose("chat");
+      setDraftBaseline(JSON.stringify([blank, "", "chat"])); setSaved("");
+      await reload();
+    } catch (error) { fail(error); } finally { setBusy(false); }
+  }
   const editor = editorOpen && <Drawer title={direct ? "设置" + purposes[purpose] : form.id ? "编辑模型" : "新建模型"} close={closeEditor}>
       <form onSubmit={save} className="model-form">
         <FormGrid className="model-fields">
@@ -118,10 +128,10 @@ export function Models({
             keepStoredKey={keepStoredKey} wrongKey={wrongKey} waiting={waiting} connection={connection} />}
         </FormGrid>
         <ActionRow className="form-actions">
+          {stored && !direct && <Button variant="ghost" className="delete-model" disabled={waiting} onClick={() => void deleteEdited()}>删除配置</Button>}
           <Button variant="primary" type="submit" disabled={waiting || !serviceId || wrongKey}>
             {direct?.purpose === "chat" ? "保存并回到聊天" : "保存模型"}
           </Button>
-          <Button disabled={waiting} onClick={closeEditor}>关闭编辑</Button>
         </ActionRow>
       </form>
       </Drawer>;
@@ -154,19 +164,6 @@ export function Models({
               </div>
               <ActionRow>
                 <Button type="button" disabled={waiting} aria-label={`编辑 ${m.label}`} onClick={() => openEditor(m)}>编辑</Button>
-              <Button
-                type="button"
-                disabled={waiting}
-                variant="ghost"
-                onClick={() => {
-                  if (!window.confirm(`删除模型「${m.label}」？`)) return;
-                  void api("/v1/models/" + m.id, "DELETE")
-                    .then(async () => { if (form.id === m.id) { setEditorOpen(false); setForm(blank); setServiceId(""); setKey(""); setPurpose("chat"); setDraftBaseline(JSON.stringify([blank, "", "chat"])); } await reload(); })
-                    .catch(fail);
-                }}
-              >
-                删除
-              </Button>
               </ActionRow>
             </div>
           ))}

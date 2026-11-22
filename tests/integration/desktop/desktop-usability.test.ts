@@ -179,7 +179,7 @@ it.skipIf(!existsSync(executable))('shows tabs without animation frames and pres
     await page.getByRole('button', { name: '添加记忆', exact: true }).click();
     await page.getByLabel('主题', { exact: true }).fill('偏好');
     await page.getByLabel('内容', { exact: true }).fill('喜欢蓝色');
-    await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '关闭', exact: true }).click();
     await page.getByRole('button', { name: '添加记忆', exact: true }).click();
     expect(await page.getByLabel('内容', { exact: true }).inputValue()).toBe('喜欢蓝色');
     await page.getByRole('button', { name: '保存', exact: true }).click();

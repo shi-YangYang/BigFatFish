@@ -38,7 +38,7 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     expect(await page.getByLabel('API Key',{exact:true}).inputValue()).toBe('');
     await page.getByLabel('服务地址', { exact: true }).fill('https://example.invalid/v1');
     await page.getByLabel('API Key', { exact: true }).fill('fixture-only-key');
-    await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '关闭', exact: true }).click();
     await page.getByRole('button', { name: '继续编辑', exact: true }).click();
     expect(await page.getByLabel('API Key', { exact: true }).inputValue()).toBe('fixture-only-key');
     await page.getByRole('button', { name: '获取模型列表', exact: true }).click();
@@ -109,6 +109,13 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     expect(requests.filter(r=>r.route.endsWith('/test')).at(-1)?.body).toMatchObject({provider:'deepseek',baseURL:'http://127.0.0.1:9090/anthropic',model:'local-messages'});
     await page.getByRole('button',{name:'保存模型',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
     expect(saved[0]).toMatchObject({provider:'deepseek',hasKey:false,model:'local-messages'});
+    expect(await page.getByRole('button',{name:'删除配置'}).count()).toBe(0);
+    await page.getByRole('button',{name:'编辑 local-messages',exact:true}).click();
+    page.once('dialog',dialog => void dialog.dismiss());
+    const writes = requests.length;
+    await page.getByRole('button',{name:'删除配置',exact:true}).click();
+    expect(requests.slice(writes).some(r=>r.route.endsWith('/'+saved[0]!.id))).toBe(false);
+    await page.getByRole('dialog',{name:'编辑模型'}).waitFor();
     expect(errors).toEqual([]);
   } finally { release(); await browser.close(); await server.close(); }
 }, 30000);

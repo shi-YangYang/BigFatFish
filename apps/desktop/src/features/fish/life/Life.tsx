@@ -120,10 +120,9 @@ export function Home({ navigate, onChat }: { navigate?: (page: string) => void; 
         {[...data.interests, ...data.relationships].map(m => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
       </ContentScroll>
     </SectionCard>}
-    {navigate && <ActionRow>
+    {navigate && (!diary || data.confirmedCount > 0) && <ActionRow>
       {!diary && <Button variant="ghost" onClick={() => navigate("写日记")}>去写第一篇</Button>}
       {data.confirmedCount > 0 && <Button variant="ghost" onClick={() => navigate("记忆")}>已记住 {data.confirmedCount} 条</Button>}
-      <Button variant="ghost" onClick={() => navigate("活动计划")}>查看活动计划</Button>
     </ActionRow>}
   </PageStack>;
 }
@@ -202,16 +201,18 @@ export function Life({ fail, startWriting = false }: { fail: (e: unknown) => voi
   };
   return (
     <PageStack className="fish-journal">
-      <SectionHeading title="经历与日记" />
       {refreshError && (
         <Alert role="alert" className="error">
           {refreshError}
         </Alert>
       )}
       <section className="fish-reading-section">
-      <SectionHeading title="日记" level={3} />
+      <SectionHeading title="日记" actions={<ActionRow>
+        <Button size="compact" onClick={() => setPanel("write")}>手动写日记</Button>
+        <Button size="compact" variant="ghost" onClick={() => setPanel("options")}>日记设置</Button>
+      </ActionRow>} />
       {!ready && !refreshError && <Loading>正在读取经历…</Loading>}
-      {ready && !diaries.length && <EmptyState title="还没有日记。" description="大肥鱼写下的日记会出现在这里。" />}
+      {ready && !diaries.length && <EmptyState title="还没有日记。" />}
       <ContentScroll label="日记" className="content-scroll-list">
       {diaries.map((d) => (
         <DiaryEntry key={d.id} day={d.day} content={d.content}>
@@ -243,12 +244,8 @@ export function Life({ fail, startWriting = false }: { fail: (e: unknown) => voi
       ))}
       </ContentScroll>
       </section>
-      <ActionRow>
-        <Button size="compact" onClick={() => setPanel("write")}>手动写日记</Button>
-        <Button size="compact" variant="ghost" onClick={() => setPanel("options")}>日记设置</Button>
-      </ActionRow>
       {tasks.some(t => t.kind === "diary") && <Disclosure title="日记生成记录" className="secondary-options"><TaskList tasks={tasks.filter(t => t.kind === "diary")} refresh={load} fail={fail} /></Disclosure>}
-      {panel === "options" && <Drawer title="日记设置" close={() => setPanel(null)}><DiarySettings fail={fail}/></Drawer>}
+      {panel === "options" && <Drawer title="日记设置" close={() => setPanel(null)}><DiarySettings onSaved={() => setPanel(null)}/></Drawer>}
       {panel === "write" && <Drawer title="手动写日记" close={() => { if (!busy) setPanel(null); }}>
       <form
         onSubmit={(e) => {
@@ -286,6 +283,7 @@ export function Life({ fail, startWriting = false }: { fail: (e: unknown) => voi
 type SourceListProps = { sources: Source[]; fail: (error: unknown) => void };
 
 export function Sources(props: SourceListProps) {
+  if (!props.sources.length) return null;
   return <Disclosure title={<>查看来源（{props.sources.length}）</>}>
     <SourceList {...props} />
   </Disclosure>;

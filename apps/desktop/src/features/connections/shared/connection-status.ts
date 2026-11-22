@@ -7,10 +7,9 @@ export type BiliStatus = ReturnType<Bilibili['status']>;
 export type DouyinStatus = ReturnType<Douyin['status']>;
 type QQMode = NonNullable<QQConfig['mode']>;
 
-export function activeQQMode(channel: ChannelStatus, component?: ManagedQQStatus): QQMode {
-  if (!channel.config || channel.config.mode === 'managed') return 'managed';
-  if (!channel.config.enabled && component && !['missing', 'ready'].includes(component.phase)) return 'managed';
-  return 'external';
+// Existing external connections remain usable; new connections always use the built-in account.
+export function activeQQMode(channel: ChannelStatus): QQMode {
+  return channel.config?.enabled && channel.config.mode !== 'managed' ? 'external' : 'managed';
 }
 
 function transportStatus(channel: ChannelStatus) {

@@ -38,3 +38,5 @@
 .chat-model-recovery .field { min-width: min(200px,100%); }
 
 .first-run-shell .mobile-menu { display: none; }
+
+.model-form .delete-model { color: var(--color-destructive); margin-inline-end: auto; }

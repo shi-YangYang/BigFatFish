@@ -10,7 +10,7 @@ import type { ManagedQQStatus } from '../../../apps/runtime/src/channels/managed
 
 const browserPath = process.env.BFF_TEST_BROWSER ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 it.skipIf(!existsSync(browserPath))('shows the current login step and keeps failures on the corresponding connection card', async () => {
-  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false } });
+  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), cacheDir: resolve('build/test-cache/connection-login'), server: { host: '127.0.0.1', port: 0, strictPort: false, watch:{ignored:['**/src/**','**/tests/**']} } });
   await server.listen();
   const browser = await chromium.launch({ executablePath: browserPath });
   try {
@@ -30,10 +30,15 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
       '/v1/channels/qq': channel, '/v1/channels/qq/component': component, '/v1/channels/qq/component/contacts': { friends: [], groups: [] },
       '/v1/bilibili': bili, '/v1/bilibili/tasks': [], '/v1/douyin': douyin, '/v1/activities': { tasks: [], schedules: [] },
     };
-    let rejectDouyinRead = false;
+    let rejectDouyinRead = false; const qqWrites:string[]=[];
     await installFixtureIPC(page);
     await page.route('**/ipc/v1/**', route => {
       const path = new URL(route.request().url()).pathname.slice(4);
+      if (path.startsWith('/v1/channels/qq') && route.request().method() !== 'GET') qqWrites.push(path);
+      if (path==='/v1/channels/qq/stop') {
+        channel.config={...channel.config!,enabled:false}; channel.health={state:'stopped'};
+        Object.assign(component,{phase:'ready',account:undefined,error:undefined,operationError:undefined});
+      }
       if (path === '/v1/douyin' && rejectDouyinRead) return route.fulfill({ status: 503, json: { error: 'UNAVAILABLE' } });
       if (path === '/v1/channels/qq/component/refresh' || path === '/v1/channels/qq/component/settings') {
         const error = path.endsWith('/refresh') ? 'QQ_COMPONENT_REQUEST_FAILED' : 'QQ_ACCOUNT_CHANGED';
@@ -43,8 +48,8 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
       return route.fulfill({ json: responses[path] ?? {} });
     });
     await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as {port: number}).port}`);
-    const manage = (name: string) => page.locator('.connection-list [role=article]').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('button', { name: '管理连接' });
-    const back = page.getByRole('button', { name: '← 所有连接' });
+    const manage = (name: string) => page.getByRole('button', { name: '打开 '+name+' 连接',exact:true });
+    const back = page.getByRole('button', { name: '所有连接', exact: true });
     const badge = (text: string) => page.getByText(text, { exact: true }).and(page.locator('[data-badge-label]'));
     const noAlert = async () => expect(await page.getByRole('alert').count()).toBe(0);
 
@@ -86,10 +91,22 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
     await page.locator('.qq-reply-card').getByRole('alert').getByText(/核对回复设置/).waitFor();
 
     channel.config = { ...config, mode: 'external' }; channel.health = { state: 'error', error: 'TOKEN_REJECTED' };
-    await back.click(); await manage('QQ').click();
-    await page.getByRole('article').filter({ has: page.getByRole('button', { name: '使用扫码登录' }) }).getByRole('alert').getByText(/凭据被拒绝/).waitFor();
-    await page.getByRole('button', { name: '使用扫码登录' }).click();
+    await back.click(); expect(await manage('QQ').evaluate(button=>button===document.activeElement)).toBe(true); await page.keyboard.press('Enter');
+    const traceBefore=qqWrites.length;
+    await page.locator('.qq-account-card').getByRole('alert').getByText(/凭据被拒绝/).waitFor();
+    await page.locator('.qq-account-card').getByText('10001',{exact:true}).waitFor();
+    expect(await page.getByRole('button',{name:/连接选项|连接已有服务|使用扫码登录/}).count()).toBe(0);
+    await page.getByRole('button',{name:'编辑回复对象'}).click();
+    expect(await page.getByLabel('主人 QQ 号',{exact:true}).inputValue()).toBe('10002');
+    expect(await page.getByLabel('机器人 QQ 号').count()).toBe(0);
+    expect(await page.getByLabel('服务地址',{exact:true}).count()).toBe(0);
+    await page.getByRole('button',{name:'取消编辑'}).click();
+    expect(qqWrites).toHaveLength(traceBefore);
+    await page.getByRole('button',{name:'断开连接',exact:true}).click();
+    await page.getByRole('button',{name:'连接 QQ',exact:true}).waitFor();
     expect(await page.getByText(/凭据被拒绝/).count()).toBe(0);
+    expect(qqWrites.slice(traceBefore)).toEqual(['/v1/channels/qq/stop']);
+    expect(channel.config).toMatchObject({accountId:'10001',ownerId:'10002',enabled:false});
 
     await back.click(); await manage('B站').click();
     await page.getByRole('img', { name: 'B站登录二维码' }).waitFor();
@@ -124,7 +141,7 @@ it.skipIf(!existsSync(browserPath))('shows the current login step and keeps fail
 }, 65000);
 
 it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the dialog and reveals the next step after success', async () => {
-  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), server: { host: '127.0.0.1', port: 0, strictPort: false, fs: { allow: [resolve('.')] } } });
+  const server = await createServer({ configFile: resolve('apps/desktop/vite.config.ts'), cacheDir: resolve('build/test-cache/connection-login'), server: { host: '127.0.0.1', port: 0, strictPort: false, watch:{ignored:['**/src/**','**/tests/**']}, fs: { allow: [resolve('.')] } } });
   await server.listen();
   const browser = await chromium.launch({ executablePath: browserPath });
   try {
@@ -160,7 +177,6 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     });
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/desktop-clarity.html')}`;
     await page.goto(`${url}?bili`);
-    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '导入凭据', exact: true }).click();
     const biliDialog = page.getByRole('dialog', { name: '导入凭据', exact: true });
     await biliDialog.getByLabel('SESSDATA', { exact: true }).fill('fixture-sessdata');
@@ -181,7 +197,6 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     await biliDialog.waitFor({ state: 'detached' });
     await page.locator('[data-badge-label]').getByText('已连接', { exact: true }).waitFor();
     expect(requests.filter(item => item.path === '/v1/bilibili/connect').at(-1)?.body).toEqual({ revision: 'bili-poll', credentials: { sessdata: 'fixture-sessdata', bili_jct: 'fixture-csrf' } });
-    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '导入凭据', exact: true }).click();
     expect(await biliDialog.getByLabel('SESSDATA', { exact: true }).inputValue()).toBe('');
     expect(await biliDialog.getByLabel('bili_jct', { exact: true }).inputValue()).toBe('');
@@ -192,7 +207,6 @@ it.skipIf(!existsSync(browserPath))('keeps connection settings failures in the d
     await page.getByRole('button', { name: '连接 B站', exact: true }).waitFor();
 
     await page.goto(`${url}?douyin`);
-    await page.getByRole('button',{name:'连接选项',exact:true}).click();
     await page.getByRole('button', { name: '连接设置', exact: true }).click();
     const douyinDialog = page.getByRole('dialog', { name: '连接设置', exact: true });
     await douyinDialog.getByLabel('浏览器路径', { exact: true }).fill('/fixture/chrome');

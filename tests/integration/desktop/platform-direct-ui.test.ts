@@ -31,10 +31,10 @@ it.skipIf(!existsSync(executable))('desktop keeps activity controls in My Fish a
     await page.addInitScript(()=>{Object.assign(window,{__TAURI_INTERNALS__:{invoke:(cmd:string,args:unknown)=>(window as unknown as {fixtureInvoke:(cmd:string,args:unknown)=>unknown}).fixtureInvoke(cmd,args)}});});
    await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as {port:number}).port}`);
    const header=page.locator('.topbar:visible');
-   await header.getByRole('button',{name:'新对话',exact:true}).waitFor();
+   await header.getByRole('heading',{name:'新对话',exact:true}).waitFor();
    expect(await header.getByRole('button',{name:'运行状态',exact:true}).count()).toBe(0);
    await page.setViewportSize({width:380,height:760});
-   await header.getByRole('button',{name:'新对话',exact:true}).click();
+   expect(await header.getByRole('button',{name:'新对话',exact:true}).count()).toBe(0);
    expect(await header.locator('.status-dot').count()).toBe(0);
    expect(requests.some(r=>r.route==='/v1/activities')).toBe(false);
    await header.getByRole('button',{name:'打开导航',exact:true}).click();
@@ -48,7 +48,7 @@ it.skipIf(!existsSync(executable))('desktop keeps activity controls in My Fish a
    expect(requests.filter(r=>r.route==='/v1/activities/pause').map(r=>r.body.paused)).toEqual([true,false]);
    await page.setViewportSize({width:900,height:760});
    await page.getByRole('button',{name:'连接',exact:true}).click();
-   await page.getByRole('article').filter({has:page.getByRole('heading',{name:'抖音',exact:true})}).getByRole('button',{name:'管理连接'}).click();
+   await page.getByRole('article').filter({has:page.getByRole('heading',{name:'抖音',exact:true})}).getByRole('button',{name:'打开 抖音 连接',exact:true}).click();
    await page.getByRole('tab',{name:'互动',exact:true}).click();
    await page.getByLabel('视频 ID',{exact:true}).fill('1234567890123456789');
    mkdirSync('build/approval-removal',{recursive:true});await page.screenshot({path:`build/approval-removal/desktop-interaction.png`});

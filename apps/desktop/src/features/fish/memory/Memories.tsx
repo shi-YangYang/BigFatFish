@@ -285,7 +285,6 @@ function MemoryBrowser({ fail, onBack }: { fail: (e: unknown) => void; onBack: (
         <Button type="submit" variant="primary" disabled={busy}>
           保存
         </Button>
-        <Button disabled={busy} onClick={() => setPanel(null)}>关闭编辑</Button>
         {editing && (
           <Button
             disabled={busy}

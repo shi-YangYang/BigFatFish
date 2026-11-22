@@ -1,6 +1,6 @@
 import { PlatformAccount, LoginPrompt, WatchPlanPrompt } from '../shared/PlatformSurface';
 import { PageStack } from '../../../components/PageLayout';
-import { Alert, Loading, Menu } from "../../../components/Surfaces";
+import { Alert, Loading } from "../../../components/Surfaces";
 import { Button, Field, Input, ActionRow, FormGrid } from "../../../components/Controls";
 import { OperationRecords } from "../shared/OperationRecords";
 import { ShareToQQ } from './ShareToQQ';
@@ -17,7 +17,6 @@ export function Bilibili({fail,onPlan,onConfigureQQ}:{fail:(e:unknown)=>void;onP
  const [sharing,setSharing]=useState<VideoTask>();
  const [readError,setReadError]=useState(false),[actionError,setActionError]=useState(''),[settingsError,setSettingsError]=useState('');
  useEffect(()=>setActionError(''),[status?.connection?.phase,status?.revision]);
- const [optionsOpen,setOptionsOpen]=useState(false);
  const pending=useRef(false),alive=useRef(true),sequence=useRef(0);
  const reload=useCallback(async()=>{
   const n=++sequence.current,current=()=>alive.current&&n===sequence.current;
@@ -48,7 +47,7 @@ export function Bilibili({fail,onPlan,onConfigureQQ}:{fail:(e:unknown)=>void;onP
     {!connected&&!connecting&&<Button variant="primary" busy={busy&&busyAction==='connect'} disabled={busy} onClick={()=>void run('connect',()=>api('/v1/bilibili/connect','POST',{revision:status.revision}))}>{connection?.phase==='expired'?'重新获取二维码':connection?.phase==='error'?'重试连接':'连接 B站'}</Button>}
     {(status.enabled||connecting)&&<Button busy={busy&&busyAction==='disconnect'} disabled={busy} onClick={()=>void run('disconnect',()=>api('/v1/bilibili/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
     {!status.enabled&&!connecting&&<Button variant="ghost" busy={busy&&busyAction==='enable'} disabled={busy} onClick={()=>void run('enable',()=>api('/v1/bilibili','PUT',{enabled:true,anonymous:true,revision:status.revision}))}>匿名浏览</Button>}
-    {!connecting&&<Menu open={optionsOpen} onOpenChange={setOptionsOpen} trigger={<Button variant="ghost" disabled={busy}>连接选项</Button>}><Button variant="ghost" onClick={()=>{setOptionsOpen(false);setSettingsError('');setSettingsOpen(true);}}>导入凭据</Button></Menu>}
+    {!connecting&&<Button variant="ghost" disabled={busy} onClick={()=>{setSettingsError('');setSettingsOpen(true);}}>导入凭据</Button>}
    </ActionRow>
   </PlatformAccount>
   {canPlan&&tasks?.length===0&&!recordsError&&onPlan ? <WatchPlanPrompt platform="B站" onPlan={onPlan}/> :

@@ -44,6 +44,8 @@ it.skipIf(!existsSync(executable))(
     const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     let setupComplete = true, online = true,
       unknown = false,
+      holdModel = false,
+      failModel = false,
       hold = false,
       release = () => {};
     let onHold: (() => void) | undefined;
@@ -192,7 +194,11 @@ it.skipIf(!existsSync(executable))(
           if (route === "/v1/memories/search") return data[route];
           if (route === "/v1/memory-scenes/search" || route === "/v1/memory-profile/search") return [];
           if (route === "/v1/model-routes") { data[route] = args.body; return args.body; }
-          if (route.endsWith("/model") && method === "PUT") return { ...sessions.find(x => x.id === route.split("/")[3]), modelId: args.body?.modelId };
+          if (route.endsWith("/model") && method === "PUT") {
+            if (holdModel) { onHold?.(); await new Promise<void>(r => { release = r; }); }
+            if (failModel) throw new Error("UNAVAILABLE");
+            return { ...sessions.find(x => x.id === route.split("/")[3]), modelId: args.body?.modelId };
+          }
           if (route === "/v1/conversations") {
             const item = {
               id: "new-" + sessions.length,
@@ -465,7 +471,7 @@ it.skipIf(!existsSync(executable))(
       await page.screenshot({
         path: "build/beui-interface/regression-connections-1100.png",
       });
-      expect(await page.getByRole("button", { name: "管理连接" }).count()).toBe(
+      expect(await page.getByRole("button", { name: /^打开 .+ 连接$/ }).count()).toBe(
         3,
       );
       await page.getByRole("button", { name: "我的鱼", exact: true }).click();
@@ -486,8 +492,14 @@ it.skipIf(!existsSync(executable))(
       await input.fill("等换好模型再聊");
       await page.getByLabel("可用聊天模型").click();
       expect(await page.getByRole("option", {name:"仅朗读",exact:true}).count()).toBe(0);
+      holdModel = true; failModel = true;
+      const modelWrite = new Promise<void>(resolve => { onHold = resolve; });
+      await page.getByRole("option", {name:model.label,exact:true}).click(); await modelWrite;
+      expect(await page.getByLabel("可用聊天模型").isDisabled()).toBe(true);
+      holdModel = false; release();
+      await page.getByLabel("可用聊天模型").click();
+      failModel = false;
       await page.getByRole("option", {name:model.label,exact:true}).click();
-      await page.getByRole("button", {name:"使用这个模型"}).click();
       await page.getByText("这段对话的模型不可用。", {exact:false}).waitFor({state:"hidden"});
       expect(requests.find(r => r.route === "/v1/conversations/recent/model")?.body.modelId).toBe("demo");
       expect(await input.inputValue()).toBe("等换好模型再聊");

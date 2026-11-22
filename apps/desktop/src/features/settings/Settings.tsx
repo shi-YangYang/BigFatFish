@@ -1,4 +1,5 @@
 import { PageStack, SectionHeading, EmptyState } from "../../components/PageLayout";
+import { BackButton } from "../../components/BackButton";
 import "./settings.css";
 import { useCallback, useEffect, useState } from "react";
 import { ContentScroll, Disclosure, Loading, Alert } from "../../components/Surfaces";
@@ -39,7 +40,7 @@ export function Settings({
       <Setup fail={fail} done={done} />
     ) : <PageStack>
       {tool ? <>
-        <div><Button variant="ghost" onClick={() => setTool(null)}>← 数据与维护</Button></div>
+        <BackButton onClick={() => setTool(null)}>数据与维护</BackButton>
         {tool === "扩展" ? <Plugins fail={fail} /> : tool === "运行诊断" ? <Logs /> : <PageStack className="settings-about">
           <div className="settings-brand"><FishAvatar alt="" /><SectionHeading title="BigFatFish" /></div>
           <Updates fail={fail} />

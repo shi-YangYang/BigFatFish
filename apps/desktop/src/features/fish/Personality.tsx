@@ -78,7 +78,6 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
           <Field>完整人设<Textarea value={persona.cardPrompt ?? ""} rows={16} maxLength={32000} disabled={saving} onChange={event => change({ ...persona, cardPrompt: event.target.value })} /></Field>
           <ActionRow>
             <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存人设"}</Button>
-            <Button disabled={saving} onClick={() => setEditingPrompt(false)}>关闭编辑</Button>
           </ActionRow>
         </form>
       </Drawer>}

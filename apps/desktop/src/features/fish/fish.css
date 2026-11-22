@@ -29,3 +29,8 @@
   .fish-home .fish-memory-count { margin-inline-start: 0; }
   .fish-home .fish-portrait, .fish-home .avatar { width: 48px; height: 48px; }
 }
+/* Drawers are portaled outside the fish page. Space the form itself, not its page ancestor. */
+.diary-settings-form { display: grid; gap: 16px; margin: 0; }
+.diary-settings-mode { display: grid; gap: 4px; }
+.diary-settings-mode > p { margin: 0; }
+.diary-settings-form .diary-settings-actions { justify-content: flex-end; }

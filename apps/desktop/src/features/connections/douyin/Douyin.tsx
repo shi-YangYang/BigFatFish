@@ -3,7 +3,7 @@ import { PageStack, SectionCard } from '../../../components/PageLayout';
 import { usePoll } from "../../../hooks/usePoll";
 import { cancelActivity, loadActivities } from "../../../api/activities";
 import { activityState, actionNames } from "../../fish/activities/activity-labels";
-import { Loading, Alert, Menu} from "../../../components/Surfaces";
+import { Loading, Alert} from "../../../components/Surfaces";
 import {
   Field,
   Checkbox,
@@ -29,7 +29,6 @@ export function Douyin({ fail,onPlan }: { fail: (e: unknown) => void; onPlan?:()
     [settingsOpen,setSettingsOpen]=useState(false),[tool,setTool]=useState('douyin_like'),[text,setText]=useState('');
   const [readError,setReadError]=useState(false),[actionError,setActionError]=useState(''),[settingsError,setSettingsError]=useState('');
   useEffect(()=>setActionError(''),[state?.connection?.phase,state?.revision]);
-  const [optionsOpen,setOptionsOpen]=useState(false);
   const editing=useRef(false),pending=useRef(false),sequence=useRef(0),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;++sequence.current;};},[]);
   const refresh=useCallback(async()=>{
@@ -67,7 +66,7 @@ export function Douyin({ fail,onPlan }: { fail: (e: unknown) => void; onPlan?:()
     <ActionRow className="platform-connect-actions">
      {!connected&&!connecting&&<Button variant="primary" busy={busy&&busyAction==='connect'} disabled={busy} onClick={()=>void act('connect',()=>api('/v1/douyin/connect','POST',{revision:state.revision}))}>{state.connection?.phase==='error'?'重试连接':'连接抖音'}</Button>}
      {(state.config.enabled||connecting)&&<Button busy={busy&&busyAction==='disconnect'} disabled={busy} onClick={()=>void act('disconnect',()=>api('/v1/douyin/disconnect','POST'))}>{connecting?'取消连接':'断开连接'}</Button>}
-     <Menu open={optionsOpen} onOpenChange={setOptionsOpen} trigger={<Button variant="ghost" disabled={busy}>连接选项</Button>}><Button variant="ghost" onClick={()=>{setOptionsOpen(false);setSettingsError('');setSettingsOpen(true);}}>连接设置</Button></Menu>
+     <Button variant="ghost" disabled={busy} onClick={()=>{setSettingsError('');setSettingsOpen(true);}}>连接设置</Button>
     </ActionRow>
    </PlatformAccount>
    {connected ? <Tabs items={['记录','互动']} value={tab} onChange={setTab} label="抖音功能">

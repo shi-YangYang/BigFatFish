@@ -1,5 +1,5 @@
-import { ArrowUpRight, MessageCircle, Music2, Tv, ScanLine } from "lucide-react";
-import type { ReactNode } from "react";
+import { ChevronRight, MessageCircle, Music2, Tv, ScanLine } from "lucide-react";
+import { useId, type ReactNode } from "react";
 import { Button } from "../../../components/Controls";
 import { Card } from "../../../components/Surfaces";
 import { SectionCard, SectionHeading } from "../../../components/PageLayout";
@@ -7,9 +7,9 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import "../connections.css";
 
 export const platforms = [
-  { name: "QQ", icon: MessageCircle, tone: "qq", description: "好友私聊、群聊和表情" },
-  { name: "B站", icon: Tv, tone: "bilibili", description: "观看视频，把感兴趣的内容分享到 QQ" },
-  { name: "抖音", icon: Music2, tone: "douyin", description: "浏览短视频、点赞和评论" },
+  { name: "QQ", icon: MessageCircle, tone: "qq" },
+  { name: "B站", icon: Tv, tone: "bilibili" },
+  { name: "抖音", icon: Music2, tone: "douyin" },
 ] as const;
 type Platform = (typeof platforms)[number]["name"];
 
@@ -18,22 +18,27 @@ function PlatformMark({ name }: { name: Platform }) {
   return <span className={`channel-mark channel-mark--${tone}`} aria-hidden="true"><Glyph size={22} strokeWidth={1.8}/></span>;
 }
 
-export function PlatformTile({ platform, status, open }: { platform: typeof platforms[number]; status: string; open: () => void }) {
+export function PlatformTile({ platform, status, open, restoreFocus }: {
+  platform: typeof platforms[number]; status: string; open: () => void; restoreFocus: boolean;
+}) {
+  const statusId = useId();
   return <Card className="channel-tile">
-    <div className="channel-tile-meta"><PlatformMark name={platform.name}/><ConnectionStatus label={status}/></div>
-    <div className="channel-tile-copy"><h3>{platform.name}</h3><p>{platform.description}</p></div>
-    <Button className="channel-tile-action" onClick={open}>管理连接<ArrowUpRight size={15} aria-hidden="true"/></Button>
+    <PlatformMark name={platform.name}/>
+    <div className="channel-tile-copy"><h3>{platform.name}</h3><span id={statusId}><ConnectionStatus label={status}/></span></div>
+    <ChevronRight className="channel-tile-chevron" size={16} strokeWidth={1.7} aria-hidden="true"/>
+    <Button className="channel-tile-action" variant="ghost" aria-label={`打开 ${platform.name} 连接`}
+      aria-describedby={statusId} autoFocus={restoreFocus} onClick={open}/>
   </Card>;
 }
 
-export function PlatformAccount({ platform, name, accountId, status, children }: {
-  platform: Platform; name?: string; accountId?: string; status?: string; children?: ReactNode;
+export function PlatformAccount({ platform, name, accountId, status, headerAction, children }: {
+  platform: Platform; name?: string; accountId?: string; status?: string; headerAction?: ReactNode; children?: ReactNode;
 }) {
   return <Card className={`connection-account ${platform === "QQ" ? "qq-account-card" : "platform-account-card"}`}>
     <div className="channel-account-head"><PlatformMark name={platform}/>
       <SectionHeading className={platform === "QQ" ? "qq-account-heading" : "platform-account-heading"} title={<>{platform}{name && <span className="account-name"> · {name}</span>}</>}
         description={accountId || undefined}
-        actions={status && <span className="account-status"><ConnectionStatus label={status}/></span>}/>
+        actions={(status || headerAction) && <>{status && <span className="account-status"><ConnectionStatus label={status}/></span>}{headerAction}</>}/>
     </div>
     {children}
   </Card>;

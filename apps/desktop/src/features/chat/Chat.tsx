@@ -45,8 +45,7 @@ export function Chat({
     [streamOffline, setStreamOffline] = useState(false),
     [streamRetry, setStreamRetry] = useState(0),
     [changingModel, setChangingModel] = useState(false),
-    [lastRepaired, setLastRepaired] = useState(""),
-    [pickedModel, setPickedModel] = useState("");
+    [lastRepaired, setLastRepaired] = useState("");
   const [tools, setTools] = useState<
       { name: string; state: string; at: string }[]
     >([]),
@@ -82,7 +81,7 @@ export function Chat({
       if (routes.chat !== modelId) await api("/v1/model-routes", "PUT", { ...routes, chat: modelId });
       setRoutes({...routes, chat: modelId});
     }
-    setLastRepaired(lastReply?.id ?? ""); setPickedModel("");
+    setLastRepaired(lastReply?.id ?? "");
   }
   function addChatModel() { configureModel(useModel, !!selected); }
   function updateText(value: string) {
@@ -98,7 +97,6 @@ export function Chat({
     const next = { id };
     currentSelection.current = next;
     setSelection(next);
-    setPickedModel("");
     updateText(drafts.current.get(id) ?? "");
     setMessages([]);
     setTools([]);
@@ -287,18 +285,19 @@ export function Chat({
           <Button
             type="button"
             className="history-toggle"
+            variant="ghost"
             size="icon"
             aria-label="历史对话"
             title="历史对话"
             onClick={() => setHistory(true)}
             aria-expanded={history}
           >
-            <History size={18} aria-hidden="true" />
+            <History size={16} aria-hidden="true" />
           </Button>
           <h1 className="chat-title" title={title}>
             {title}
           </h1>
-          <Button
+          {selected && <Button
             type="button"
             className="new-chat-button"
             aria-label="新对话"
@@ -308,7 +307,7 @@ export function Chat({
           >
             <Icon name="plus" />
             <span>新对话</span>
-          </Button>
+          </Button>}
         </>,
       )}
       {active && history && (
@@ -418,14 +417,13 @@ export function Chat({
             {recoverModel && (!!selected || !!chatCandidates.length) && <div className="chat-model-recovery">
               <p role="status">{!selected ? "选择一个聊天模型即可开始。" : failedModel ? "模型没有完成上次回复。可以重试，也可以更换模型继续这段对话。" : "这段对话的模型不可用。换一个模型继续聊，历史和草稿都会保留。"}</p>
               <ActionRow>
-                {!!chatCandidates.length && <>
-                  <Field>可用聊天模型<Select disabled={!connected || busy || changingModel} value={pickedModel} onValueChange={setPickedModel}>
-                    <option value="">选择模型</option>{chatCandidates.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
-                  </Select></Field>
-                  <Button disabled={!connected || !pickedModel || busy || changingModel} busy={changingModel} onClick={() => {
-                    setChangingModel(true); void useModel(pickedModel).catch(fail).finally(() => setChangingModel(false));
-                  }}>使用这个模型</Button>
-                </>}
+                {!!chatCandidates.length && <Field>可用聊天模型<Select disabled={!connected || busy || changingModel} value="" onValueChange={modelId => {
+                  if (!modelId || changingModel) return;
+                  setChangingModel(true);
+                  void useModel(modelId).catch(fail).finally(() => setChangingModel(false));
+                }}>
+                  <option value="">{changingModel ? "正在切换…" : "选择并使用模型"}</option>{chatCandidates.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+                </Select></Field>}
                 <Button disabled={!connected || busy || changingModel} onClick={addChatModel}>添加聊天模型</Button>
               </ActionRow>
             </div>}
