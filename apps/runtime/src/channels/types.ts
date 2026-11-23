@@ -1,5 +1,5 @@
 export interface QQConfig { mode?:'managed'|'external'; url:string; accountId:string; ownerId:string; friendIds?:string[]; groupReplyMode?:'all'|'mention'; groups:string[]; enabled:boolean; replyEnabled:boolean; proactiveEnabled:boolean }
-export interface Segment {type:'text'|'image'|'record'|'file'|'at'|'reply';data:Record<string,string>}
+export interface Segment {type:'text'|'image'|'record'|'file'|'at'|'reply'|'opaque';data:Record<string,string>}
 export interface Target {kind:'private'|'group';id:string}
 export interface ConnectionHealth {state:string;error?:string}
 export interface QQHost {event:(value:unknown)=>void;status:(state:ConnectionHealth)=>void}
@@ -14,4 +14,4 @@ export interface QQMessageIssue {
   at: string;
 }
 
-export type QQAction = 'history_private'|'history_group'|'message'|'recall'|'group_card'|'like'|'reaction'|'profile'|'profile_update'|'avatar'|'posts'|'post'|'space_profile'|'space_update';
+export type QQAction = 'history_private'|'history_group'|'message'|'recall'|'group_card'|'like'|'reaction'|'profile'|'profile_update'|'signature_update'|'avatar'|'posts'|'post'|'space_profile'|'space_update'|'notices'|'essence'|'member_card';

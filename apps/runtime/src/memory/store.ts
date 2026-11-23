@@ -1,9 +1,9 @@
-import { readScenarios, syncScenarioFact } from './scenario-store.js';
-import { profileDay, syncPersonProfile } from './person-profile.js';
-import { inferAttribution, memoryAccess, validAttribution } from './attribution.js';
+import { readScenarios, syncScenarioFact } from './scenes/scenario-store.js';
+import { profileDay, syncPersonProfile } from './identity/person-profile.js';
+import { inferAttribution, memoryAccess, validAttribution } from './identity/attribution.js';
 import type { MemoryAttribution, MemoryAudience, ProfileEntry } from './types.js';
-import { fuseRanks } from './rank-fusion.js';
-import { recallTerms } from './recall-terms.js';
+import { fuseRanks } from './recall/rank-fusion.js';
+import { recallTerms } from './recall/recall-terms.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { transaction } from '../storage/database.js';
 import type { DatabaseSync } from 'node:sqlite';

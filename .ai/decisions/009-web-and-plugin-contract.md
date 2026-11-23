@@ -1,6 +1,6 @@
 # Decision 009: Web 入口与可安装插件契约
 
-状态：P7实施采用；P6本地代码返工已获新独立PASS并提交a0e8f61。
+状态：历史决策。独立网页及其 HTTPS 网关已退役；插件契约另见[现行开发者指南](../../docs/developer.md)。
 
 ## Context
 

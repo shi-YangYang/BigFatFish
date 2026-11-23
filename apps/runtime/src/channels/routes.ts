@@ -3,7 +3,7 @@ import { InputError,object } from '../ai/types.js';
 import type { Channels } from './service.js';
 export function registerChannels(app:FastifyInstance,channels:Channels,managedStart?:()=>unknown,managedPause?:()=>unknown){
   app.get('/v1/channels/qq/sticker-options',async()=>channels.stickers.options());
-  app.put('/v1/channels/qq/sticker-options',async req=>channels.stickers.saveOptions(req.body));
+  app.put('/v1/channels/qq/sticker-options',async req=>channels.saveStickerOptions(req.body));
   app.get('/v1/channels/qq/stickers',async()=>channels.stickers.list());
   app.post('/v1/channels/qq/stickers',async req=>channels.stickers.add(req.body));
   app.get<{Params:{id:string}}>('/v1/channels/qq/stickers/:id/image',async req=>channels.stickers.image(req.params.id));

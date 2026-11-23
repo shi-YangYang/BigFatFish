@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Keep the pinned third-party source byte-identical on every checkout.
+third_party/napcat/** -text

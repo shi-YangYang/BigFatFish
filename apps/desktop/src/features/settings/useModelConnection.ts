@@ -1,11 +1,11 @@
 import { dismissError } from '../../components/Notifications';
 import { useEffect, useRef, useState } from 'react';
 import type { ModelConfig } from '../../../../runtime/src/ai/types';
-import type { ModelDiscovery, ModelTestResult } from '../../../../runtime/src/ai/model-connection';
+import type { ModelDiscovery, ModelTestResult } from '../../../../runtime/src/ai/models/model-connection';
 import { api } from "../../api/client";
 type Action = 'discover' | 'test';
 interface Result { stamp: string; kind: Action; message: string; error?: boolean }
-export function useModelConnection(form: ModelConfig, key: string, fail: (error: unknown) => void, purpose = 'chat') {
+export function useModelConnection(form: ModelConfig, key: string | undefined, fail: (error: unknown) => void, purpose = 'chat') {
   const connectionStamp = JSON.stringify([form.id, form.provider, form.baseURL, key, purpose]);
   const testStamp = JSON.stringify([form, key, purpose]);
   const sequence = useRef(0), lastError = useRef<unknown>(undefined);
@@ -22,7 +22,7 @@ export function useModelConnection(form: ModelConfig, key: string, fail: (error:
     clearError();
     const seq = ++sequence.current, stamp = stampFor(kind);
     setPending({ stamp, kind }); setResult(undefined);
-    const body = { ...form, ...(key ? { apiKey: key } : {}) };
+    const body = { ...form, ...(key !== undefined ? { apiKey: key } : {}) };
     try {
       if (kind === 'discover') {
         const value = await api<ModelDiscovery>('/v1/models/discover', 'POST', body);

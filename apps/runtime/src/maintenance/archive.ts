@@ -1,7 +1,8 @@
-import {classifyLegacyMemories, validAttribution} from '../memory/attribution.js';
+import { isBuiltinPlatform } from '../plugins/builtin.js';
+import {classifyLegacyMemories, validAttribution} from '../memory/identity/attribution.js';
 import {canShareMemory, type MemoryAttribution} from '../memory/types.js';
-import {ConversationNotes} from '../memory/notes.js';
-import {StickerLibrary} from '../channels/stickers.js';
+import {ConversationNotes} from '../memory/notes/notes.js';
+import {StickerLibrary} from '../channels/stickers/library.js';
 import {validateBundle,hash as pluginHash} from '../plugins/package.js';
 import { backup, DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
@@ -30,15 +31,15 @@ import {
   paths,
   preparePaths,
   type DataPaths,
-} from "../paths.js";
-import { acquireInstance } from "../instance.js";
-import { rebuildScenarios } from "../memory/scenario-store.js";
-import { rebuildPersonProfiles } from "../memory/person-profile.js";
+} from "../storage/paths.js";
+import { acquireInstance } from "../host/instance.js";
+import { rebuildScenarios } from "../memory/scenes/scenario-store.js";
+import { rebuildPersonProfiles } from "../memory/identity/person-profile.js";
 import { openDatabase, SCHEMA_VERSION } from "../storage/database.js";
-import { privateCopy } from "../memory/files.js";
-import { Configuration } from "../ai/configuration.js";
+import { privateCopy } from "../storage/private-copy.js";
+import { Configuration } from "../ai/models/configuration.js";
 import { configuration as parseConfig } from "../channels/protocol.js";
-import { SecretStore } from "../ai/secrets.js";
+import { SecretStore } from "../ai/models/secrets.js";
 
 export const groups = {
   persona: ["personas"],
@@ -67,6 +68,12 @@ export const groups = {
 } as const;
 export type Scope = keyof typeof groups;
 type Row = Record<string, SQLInputValue>;
+// Retired installers are not portable account data. Only the unsuffixed platform
+// configs are restored, with their sessions disabled just as in older archives.
+function retiredPlatformPackage(row: Row) {
+  return typeof row.id === 'string' && row.id.startsWith('sdk:') && isBuiltinPlatform(row.id.slice(4));
+}
+
 interface Payload {
   version: 1;
   schema: number;
@@ -227,6 +234,7 @@ export async function exportArchive(
                 : `SELECT * FROM ${table}`,
             )
             .all() as Row[];
+          if (table === 'plugin_config') tables[table] = tables[table].filter(row => !retiredPlatformPackage(row));
           for (const row of tables[table]) {
             if (table === "models" || table === "plugin_config")
               row.secret =
@@ -323,6 +331,7 @@ export async function restoreArchive(p: DataPaths, file: string, password?: stri
             importedColumns.some((c) => !Object.hasOwn(row, c))
           )
             throw new Error("INVALID_ARCHIVE_COLUMNS");
+          if (table === 'plugin_config' && retiredPlatformPackage(row)) continue;
           if (table === 'memories' && !legacyMemory) {
             const actor = {role:row.actor_role,personKey:row.person_key,scopeKey:row.scope_key} as MemoryAttribution;
             if (!validAttribution(actor) || (row.visibility === 'shared' && !canShareMemory(actor))) throw new Error('INVALID_ARCHIVE_MEMORY');

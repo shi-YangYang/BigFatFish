@@ -2,7 +2,7 @@ import {readInput as input} from '../io/input.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createRuntimeClient } from '../runtime/client.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 import type { MemoryTask } from '../../../runtime/src/memory/types.js';
 export async function lifeCommand(p:DataPaths,args:string[],output:(v:unknown)=>void) {
  const { request: call } = createRuntimeClient(p);

@@ -2,7 +2,7 @@ import {readInput as input} from '../io/input.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createRuntimeClient } from '../runtime/client.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 import type { ChatMessage, Conversation } from '../../../runtime/src/ai/types.js';
 export async function aiCommand(p: DataPaths, args: string[], json: boolean, output: (v: unknown) => void) {
   const { request: call, conversationEvents } = createRuntimeClient(p);

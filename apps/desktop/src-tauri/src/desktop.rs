@@ -183,6 +183,31 @@ pub fn quit(app: &tauri::AppHandle) {
     }
 }
 
+pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    if window.label() != "main" || ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        api.prevent_close();
+        if settings(window.app_handle()).map(|s| s.background).unwrap_or(true) {
+            // Keep the window in the taskbar/Dock, including in managed development.
+            if let Err(error) = window.minimize() {
+                eprintln!("Could not minimize the main window: {error}");
+            }
+        } else {
+            quit(window.app_handle());
+        }
+    }
+}
+
+pub fn open_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show(); // A login-time --background launch may have hidden it.
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
 pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let s = settings(app.handle())?;
     *SELECTED.lock().unwrap() = Some(s.data_dir.into());
@@ -213,12 +238,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-            }
+            "open" => open_main_window(app),
             "pause" => {
                 tauri::async_runtime::spawn(async {
                     let _ = super::runtime_request(

@@ -2,6 +2,8 @@ export type ModelPurpose = 'chat' | 'asr' | 'tts';
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export interface ModelConfig {
   id: string; label: string; provider: 'deepseek' | 'openai'; baseURL: string; model: string;
+  /** Known configured uses, when available; not a claim about provider capabilities. */
+  purposes?: ModelPurpose[];
   /** Legacy input fields; ignored on save and never forwarded as generation settings. */
   contextWindow?: number; maxTokens?: number; timeoutMs?: number; vision?: boolean; reasoningEffort?: ReasoningEffort;
 }

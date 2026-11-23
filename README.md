@@ -2,7 +2,7 @@
 
 一条可以长期陪伴、积累记忆与经历的 AI 鱼。
 
-大肥鱼可以在桌面和 Web 上与你聊天，也可以接入 QQ、B站和抖音。各入口共用人格、模型配置和记忆，桌面和 Web 的聊天历史只显示本地对话。
+大肥鱼可以在桌面窗口与你聊天，也可以接入 QQ、B站和抖音。各入口共用人格、模型配置和记忆，桌面聊天历史只显示本地对话。
 
 ## 快速开始
 
@@ -13,12 +13,13 @@ npm ci
 npm run desktop:dev
 ```
 
-首次设置完成后，到「设置 → 模型 → 新建配置」添加聊天模型。回到「聊天」即可发送第一条消息，回复会逐步显示。「我的鱼 → 设定」可以选择女儿版或傲娇版，也可以编辑完整人设。模型的测试、语音输入与朗读配置见[模型与聊天指南](docs/ai-core.md)。
+首次打开时点「开始设置模型」，选择服务商、选好聊天模型并填入自己的 API Key，保存后就能回到聊天。本机模型不需要密钥时可留空。以后在「设置 → 模型与声音」按用途选择或添加文本模型、语音输入模型和朗读模型。「我的鱼 → 设定」可以选择女儿版或傲娇版，也可以编辑完整人设。模型的测试、语音输入与朗读配置见[模型与聊天指南](docs/ai-core.md)。
 
 使用独立 CLI 时，在安装源码依赖后执行：
 
 ```bash
 npm run build:node
+npm run build:napcat # 使用托管 QQ 时需要
 npm run cli -- start
 npm run cli -- status
 npm run cli -- logs --lines 30
@@ -31,13 +32,15 @@ npm run cli -- stop
 
 ### 连接平台
 
+QQ、B站和抖音都是内置能力，在「连接」中管理，不需要先安装扩展。
+
 | 入口 | 可以做什么 |
 | --- | --- |
 | [QQ](docs/qq.md) | 在「连接 → QQ」扫码，在手机上确认，再设置主人、允许私聊的好友和群。私聊和群聊在 QQ 中继续。 |
 | [B站](docs/bilibili.md) | 扫码登录，在记录中查看观看结果，并把可分享的结果发给已授权的 QQ 对象。 |
 | [抖音](docs/douyin.md) | 在专用浏览器中完成登录和验证，然后按授权范围执行互动。私信、分享和投稿的发送协议尚未接通。 |
 
-大肥鱼先回复，再在后台按发言人和聊天范围整理称呼、偏好和已确定的安排。在「我的鱼 → 记忆」可以查重要事项、接着看上次聊到的场景，也可以查看人物资料。点开来源能看到当时的原话。年龄按本人陈述的日期记录，资料可以纠正或删除。这里也可以启用「按语义回忆」。「经历」可以查看时间线与自动写好的日记，也可手动补写。用法见[模型、人格与聊天](docs/ai-core.md)。
+大肥鱼先回复，再在后台按发言人和聊天范围整理称呼、偏好和已确定的安排。在「我的鱼 → 记忆」可以查重要事项、接着看上次聊到的场景，也可以查看人物资料。点开来源能看到当时的原话。年龄按本人陈述的日期记录，资料可以纠正或删除。这里也可以启用「按语义回忆」。「我的鱼 → 经历」按时间查看发生过的事；「我的鱼 → 日记」可以读大肥鱼写好的日记，也可以手动补写。用法见[模型、人格与聊天](docs/ai-core.md)。
 
 ### 数据位置
 
@@ -63,7 +66,7 @@ npm run cli -- stop --data-dir .local/bigfatfish
 
 ### 桌面开发
 
-`npm run desktop:dev` 一起管理后台、前端和桌面窗口，默认沿用桌面已保存的数据目录、模型配置和聊天记录。启动时会核实并接管本仓库的旧后台。关闭开发窗口或按 Ctrl+C 会结束这次开发会话。修改后端源码后重新运行命令；前端和 Rust 支持热重载。
+`npm run desktop:dev` 一起管理后台、前端和桌面窗口，默认沿用桌面已保存的数据目录、模型配置和聊天记录。启动时会核实并接管本仓库的旧后台。点关闭按钮默认只最小化窗口：Windows 从任务栏恢复，macOS 从 Dock 恢复，后台连接不中断。要结束开发会话，选菜单「退出并停止服务」或在终端按 Ctrl+C。修改后端源码后重新运行命令；前端和 Rust 支持热重载。
 
 开发窗口保留备份检查、更新检查和离线签名验证；备份导出/恢复需先退出开发会话，再使用独立 CLI，安装更新需使用正常安装版。重启开发请退出后重新运行 `npm run desktop:dev`。
 
@@ -73,7 +76,7 @@ npm run cli -- stop --data-dir .local/bigfatfish
 BIGFATFISH_DATA_DIR="$PWD/.local/bigfatfish" npm run desktop:dev
 ```
 
-Windows PowerShell 可先设置 `$env:BIGFATFISH_DATA_DIR = Join-Path $PWD '.local/bigfatfish'`。`npm run frontend:dev` 仅打开前端预览；真实本机状态通过桌面原生宿主读取，不向普通网页提供连接凭据。
+Windows PowerShell 可先设置 `$env:BIGFATFISH_DATA_DIR = Join-Path $PWD '.local/bigfatfish'`。`npm run frontend:dev` 仅打开前端预览；不连接真实 Runtime。完整功能请在桌面窗口中使用。
 
 ### 验证与 Linux 运行
 
@@ -89,17 +92,20 @@ docker build -f infra/docker/Dockerfile -t bigfatfish:local .
 docker run --rm bigfatfish:local node scripts/smoke.mjs
 ```
 
-测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 准备独立资源并生成本机安装包；macOS 使用本地 ad-hoc 签名，不执行公证或发布。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器 loopback 内；Compose 持久卷、systemd 用户服务及备份操作见 [安装指南](docs/install-and-migrate.md)。
+测试和 smoke 使用临时目录并清理自己的后台进程。`desktop:build` 准备独立资源并生成本机安装包；macOS 使用本地 ad-hoc 签名，不执行公证或发布。Linux 无桌面时可通过 CLI 管理大肥鱼。Docker 默认以非 root 用户运行前台 Runtime，管理接口保留在容器 loopback 内；Compose 持久卷、systemd 用户服务及备份操作见 [安装指南](docs/install-and-migrate.md)。
 
 ## 源码导航
 
 | 要修改的内容 | 从这里开始 |
 | --- | --- |
-| 桌面与 Web 共用的业务页面 | `apps/desktop/src/features/` 下的 [聊天](apps/desktop/src/features/chat/)、[连接](apps/desktop/src/features/connections/)、[我的鱼](apps/desktop/src/features/fish/) 和 [设置](apps/desktop/src/features/settings/) |
+| 桌面业务页面 | `apps/desktop/src/features/` 下的 [聊天](apps/desktop/src/features/chat/)、[连接](apps/desktop/src/features/connections/)、[我的鱼](apps/desktop/src/features/fish/) 和 [设置](apps/desktop/src/features/settings/) |
 | 通用组件和样式 | [组件](apps/desktop/src/components/)、[beUI](apps/desktop/src/components/beui/)、[样式](apps/desktop/src/styles/) |
 | 界面如何访问后台 | [前端 API](apps/desktop/src/api/)、[Runtime 服务](apps/runtime/src/) |
+| 聊天、人格与记忆 | [对话](apps/runtime/src/ai/chat/)、[人设](apps/runtime/src/ai/persona/)、[模型配置](apps/runtime/src/ai/models/)、[记忆学习](apps/runtime/src/memory/learning/)、[回忆检索](apps/runtime/src/memory/recall/) |
+| 内置平台接入 | [QQ](apps/runtime/src/channels/)、[B站](apps/runtime/src/bilibili/)、[抖音](apps/runtime/src/douyin/)；外部插件使用单独的 [SDK](plugins/sdk/) |
 | CLI 子命令 | [命令入口](apps/cli/src/main.ts)、[命令处理](apps/cli/src/commands/)、[输入](apps/cli/src/io/input.ts)、[Runtime 请求与进程控制](apps/cli/src/runtime/) |
-| 桌面与浏览器各自的入口 | [Tauri 原生宿主](apps/desktop/src-tauri/)、[Web 入口](apps/web/src/) |
+| 桌面窗口 | [Tauri 原生宿主](apps/desktop/src-tauri/)、[WebView 界面入口](apps/desktop/src/main.tsx) |
+| 开发、构建与验证 | [工程脚本](scripts/)、[分业务集成测试](tests/integration/)、[测试夹具](tests/fixtures/)、[部署配置](infra/) |
 
 插件、辅助服务、部署与测试等目录见 [技术栈与工程边界](constitution/tech-stack.md#目录与职责)。
 
@@ -109,6 +115,6 @@ docker run --rm bigfatfish:local node scripts/smoke.mjs
 - 安装与扩展见 [安装与迁移](docs/install-and-migrate.md) 和 [开发者指南与 SDK](docs/developer.md)。
 - 参与开发前阅读 [项目协作规范](.ai/AGENTS.md)、[贡献指南](.github/CONTRIBUTING.md) 和 [当前规格](specs/README.md)。社区约定与安全问题报告见 [行为准则](docs/CODE_OF_CONDUCT.md) 和 [安全说明](.github/SECURITY.md)。
 
-项目采用 [MIT 许可证](LICENSE)。集成第三方代码前需单独核对其许可证与使用条件。
+大肥鱼自有代码采用 [MIT 许可证](LICENSE)。内置 NapCat 等第三方内容保留各自授权，其中 NapCat 限制商业使用及修改版公开发布，详见[第三方来源与许可](third_party/NAPCAT-NOTICE.md)。集成或再分发前需单独核对许可证与使用条件。
 
 QQ 真实账号已确认扫码登录和文字回复。图片识别、其他平台账号以及 Windows 安装的验证范围各自记录，详见[QQ 验证记录](docs/qq.md)和[开发记录](docs/progress/development.md)。

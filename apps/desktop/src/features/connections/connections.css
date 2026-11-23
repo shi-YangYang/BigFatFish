@@ -1,0 +1,64 @@
+/* Channel directory, account and sign-in states share a single visual language. */
+.connection-directory, .connection-details, .qq-connection { min-width: 0; container-type: inline-size; }
+.connection-directory .connection-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--form-gap); }
+.connection-list .business-card.channel-tile {
+  position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 10px; align-items: center; min-width: 0; padding: 12px 14px;
+}
+.connection-list .channel-tile:hover { background: var(--surface-soft); border-color: var(--border-strong); }
+.channel-tile-chevron { color: var(--muted); }
+.connection-list .business-card.channel-tile > .channel-tile-action {
+  position: absolute; inset: 0; grid-area: auto; width: 100%; height: 100%; border: 0; margin: 0;
+  border-radius: inherit; background: transparent;
+}
+.channel-tile .channel-tile-action:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.channel-mark {
+  flex: none; display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  color: var(--brand); background: var(--accent-soft);
+}
+.channel-mark--bilibili { color: #48677e; background: #eaf1f6; }
+.channel-mark--douyin { color: #3f626b; background: #eaf3f3; }
+.channel-tile-copy { display: grid; justify-items: start; min-width: 0; gap: 3px; }
+.channel-tile-copy h3 { font-size: 15px; margin: 0; }
+.connection-account.business-card {
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--form-gap);
+  min-width: 0; margin: 0;
+}
+.channel-account-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.channel-account-head .section-heading { flex: 1; min-width: 0; margin: 0; }
+.channel-account-head h2, .channel-account-head p { margin: 0; overflow-wrap: anywhere; }
+.channel-account-head .account-name { font-size: inherit; }
+.connection-account .ui-action-row, .connection-account .qq-connect-actions, .connection-account .platform-connect-actions { margin: 0; }
+.channel-login-prompt {
+  min-width: 0; display: flex; align-items: center; justify-content: flex-start;
+  gap: 12px; padding: 14px 16px; border-radius: 10px; background: var(--accent-soft);
+}
+.channel-login-prompt p { margin: 0; color: var(--color-foreground, inherit); line-height: 1.6; }
+.channel-login-prompt > svg { flex: none; color: var(--brand); }
+.channel-login-prompt.with-qr { gap: 20px; }
+.channel-login-prompt img { display: block; flex: none; width: min(168px, 100%); height: auto; border-radius: 8px; background: white; padding: 6px; }
+.channel-authorization .qq-settings-group { align-content: start; }
+.channel-authorization .qq-reply-options { align-items: start; }
+.channel-form-footer { padding-top: 12px; border-top: 1px solid var(--border); }
+.channel-record-title { font-weight: 600; }
+.channel-record-body { color: var(--muted); }
+.channel-records .operation-record-heading .operation-record-status { flex: none; }
+.channel-records .operation-record-status { padding: 2px 8px; border-radius: 100px; background: var(--surface-soft); }
+@container (min-width: 720px) {
+  .channel-authorization .qq-reply-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .channel-authorization .qq-proactive-row { grid-column: 1 / -1; }
+}
+@container (max-width: 640px) {
+  .connection-directory .connection-list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .channel-tile-copy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 480px) {
+  .channel-login-prompt.with-qr { flex-direction: column; text-align: center; gap: 8px; }
+}
+.channel-permission-list { display: grid; gap: 2px; }
+.channel-permission-list .ui-field { margin: 0; padding-block: 8px; }
+.channel-permission-list .ui-field + .ui-field { border-top: 1px solid var(--border); }
+
+.reply-audience { display:flex; flex-wrap:wrap; gap:12px 32px; margin:0; }
+.reply-audience dt { color:var(--muted); font-size:.9em; }
+.reply-audience dd { margin:4px 0 0; overflow-wrap:anywhere; }

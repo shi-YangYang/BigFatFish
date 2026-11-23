@@ -1,9 +1,11 @@
-import { Alert, Card, Disclosure } from "../../components/Surfaces";
-import { Field, Input, Checkbox, Button, ActionRow } from "../../components/Controls";
+import { PageStack, SectionHeading, SectionCard } from "../../components/PageLayout";
+import { Alert, Card, Disclosure, Loading } from "../../components/Surfaces";
+import { Field, Input, Checkbox, Button, ActionRow, FormGrid } from "../../components/Controls";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Drawer } from "../../components/UI";
 import { api } from "../../api/client";
+import { errorText } from "../../api/errors";
 interface Settings {
   dataDir: string;
   background: boolean;
@@ -19,21 +21,23 @@ export function Setup({
 }) {
   const [s, setS] = useState<Settings>(),
     [busy, setBusy] = useState(false),
+    [readError, setReadError] = useState(""),
+    [attempt, setAttempt] = useState(0),
     [name, setName] = useState("大肥鱼");
   useEffect(() => {
-    void invoke<Settings>("desktop_settings").then(setS).catch(fail);
-  }, [fail]);
+    let active = true;
+    void invoke<Settings>("desktop_settings").then(value => { if (active) setS(value); }, error => { if (active) setReadError(errorText(error)); });
+    return () => { active = false; };
+  }, [attempt]);
   async function save() {
     if (!s) return;
     setBusy(true);
     try {
       await invoke("desktop_configure", { ...s, complete: true });
-      const p = await api<Record<string, unknown>>("/v1/persona");
-      if (!s.complete)
-        await api("/v1/persona", "PUT", {
-          ...p,
-          name: name.trim() || "大肥鱼",
-        });
+      if (!s.complete && name.trim() && name.trim() !== "大肥鱼") {
+        const p = await api<Record<string, unknown>>("/v1/persona");
+        await api("/v1/persona", "PUT", { ...p, name: name.trim() });
+      }
       done();
     } catch (e) {
       fail(e);
@@ -41,53 +45,33 @@ export function Setup({
       setBusy(false);
     }
   }
+  if (readError) return <PageStack><Alert role="alert">{readError}</Alert><ActionRow><Button onClick={() => { setReadError(""); setAttempt(value => value + 1); }}>重新读取设置</Button></ActionRow></PageStack>;
+  if (!s) return <Loading>正在读取运行设置…</Loading>;
   return (
-    <section className="page-section">
-      <h2>{s?.complete ? "运行设置" : "欢迎养一条自己的鱼"}</h2>
-      {s && (
-        <div className="settings">
-          {!s.complete && <Field>
-            数据目录
-            <Input
-              disabled={s.complete}
-              value={s.dataDir}
-              onChange={(e) => setS({ ...s, dataDir: e.target.value })}
-            />
-          </Field>}
-          {!s.complete && (
-            <Field>
-              鱼的名字
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </Field>
-          )}
-          <Field>
-            <Checkbox
-
-              checked={s.background}
-              onCheckedChange={(value) => setS({ ...s, background: value })}
-            />
-            关闭窗口后继续在后台运行
-          </Field>
-          <Field>
-            <Checkbox
-
-              checked={s.autostart}
-              onCheckedChange={(value) => setS({ ...s, autostart: value })}
-            />
-            登录电脑时启动
-          </Field>
+    <PageStack className="settings-runtime">
+      <SectionHeading title={s.complete ? "运行设置" : "欢迎养一条自己的鱼"} />
+      <Card className="runtime-card">
+        <form className="settings setup-form" onSubmit={event => { event.preventDefault(); if (!busy) void save(); }}>
+          {!s.complete ? <Disclosure title="自定义名字和数据目录">
+            <FormGrid>
+              <Field>鱼的名字<Input value={name} onChange={e => setName(e.target.value)} /></Field>
+              <Field>数据目录<Input value={s.dataDir} onChange={e => setS({ ...s, dataDir: e.target.value })} /></Field>
+            </FormGrid>
+          </Disclosure> : <fieldset className="runtime-preferences"><legend>窗口与启动</legend>
+            <Field><Checkbox checked={s.background} onCheckedChange={value => setS({ ...s, background: value })} />关闭窗口时最小化</Field>
+            <Field><Checkbox checked={s.autostart} onCheckedChange={value => setS({ ...s, autostart: value })} />登录电脑时启动</Field>
+          </fieldset>}
           <Button
-            type="button"
+            type="submit"
             variant="primary"
-            disabled={busy}
-            onClick={() => void save()}
+            busy={busy}
           >
             {s.complete ? "保存设置" : "开始设置模型"}
           </Button>
-          {s.complete && <div className="readonly-setting"><span>数据保存位置</span><span>{s.dataDir}</span></div>}
-        </div>
-      )}
-    </section>
+        </form>
+        {s.complete && <dl className="runtime-location"><dt>数据保存位置</dt><dd>{s.dataDir}</dd></dl>}
+      </Card>
+    </PageStack>
   );
 }
 const scopeNames: Record<string, string> = {
@@ -123,13 +107,27 @@ function ConfirmAction({
 }
 export function Backup({ fail }: { fail: (e: unknown) => void }) {
   const [mode, setMode] = useState<"export" | "restore">("export");
-  const [file, setFile] = useState(""),
-    [password, setPassword] = useState(""),
+  const [files, setFiles] = useState({ export: "", restore: "" }),
+    [passwords, setPasswords] = useState({ export: "", restore: "" }),
     [credentials, setCredentials] = useState(false),
     [scopes, setScopes] = useState(Object.keys(scopeNames)),
     [confirm, setConfirm] = useState(false),
     [result, setResult] = useState(""),
     [busy, setBusy] = useState(false);
+  const file = files[mode], password = passwords[mode];
+  async function chooseFile() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const selected = await invoke<string | null>("desktop_pick_backup_file", { mode });
+      if (selected) {
+        setFiles(previous => ({ ...previous, [mode]: selected }));
+        setConfirm(false);
+        setResult("");
+      }
+    } catch (e) { fail(e); }
+    finally { setBusy(false); }
+  }
   async function run(action: string) {
     setBusy(true);
     try {
@@ -159,22 +157,24 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
       setBusy(false);
     }
   }
-  return <section className="page-section">
-    <h2>备份与恢复</h2>
+  return <PageStack className="settings-backup">
+    <SectionHeading title="备份与恢复" />
     <div className="memory-layer-switch" role="group" aria-label="备份操作">
       <Button aria-pressed={mode === "export"} disabled={busy} onClick={() => { setMode("export"); setConfirm(false); setResult(""); }}>备份数据</Button>
       <Button aria-pressed={mode === "restore"} disabled={busy} onClick={() => { setMode("restore"); setConfirm(false); setResult(""); }}>恢复数据</Button>
     </div>
-    <Card>
-      <h3>{mode === "export" ? "创建备份" : "从备份恢复"}</h3>
-      <p className="muted">{mode === "export" ? "备份时会暂时停止服务。" : "恢复会替换当前数据，旧数据会保留用于回退。"}</p>
-      <Field>{mode === "export" ? "保存到" : "备份文件"}<Input value={file} disabled={busy} placeholder="填写备份文件的完整路径" onChange={e => setFile(e.target.value)} /></Field>
+    <SectionCard level={3} title={mode === "export" ? "创建备份" : "从备份恢复"}
+      description={mode === "export" ? "备份时会暂时停止服务。" : "恢复会替换当前数据，旧数据会保留用于回退。"}>
+      <ActionRow className="backup-file-choice">
+        <Button disabled={busy} onClick={() => void chooseFile()}>{mode === "export" ? "选择保存位置" : "选择备份文件"}</Button>
+        <span role="status" className="muted">{file || "尚未选择"}</span>
+      </ActionRow>
       {mode === "export" && <Disclosure title="选择备份内容">
         <fieldset className="checkbox-grid"><legend>备份内容</legend>
           {Object.entries(scopeNames).map(([id, label]) => <Field key={id}><Checkbox checked={scopes.includes(id)} disabled={busy} onCheckedChange={value => setScopes(value ? [...scopes, id] : scopes.filter(scope => scope !== id))} />{label}</Field>)}
         </fieldset>
       </Disclosure>}
-      <Field>{mode === "export" ? "加密密码（可选，至少 12 个字符）" : "备份密码（如有）"}<Input type="password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} /></Field>
+      <Field>{mode === "export" ? "加密密码（可选，至少 12 个字符）" : "备份密码（如有）"}<Input type="password" value={password} disabled={busy} onChange={e => setPasswords({ ...passwords, [mode]: e.target.value })} /></Field>
       {mode === "export" && <Field><Checkbox checked={credentials} disabled={busy} onCheckedChange={setCredentials} />包含账号密钥（需要加密密码）</Field>}
       <ActionRow>
         {mode === "export" ? <Button variant="primary" disabled={busy || !file.trim() || !scopes.length || (credentials && password.length < 12) || (!!password && password.length < 12)} onClick={() => void run("export")}>创建备份</Button> : <>
@@ -184,8 +184,8 @@ export function Backup({ fail }: { fail: (e: unknown) => void }) {
       </ActionRow>
       {confirm && <ConfirmAction message="恢复将停止服务并替换当前数据。自动活动会暂停，平台需要重新连接。旧数据会保留。" cancel={() => setConfirm(false)} confirm={() => { setConfirm(false); void run("restore"); }} />}
       {result && <p role="status">{result}</p>}
-    </Card>
-  </section>;
+    </SectionCard>
+  </PageStack>;
 }
 
 export function Updates({ fail }: { fail: (e: unknown) => void }) {
@@ -240,11 +240,9 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
   const confirmation = confirm && <ConfirmAction
     message="安装将验证签名、停止服务并保留当前程序和数据，完成后需要重启应用。"
     cancel={() => setConfirm(undefined)} confirm={() => { const action = confirm; setConfirm(undefined); if (action === "online") void run(true); else void offline(true); }} />;
-  return <section className="page-section">
-    <h3>软件更新</h3>
-    <p className="muted">当前版本 {version}</p>
+  return <SectionCard level={3} className="settings-updater" title="软件更新" description={version ? `当前版本 ${version}` : undefined}
+    actions={<Button disabled={busy} onClick={() => void run()}>检查更新</Button>}>
     <ActionRow>
-      <Button disabled={busy} onClick={() => void run()}>检查更新</Button>
       {state.startsWith("可更新到") && <Button variant="primary" disabled={busy} onClick={() => setConfirm("online")}>安装更新</Button>}
       <Button variant="ghost" disabled={busy} onClick={() => { setPanel("source"); setConfirm(undefined); }}>更新源</Button>
       <Button variant="ghost" disabled={busy} onClick={() => { setPanel("offline"); setConfirm(undefined); }}>离线更新</Button>
@@ -269,5 +267,5 @@ export function Updates({ fail }: { fail: (e: unknown) => void }) {
         {confirmation}
       </div>
     </Drawer>}
-  </section>;
+  </SectionCard>;
 }

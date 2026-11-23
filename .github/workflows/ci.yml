@@ -62,12 +62,12 @@ jobs:
         run: cargo test --locked --features tauri/custom-protocol
         timeout-minutes: 10
   linux-container:
-    name: Linux container / Web
+    name: Linux container / Runtime
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compile Runtime and Web in container
+      - name: Compile Runtime and CLI in container
         run: docker build -f infra/docker/Dockerfile -t bigfatfish:test .
       - name: Run container lifecycle smoke
         run: docker run --rm bigfatfish:test node scripts/smoke.mjs

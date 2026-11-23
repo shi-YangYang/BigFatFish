@@ -2,7 +2,7 @@ import {readInput as input} from '../io/input.js';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRuntimeClient } from '../runtime/client.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 export async function activityCommand(p:DataPaths,args:string[],output:(v:unknown)=>void) {
  const [command, action = 'status', id] = args;
  const { request: call } = createRuntimeClient(p);

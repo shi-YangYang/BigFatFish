@@ -5,7 +5,6 @@
 @source "../features";
 @source "../components";
 @source "../App.tsx";
-@source "../../../web/src";
 
 @theme inline {
   --color-primary: var(--accent);

@@ -1,8 +1,9 @@
+import { PageStack, SectionHeading } from "../../components/PageLayout";
 import { useEffect, useRef, useState } from "react";
 import { Loading } from "../../components/Surfaces";
 import { Field, Input, Select, Textarea, Button, FormGrid, ActionRow } from "../../components/Controls";
 import type { Persona } from "../../../../runtime/src/ai/types";
-import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../../runtime/src/ai/persona-presets";
+import { applyPersonaPreset, matchPersonaPreset, personaPresets, personaCards } from "../../../../runtime/src/ai/persona/presets";
 import { api } from "../../api/client";
 import { Drawer } from "../../components/UI";
 
@@ -41,9 +42,9 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
   const preset = matchPersonaPreset(persona);
   const source=personaCards.find(card=>card.id===persona.cardId);
   return (
-    <section className="page-section personality-settings">
-      <h2>鱼的设定</h2>
-      <form className="settings" onSubmit={event => { event.preventDefault(); void save(); }}>
+    <PageStack className="personality-settings">
+      <SectionHeading title="鱼的设定" />
+      <form className="settings fish-persona-form" onSubmit={event => { event.preventDefault(); void save(); }}>
         <FormGrid>
           <Field>
             名字
@@ -61,12 +62,12 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
             </Select>
           </Field>
         </FormGrid>
-        {preset && <div className="persona-example">
+        {preset && <blockquote className="persona-example">
           <span>口吻示例</span>
           <p>{preset.example}</p>
-        </div>}
+        </blockquote>}
         <ActionRow>
-          <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存设定"}</Button>
+          <Button variant="primary" type="submit" busy={saving}>{saving ? "正在保存…" : "保存设定"}</Button>
           {persona.cardPrompt !== undefined && <Button disabled={saving} onClick={() => setEditingPrompt(true)}>自定义人设</Button>}
           <span role="status">{saved ? "已保存" : ""}</span>
         </ActionRow>
@@ -77,10 +78,9 @@ export function Personality({ fail }: { fail: (e: unknown) => void }) {
           <Field>完整人设<Textarea value={persona.cardPrompt ?? ""} rows={16} maxLength={32000} disabled={saving} onChange={event => change({ ...persona, cardPrompt: event.target.value })} /></Field>
           <ActionRow>
             <Button variant="primary" type="submit" disabled={saving}>{saving ? "正在保存…" : "保存人设"}</Button>
-            <Button disabled={saving} onClick={() => setEditingPrompt(false)}>关闭编辑</Button>
           </ActionRow>
         </form>
       </Drawer>}
-    </section>
+    </PageStack>
   );
 }

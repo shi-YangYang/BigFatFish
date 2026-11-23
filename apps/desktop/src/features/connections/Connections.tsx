@@ -1,21 +1,23 @@
-import { ConnectionStatus } from './ConnectionStatus';
-import { useEffect, useState } from "react";
-import { Card } from "../../components/Surfaces";
-import { Button } from "../../components/Controls";
+import { BackButton } from '../../components/BackButton';
+import { PlatformTile, platforms } from './shared/PlatformSurface';
+import { PageStack, SectionHeading } from '../../components/PageLayout';
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import { Bilibili } from "./Bilibili";
-import { Douyin } from "./Douyin";
+import { Bilibili } from "./bilibili/Bilibili";
+import { Douyin } from "./douyin/Douyin";
 import { QQConnection } from "./qq/QQConnection";
 import { QQMessages } from "./qq/QQMessages";
-import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./connection-status";
+import { activeQQMode, qqStatus, biliStatus, douyinStatus, type BiliStatus, type DouyinStatus } from "./shared/connection-status";
 import type { ChannelStatus } from "../../../../runtime/src/channels/types";
 import type { ManagedQQStatus } from "../../../../runtime/src/channels/managed/types";
 
-export function Connections({ fail }: { fail: (error: unknown) => void }) {
+export function Connections({ fail, onPlan }: { fail: (error: unknown) => void; onPlan?: (platform: "bilibili" | "douyin") => void }) {
   const [tab, setTab] = useState(""),
     [states, setStates] = useState<Record<string, string>>({});
+  const returnTo = useRef("");
   useEffect(() => {
     if (tab) return;
+    returnTo.current = "";
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
@@ -23,7 +25,7 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
         const channel = await api<ChannelStatus>("/v1/channels/qq");
         const component = channel.config?.enabled && channel.config.mode !== "managed" ? undefined
           : await api<ManagedQQStatus>("/v1/channels/qq/component");
-        return qqStatus(activeQQMode(channel, component), channel, component).label;
+        return qqStatus(activeQQMode(channel), channel, component).label;
       };
       const results = await Promise.allSettled([
         qq(),
@@ -42,16 +44,8 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
   }, [tab]);
   if (tab)
     return (
-      <>
-        <Button
-          type="button"
-          className="back-button"
-          onClick={() => {
-            setTab("");
-          }}
-        >
-          ← 所有连接
-        </Button>
+      <PageStack className="connection-details">
+        <BackButton onClick={() => { returnTo.current = tab; setTab(""); }}>所有连接</BackButton>
         {tab === "QQ" ? (
           <div className="qq-workspace">
             <QQConnection fail={fail}>
@@ -59,32 +53,19 @@ export function Connections({ fail }: { fail: (error: unknown) => void }) {
             </QQConnection>
           </div>
         ) : tab === "B站" ? (
-          <Bilibili fail={fail} />
+          <Bilibili fail={fail} onPlan={onPlan && (() => onPlan("bilibili"))} onConfigureQQ={() => setTab("QQ")} />
         ) : (
-          <Douyin fail={fail} />
+          <Douyin fail={fail} onPlan={onPlan && (() => onPlan("douyin"))} />
         )}
-      </>
+      </PageStack>
     );
   return (
-    <section className="page-section">
-      <h2>连接你的世界</h2>
+    <PageStack className="connection-directory">
+      <SectionHeading title="平台连接"/>
       <div className="connection-list">
-        {(["QQ", "B站", "抖音"] as const).map((name, i) => (
-          <Card key={name}>
-            <div className={`platform-icon platform-${i}`}>
-              {name === "B站" ? "B" : name === "抖音" ? "♪" : "Q"}
-            </div>
-            <div className="connection-info">
-              <h3>{name}</h3>
-              <p>{["消息与陪伴", "视频与兴趣", "发现与观看"][i]}</p>
-              <ConnectionStatus className="connection-state" label={states[name] ?? "正在读取…"}/>
-            </div>
-            <Button type="button" onClick={() => setTab(name)}>
-              管理连接
-            </Button>
-          </Card>
-        ))}
+        {platforms.map(platform => <PlatformTile key={platform.name} platform={platform}
+          restoreFocus={returnTo.current === platform.name} status={states[platform.name] ?? "正在读取…"} open={() => setTab(platform.name)}/>)}
       </div>
-    </section>
+    </PageStack>
   );
 }

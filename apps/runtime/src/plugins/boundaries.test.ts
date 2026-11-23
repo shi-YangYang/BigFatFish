@@ -3,7 +3,7 @@ import {mkdtempSync,readFileSync,rmSync,symlinkSync,mkdirSync,writeFileSync} fro
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {setTimeout as delay} from 'node:timers/promises';
-import {paths,preparePaths} from '../paths.js';
+import {paths,preparePaths} from '../storage/paths.js';
 import {openDatabase} from '../storage/database.js';
 import {Plugins} from './service.js';
 import {PluginProcess} from './process.js';

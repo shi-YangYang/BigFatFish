@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process';
 import { closeSync, openSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getStatus, readConnection, requestRuntime, type RuntimeStatus } from '../../../runtime/src/connection.js';
-import { preparePaths, privateFile, type DataPaths } from '../../../runtime/src/paths.js';
+import { getStatus, readConnection, requestRuntime, type RuntimeStatus } from '../../../runtime/src/host/connection.js';
+import { preparePaths, privateFile, type DataPaths } from '../../../runtime/src/storage/paths.js';
 import { join } from 'node:path';
-import { acquireInstance } from '../../../runtime/src/instance.js';
-import type { StartupResult } from '../../../runtime/src/startup.js';
+import { acquireInstance } from '../../../runtime/src/host/instance.js';
+import type { StartupResult } from '../../../runtime/src/host/startup.js';
 export async function start(p: DataPaths, port: number): Promise<RuntimeStatus> {
   try { return await getStatus(p); } catch { /* An absent or stale connection is handled by the locked daemon. */ }
   preparePaths(p);

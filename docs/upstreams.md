@@ -4,7 +4,7 @@
 
 ## 中文记忆检索
 
-使用智源 BGE small zh v1.5（MIT）的 INT8 量化权重和配套分词器。首次启用时按固定版本下载并逐文件校验 SHA-256。在本机对检索问题加中文检索指令，取 CLS 并归一化。文件版本、大小与摘要见[下载清单](../apps/runtime/src/memory/bge-assets.ts)。[原始模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5) · [固定的 ONNX 转换版本](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
+使用智源 BGE small zh v1.5（MIT）的 INT8 量化权重和配套分词器。首次启用时按固定版本下载并逐文件校验 SHA-256。在本机对检索问题加中文检索指令，取 CLS 并归一化。文件版本、大小与摘要见[下载清单](../apps/runtime/src/memory/recall/bge-assets.ts)。[原始模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5) · [固定的 ONNX 转换版本](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
 
 ## DSH Harness
 
@@ -67,8 +67,8 @@ DOUYIN_PROXY_URL/TOKEN 提供可鉴权的宿主回环代理；LockyBee 的 boots
 
 ## QQ 与 NapCat
 
-- [NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ)：发布 v4.18.42 指向 commit `9335843246e3b7a17944861f3ac8731a259732c2`；本轮接口源码检查 `98d781d19815d1625b24d717ce280ecf0a4f6d0c`。
-- NapCat LICENSE 为自定义 Limited Redistribution License，含非商业及修改发布限制。Spec023 经用户确认管理未修改原版组件：Mac/Linux 固定官方 Docker digest，Windows x64 按需下载校验原版 Windows.Node 包；大肥鱼自实现界面和进程管理，不复制其受限源码。QQ 的自有 OneBot 客户端现已直接编入 Runtime，不依赖插件安装目录或单独升级；未复制受限源码。既有独立服务对接保留。固定版本、哈希和数据隔离见 docs/qq.md。
+- NapCat 原项目 NapNeko/NapCatQQ 已停止维护；本仓库原样内置 [XingYunStar/NapCatQQ 归档](https://github.com/XingYunStar/NapCatQQ/tree/9335843246e3b7a17944861f3ac8731a259732c2) 的 4.18.42，commit `9335843246e3b7a17944861f3ac8731a259732c2`。1111 文件的逐项摘要在 `third_party/napcat-source.json`。
+- 原始树和各目录许可均保留；Limited Redistribution License 禁止商业使用并限制修改版公开发布，不能将其视为 MIT 或任意公开维护授权。大肥鱼构建/适配置于原始树外，构建副本中的 TypeScript/WebUI 产物进入托管 QQ 路径。附带的 native/loader 二进制及外部 QQ/Node 引导资源仍为上游预编译内容。完整边界见 [NOTICE](../third_party/NAPCAT-NOTICE.md)，来源、固定摘要和隔离方式见 [QQ 指南](qq.md#内置组件的固定来源与验证)。
 - [NapNeko/NapCatQQ-Desktop](https://github.com/NapNeko/NapCatQQ-Desktop)：3.5.17，`08cb0fb5e669624a9fd6265a869803da7ea6b746`，GPL-3.0；Windows/Linux x64。Tauri2/React18；可独立使用管理QQ，默认关闭的Streamable HTTP MCP有限媒体支持，不能代替完整消息通道。
 - [FablerTan/dsh-qq-relay](https://github.com/FablerTan/dsh-qq-relay)：0.25.6，`26c00fa5aa4c1faa53aead87e15e0d67a6d90d37`，package标MIT但研究树缺LICENSE/GitHub license=null；代码复制前需要许可证来源。createOneBotClient/API可以研究协议，实际业务只处理群消息等，不能当作已完成私聊实现。
 - [leliln52/dsh-qqbot](https://github.com/leliln52/dsh-qqbot)：0.2.0，`2a4b8c19762ad3b9cdc13e2074a9b86445bd60fb`，MIT，Node>=22.19。心跳调用 get_version，与所查NapCat get_version_info 不同；图片语音有占位转换，不能未经适配宣称完整多模态。

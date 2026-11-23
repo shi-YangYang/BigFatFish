@@ -21,7 +21,7 @@
 
 - [Spec 007：P5 抖音与统一调度](spec-007-p5-douyin/spec.md)：[本地代码返工PASS](spec-007-p5-douyin/acceptance.md)；原生Mac已验证，未完成协议与外部缺口单列。
 - [Spec 008：P6 安装、运行与数据迁移](spec-008-p6-release/spec.md)：[本地代码返工PASS](spec-008-p6-release/acceptance.md)；Mac/Linux产物与迁移路径有证据，Windows和正式签名/发行未完成。
-- [Spec 009：P7 Web Console与插件生态](spec-009-p7-web-plugins/spec.md)：[返工复验PASS](spec-009-p7-web-plugins/acceptance.md)；远程认证、可安装插件、真实工具回合、媒体与开发者文档，本地代码与安装证据通过，外部验证单列。
+- [Spec 009：P7 Web Console与插件生态](spec-009-p7-web-plugins/spec.md)：[返工复验PASS](spec-009-p7-web-plugins/acceptance.md)；独立网页与远程管理现已退役，保留插件、工具回合和媒体。现行入口见[桌面规格](spec-052-desktop-clarity/spec.md#产品入口)。
 - [Spec 010：Desktop WebUI 与大肥鱼娘形象](spec-010-desktop-webui/spec.md)：[返工复验 PASS](spec-010-desktop-webui/acceptance.md)；精简导航、统一视觉与大肥鱼娘品牌，最终本机包证据见 Plan。
 
 - [Spec 011：DeepSeek 蓝色与统一组件](spec-011-blue-ui-system/spec.md)：[返工复验 PASS](spec-011-blue-ui-system/acceptance.md)；统一蓝色主题与共享控件，复杂表单和确认区对齐，最终产物证据见 Plan。
@@ -104,3 +104,6 @@
 - [Spec 059：CI 类型检查](spec-059-ci-typecheck/spec.md)：[独立验收 PASS](spec-059-ci-typecheck/acceptance.md)；同步测试与夹具类型，完整 typecheck 及定向场景通过，未提交/推送。
 - [Spec 060：跨平台运行与编译 CI](spec-060-platform-ci/spec.md)：[独立验收 PASS](spec-060-platform-ci/acceptance.md)；CI 专注系统运行与编译，安装包改由用户手动生成；未提交/推送。
 - [Spec 061：Windows Runtime 权限初始化](spec-061-windows-acl/spec.md)：[R2 独立验收 PASS](spec-061-windows-acl/acceptance-r2.md)；修复退出竞态与强杀恢复测试，本机平台检查 47 passed / 5 skipped，新 Windows CI 待验证。
+- [Spec 062：NapCat 源码内置](spec-062-vendored-napcat/spec.md)：[R1 独立验收 PASS](spec-062-vendored-napcat/acceptance-r1.md)；固定源码、本地构建及组件分发已在隔离 worktree 完成，保留第三方许可与回滚证据；未应用原工作区、未提交/推送。
+- [Spec 063：QQ 群里的主人指令与回复工具](spec-063-qq-reply-tools/spec.md)
+- [Spec 064：QQ 群聊的消息、主人指令与本群资料](spec-064-qq-group-capabilities/spec.md)

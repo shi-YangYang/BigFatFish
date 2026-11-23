@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { InputError, object } from '../ai/types.js';
-import type { LifeService } from './life.js';
+import type { LifeService } from './life/service.js';
 export function registerLife(app: FastifyInstance, life: LifeService) {
   app.get('/v1/life/updates',async()=>life.updates());
   app.get('/v1/life',async()=>life.overview());

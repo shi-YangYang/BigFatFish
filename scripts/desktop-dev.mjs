@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { startDevelopment } from './desktop-dev-session.mjs';
+import { startDevelopment } from './dev/desktop-dev-session.mjs';
 const controller = new AbortController();
 for (const name of ['SIGINT', 'SIGTERM']) process.once(name, () => controller.abort(new Error('DEV_INTERRUPTED')));
 const messages = {

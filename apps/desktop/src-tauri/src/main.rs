@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod archive_picker;
 mod connection_security;
 mod chat_stream;
 mod desktop;
 mod development;
 mod updater;
-use tauri::Manager;
 use serde::Deserialize;
 use std::{path::PathBuf, time::Duration};
 
@@ -87,15 +87,18 @@ fn main() {
       .plugin(tauri_plugin_updater::Builder::new().build())
       .plugin(tauri_plugin_autostart::Builder::new().args(["--background"]).build())
       .setup(desktop::setup)
-      .on_window_event(|window,event|{if let tauri::WindowEvent::CloseRequested{api,..}=event{
-        if development::managed() { desktop::ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst); window.app_handle().exit(0); return; }
-        api.prevent_close();
-        if desktop::settings(window.app_handle()).map(|s|s.background).unwrap_or(true){let _=window.hide();}
-        else{let app=window.app_handle().clone();tauri::async_runtime::spawn_blocking(move||{if desktop::cli(&app,vec!["stop".into()],serde_json::json!({})).is_ok(){desktop::ALLOW_EXIT.store(true,std::sync::atomic::Ordering::SeqCst);app.exit(0);}});}
-      }})
-      .invoke_handler(tauri::generate_handler![runtime_status, runtime_request, chat_stream::runtime_stream_start, chat_stream::runtime_stream_stop, desktop::desktop_settings, desktop::desktop_configure, desktop::desktop_maintenance, updater::desktop_update_trust, updater::desktop_update, updater::desktop_update_file, updater::desktop_restart]).build(tauri::generate_context!()).expect("desktop initialization failed")
-      .run(|app,event| { if let tauri::RunEvent::ExitRequested { api,.. }=&event {if !development::managed() && !desktop::ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst){api.prevent_exit();let app=app.clone();tauri::async_runtime::spawn_blocking(move||{if desktop::cli(&app,vec!["stop".into()],serde_json::json!({})).is_ok(){desktop::ALLOW_EXIT.store(true,std::sync::atomic::Ordering::SeqCst);app.exit(0);}});}}
-      #[cfg(target_os="macos")] if let tauri::RunEvent::Reopen {..}=event {if let Some(w)=app.get_webview_window("main"){let _=w.show();let _=w.set_focus();}} });
+      .on_window_event(desktop::on_window_event)
+      .invoke_handler(tauri::generate_handler![archive_picker::desktop_pick_backup_file, runtime_status, runtime_request, chat_stream::runtime_stream_start, chat_stream::runtime_stream_stop, desktop::desktop_settings, desktop::desktop_configure, desktop::desktop_maintenance, updater::desktop_update_trust, updater::desktop_update, updater::desktop_update_file, updater::desktop_restart]).build(tauri::generate_context!()).expect("desktop initialization failed")
+      .run(|app, event| match event {
+          tauri::RunEvent::ExitRequested { api, .. }
+              if !development::managed() && !desktop::ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) => {
+                  api.prevent_exit();
+                  desktop::quit(app);
+              }
+          #[cfg(target_os = "macos")]
+          tauri::RunEvent::Reopen { .. } => desktop::open_main_window(app),
+          _ => {}
+      });
 }
 
 #[cfg(test)]

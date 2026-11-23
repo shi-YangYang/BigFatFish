@@ -1,6 +1,6 @@
 import {readInput as input} from '../io/input.js';
 import { createRuntimeClient } from '../runtime/client.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 export async function channelCommand(p:DataPaths,args:string[],output:(value:unknown)=>void){
  const [command, action = 'status'] = args;
  const { request: call } = createRuntimeClient(p);

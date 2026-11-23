@@ -12,9 +12,9 @@ import {
 } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { x } from "tar";
-import type { DataPaths } from "../paths.js";
-import { assertRegular, preparePaths } from "../paths.js";
-import { acquireInstance } from "../instance.js";
+import type { DataPaths } from "../storage/paths.js";
+import { assertRegular, preparePaths } from "../storage/paths.js";
+import { acquireInstance } from "../host/instance.js";
 export interface UpdateTrust {
   source: string;
   publicKey: string;

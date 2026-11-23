@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, readdirSync, mkdirSync, writeFileSync } from 'node
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { paths, preparePaths } from '../paths.js';
+import { paths, preparePaths } from '../storage/paths.js';
 import { Upstream } from './upstream.js';
 const ffmpeg=process.env.BFF_TEST_FFMPEG;
 it.skipIf(!ffmpeg)('executes fixed upstream CLI and ffmpeg; validates subtitle/frame files, cache, no subtitles, timeout and cancellation',async()=>{
@@ -11,7 +11,7 @@ it.skipIf(!ffmpeg)('executes fixed upstream CLI and ffmpeg; validates subtitle/f
  const root=mkdtempSync(join(tmpdir(),'bff whale upstream ')),p=paths(root);preparePaths(p);const bin=join(root,'bin');mkdirSync(bin);
  const originalPath=process.env.PATH;process.env.PATH=resolve(ffmpeg!,'..')+':'+originalPath;
  const video=join(root,'fixture.mp4');expect(spawnSync(ffmpeg!,['-y','-f','lavfi','-i','color=c=blue:s=320x180:r=10','-t','9','-c:v','mpeg4',video]).status).toBe(0);
- const options={preload:resolve('tests/fixtures/bilibili-network.mjs'),env:{BFF_FIXTURE_VIDEO:video}};
+ const options={preload:resolve('tests/fixtures/platforms/bilibili-network.mjs'),env:{BFF_FIXTURE_VIDEO:video}};
  try{
  const upstream=new Upstream(p,options),signal=new AbortController().signal;
  expect((await upstream.search('fish',null,signal)).text).toContain('BV1234567890');

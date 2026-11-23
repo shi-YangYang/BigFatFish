@@ -1,7 +1,7 @@
 // Dev-only IPC worker. The installed daemon entry and detached CLI remain unchanged.
-import { startRuntime } from '../dist/runtime/src/lifecycle.js';
-import { paths } from '../dist/runtime/src/paths.js';
-import { publicError } from '../dist/runtime/src/arguments.js';
+import { startRuntime } from '../dist/runtime/src/host/lifecycle.js';
+import { paths } from '../dist/runtime/src/storage/paths.js';
+import { publicError } from '../dist/runtime/src/host/arguments.js';
 let runtime, cancelled = false;
 async function stop() {
   cancelled = true;

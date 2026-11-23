@@ -1,0 +1,36 @@
+.fish-overview .fish-home {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 16px;
+  background: var(--accent-soft); border: 0; border-radius: 16px;
+  padding: clamp(18px, 3vw, 30px);
+}
+.fish-home > div { min-width: 0; }
+.fish-home .fish-memory-count { margin-inline-start: auto; }
+.fish-home .fish-memory-count .ui-button { background: var(--color-background, #fff); color: var(--brand); }
+.fish-home .ui-section-heading { margin: 0; }
+.fish-home p { margin: 4px 0 0; overflow-wrap: anywhere; }
+.fish-reading-section, .memory-query-panel, .journal-controls { min-width: 0; display: grid; gap: var(--form-gap); }
+.fish-diary-entry {
+  display: grid; gap: 10px; min-width: 0;
+  padding-block: 14px 18px; padding-inline: 18px 12px;
+  border-inline-start: 3px solid var(--selection); border-block-end: 1px solid var(--border);
+  background: var(--color-background, white);
+}
+.fish-diary-entry h3 { font-size: 13px; color: var(--brand); font-variant-numeric: tabular-nums; }
+.fish-diary-entry h3, .fish-diary-entry p { margin: 0; }
+.fish-diary-entry p { max-width: 68ch; line-height: 1.85; overflow-wrap: anywhere; }
+.fish-journal .journal-controls, .memory-query-panel { padding: var(--surface-padding); border-radius: 12px; background: var(--surface-soft); border: 1px solid var(--border); }
+.fish-journal .timeline-entry { border-inline-start: 2px solid var(--selection); padding-inline-start: 14px; }
+.fish-reading-section .content-scroll:empty, .fish-journal .task-list:empty, .fish-memories .content-scroll:empty { display: none; }
+.fish-persona-form .persona-example { border-inline-start: 3px solid var(--brand); background: var(--accent-soft); margin: 0; padding: 12px 16px; }
+.fish-plan-row.business-card { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.fish-memory-record .memory-byline { color: var(--muted); font-size: 13px; }
+.fish-memory-record > .prewrap { line-height: 1.7; }
+@media (max-width: 560px) {
+  .fish-home .fish-memory-count { margin-inline-start: 0; }
+  .fish-home .fish-portrait, .fish-home .avatar { width: 48px; height: 48px; }
+}
+/* Drawers are portaled outside the fish page. Space the form itself, not its page ancestor. */
+.diary-settings-form { display: grid; gap: 16px; margin: 0; }
+.diary-settings-mode { display: grid; gap: 4px; }
+.diary-settings-mode > p { margin: 0; }
+.diary-settings-form .diary-settings-actions { justify-content: flex-end; }

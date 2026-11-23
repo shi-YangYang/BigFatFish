@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
-import { classifyLegacyMemories } from '../memory/attribution.js';
-import { rebuildPersonProfiles } from '../memory/person-profile.js';
-import { rebuildScenarios } from '../memory/scenario-store.js';
+import { classifyLegacyMemories } from '../memory/identity/attribution.js';
+import { rebuildPersonProfiles } from '../memory/identity/person-profile.js';
+import { rebuildScenarios } from '../memory/scenes/scenario-store.js';
 export const SCHEMA_VERSION = 14;
 export const migrations = [
   `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
-import { type parseOptions, publicError } from '../../../runtime/src/arguments.js';
-import { getStatus } from '../../../runtime/src/connection.js';
-import type { DataPaths } from '../../../runtime/src/paths.js';
+import { type parseOptions, publicError } from '../../../runtime/src/host/arguments.js';
+import { getStatus } from '../../../runtime/src/host/connection.js';
+import type { DataPaths } from '../../../runtime/src/storage/paths.js';
 import { createRuntimeClient } from '../runtime/client.js';
 import { start, stop } from '../runtime/process.js';
 

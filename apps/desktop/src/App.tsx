@@ -1,20 +1,22 @@
 import { Notifications, notifyError, clearNotifications } from './components/Notifications';
+import { EmptyState } from "./components/PageLayout";
 import { Alert, Loading } from "./components/Surfaces";
-import { BounceSidebar } from "./components/beui/bounce-sidebar";
+import { WorkspaceHeader, WorkspaceNavigation } from "./components/WorkspaceChrome";
 import { Button } from "./components/Controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { api, isWeb } from "./api/client";
+import { api } from "./api/client";
 import { Chat } from "./features/chat/Chat";
+import { Models, type ModelTask } from "./features/settings/Models";
 import { Setup } from "./features/settings/Setup";
 import { MyFish } from "./features/fish/MyFish";
 import { Connections } from "./features/connections/Connections";
 import { Settings } from "./features/settings/Settings";
-import { Drawer, FishAvatar, Icon, fishGirl } from "./components/UI";
+import { Drawer, FishAvatar, fishGirl } from "./components/UI";
 import type { ModelConfig } from "../../runtime/src/ai/types";
 export default function App() {
   const [page, setPage] = useState("聊天"),
-    [settingsTab, setSettingsTab] = useState("模型");
+    [settingsTab, setSettingsTab] = useState("模型与声音");
   const [connected, setConnected] = useState(false),
     [initialized, setInitialized] = useState(false),
     [firstRun, setFirstRun] = useState(false),
@@ -23,6 +25,9 @@ export default function App() {
       [],
     ),
     [menu, setMenu] = useState(false);
+  const [modelTask, setModelTask] = useState<ModelTask>();
+  const [planIntent, setPlanIntent] = useState<{platform: "bilibili" | "douyin"; id: number}>();
+  const nextPlanId = useRef(0);
   const live = useRef(false);
   const fail = notifyError;
   const reload = useCallback(async () => {
@@ -30,7 +35,7 @@ export default function App() {
   }, []);
   const connect = useCallback(async (silent = false) => {
     try {
-      await (isWeb ? api("/v1/status") : invoke("runtime_status"));
+      await invoke("runtime_status");
       if (live.current) {
         setConnected(true);
         setInitialized(true);
@@ -63,11 +68,7 @@ export default function App() {
       if (live.current && !ready && count < 20)
         timer = setTimeout(() => void attempt(count + 1), 500);
     };
-    void (
-      isWeb
-        ? Promise.resolve({ complete: true })
-        : invoke<{ complete: boolean }>("desktop_settings")
-    )
+    void invoke<{ complete: boolean }>("desktop_settings")
       .then((s) => {
         if (!live.current) return;
         setFirstRun(!s.complete);
@@ -108,57 +109,24 @@ export default function App() {
     setMenu(false);
     clearNotifications();
   }
-  const addModel = () => {
-    setSettingsTab("模型");
-    navigate("设置");
-  };
-  const menuContents = (
-    <>
-      <div className="brand" title="BigFatFish">
-        <FishAvatar />
-        <div>
-          <strong>BigFatFish</strong>
-          <span>你的大肥鱼</span>
-        </div>
-      </div>
-      <BounceSidebar className="primary-nav" ariaLabel="主导航"
-        value={page} onValueChange={navigate} listClassName="m-0 p-0 gap-[8px]"
-        itemClassName="rail-item" indicatorClassName="hidden"
-        items={[{ id: "聊天", label: "聊天", icon: <Icon name="chat" /> },
-          { id: "我的鱼", label: "我的鱼", icon: <FishAvatar className="nav-portrait" alt="" /> },
-          { id: "连接", label: "连接", icon: <Icon name="link" /> }]} />
-      <div className="sidebar-bottom">
-        <Button
-          type="button"
-          className={page === "设置" ? "active" : ""}
-          onClick={() => navigate("设置")}
-        >
-          <Icon name="settings" />
-          <span>设置</span>
-        </Button>
-      </div>
-    </>
-  );
+  function openChatModel(complete?: ModelTask["complete"], conversationOnly = false) {
+    setModelTask({ purpose: "chat", conversationOnly, complete: async id => {
+      await complete?.(id); setModelTask(undefined); navigate("聊天");
+    } });
+  }
+  function openPlan(platform: "bilibili" | "douyin") {
+    setPlanIntent({ platform, id: ++nextPlanId.current }); navigate("我的鱼");
+  }
+  const menuContents = <WorkspaceNavigation page={page} navigate={navigate} />;
   const renderHeader = (content: ReactNode) => (
-    <header className="topbar">
-      <Button
-        type="button"
-        className="mobile-menu"
-        size="icon"
-        aria-label="打开导航"
-        onClick={() => setMenu(true)}
-      >
-        <Icon name="menu" />
-      </Button>
-      {content}
-    </header>
+    <WorkspaceHeader chat={page === "聊天" && !firstRun} openMenu={() => setMenu(true)}>{content}</WorkspaceHeader>
   );
   const chatVisible = initialized && !loading && !firstRun && page === "聊天";
   return (
-    <div className="app-shell">
-      <aside className="app-sidebar">{menuContents}</aside>
+    <div className={firstRun ? "app-shell first-run-shell" : "app-shell"}>
+      {!firstRun && <aside className="app-sidebar">{menuContents}</aside>}
       <div className="app-workspace">
-        {!chatVisible && renderHeader(<h1 className="page-title">{page}</h1>)}
+        {!chatVisible && renderHeader(<h1 className="page-title">{firstRun ? "首次设置" : page}</h1>)}
         <Notifications />
         {initialized && !connected && (
           <Alert variant="warning" className="connection-banner" role="status">
@@ -169,7 +137,7 @@ export default function App() {
           </Alert>
         )}
         <main
-          className={`workspace-main ${page === "聊天" ? "chat-page" : ""}`}
+          className={`workspace-main ${page === "聊天" && !firstRun ? "chat-page" : ""}`}
         >
           {loading ? (
             <Loading>正在连接…</Loading>
@@ -179,7 +147,8 @@ export default function App() {
                 fail={fail}
                 done={() => {
                   setFirstRun(false);
-                  addModel();
+                  navigate("聊天");
+                  openChatModel();
                   void connect();
                 }}
               />
@@ -191,7 +160,7 @@ export default function App() {
                   <Chat
                     models={models}
                     fail={fail}
-                    configureModel={addModel}
+                    configureModel={openChatModel}
                     connected={connected}
                     active={page === "聊天"}
                     renderHeader={renderHeader}
@@ -203,9 +172,9 @@ export default function App() {
                   className={`content-page ${page === "设置" ? "settings-page" : ""}`}
                 >
                   {page === "我的鱼" ? (
-                    <MyFish fail={fail} />
+                    <MyFish fail={fail} onChat={() => navigate("聊天")} planIntent={planIntent} onPlanHandled={id => setPlanIntent(value => value?.id === id ? undefined : value)} />
                   ) : page === "连接" ? (
-                    <Connections fail={fail} />
+                    <Connections fail={fail} onPlan={openPlan} />
                   ) : (
                     <Settings
                       models={models}
@@ -219,10 +188,8 @@ export default function App() {
                 </div>
               )}
               {page === "聊天" && !initialized && (
-                <div className="empty-state">
-                  <FishAvatar />
-                  <h2>暂时无法连接你的鱼</h2>
-                  <Button type="button" onClick={() => void connect()}>
+                <EmptyState className="workspace-unavailable" icon={<FishAvatar alt="" />} title="暂时无法连接你的鱼">
+                  <Button variant="primary" type="button" onClick={() => void connect()}>
                     重新连接
                   </Button>
                   <Button
@@ -234,13 +201,14 @@ export default function App() {
                   >
                     打开运行设置
                   </Button>
-                </div>
+                </EmptyState>
               )}
             </>
           )}
         </main>
       </div>
-      {menu && (
+      {modelTask && <Models models={models} reload={reload} fail={fail} direct={modelTask} dismiss={() => setModelTask(undefined)} />}
+      {menu && !firstRun && (
         <Drawer title="导航" close={() => setMenu(false)}>
           <div className="mobile-navigation">{menuContents}</div>
         </Drawer>

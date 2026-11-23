@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
 import { InputError, object, string } from '../ai/types.js';
-import type { ChatService } from '../ai/chat.js';
+import type { ChatService } from '../ai/chat/service.js';
 import type { Bilibili } from '../bilibili/service.js';
 import type { Douyin } from '../douyin/service.js';
 import { videoId } from '../douyin/input.js';

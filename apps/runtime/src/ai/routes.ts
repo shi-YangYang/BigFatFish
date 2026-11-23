@@ -1,9 +1,9 @@
-import { discoverModels, testModelConnection, MODEL_CONNECTION_TIMEOUT_MS } from './model-connection.js';
-import {transcribe,synthesize} from './media.js';
+import { discoverModels, testModelConnection, MODEL_CONNECTION_TIMEOUT_MS } from './models/model-connection.js';
+import {transcribe,synthesize} from './media/media.js';
 import type { FastifyInstance, RouteShorthandOptions } from 'fastify';
 import websocket from '@fastify/websocket';
-import type { ChatService } from './chat.js';
-import { registerChatEvents } from './events.js';
+import type { ChatService } from './chat/service.js';
+import { registerChatEvents } from './chat/events.js';
 export async function registerAi(app: FastifyInstance, chat: ChatService) {
   await app.register(websocket, { options: { maxPayload: 1024 } });
   app.post('/v1/media/transcribe',async req=>transcribe(chat.config,req.body as {data:string;mimeType:string},AbortSignal.timeout(60000)));
@@ -32,6 +32,7 @@ export async function registerAi(app: FastifyInstance, chat: ChatService) {
   app.get('/v1/conversations', async () => chat.conversations());
   app.get('/v1/conversations/local', async () => chat.conversations('local'));
   app.post('/v1/conversations', async req => chat.create(req.body));
+  app.put<{ Params: { id: string } }>('/v1/conversations/:id/model', async req => chat.changeLocalModel(req.params.id, req.body));
   app.get<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.messages(req.params.id));
   app.post<{ Params: { id: string } }>('/v1/conversations/:id/messages', async req => chat.send(req.params.id, req.body));
   app.post<{ Params: { id: string } }>('/v1/messages/:id/cancel', async req => chat.cancel(req.params.id));
