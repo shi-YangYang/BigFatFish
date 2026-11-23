@@ -30,3 +30,26 @@ it('migrates version 1, encrypts model secrets, validates routes and keeps perso
  expect(db.prepare("SELECT value FROM settings WHERE key='old'").get()?.value).toBe('kept');
  expect(readFileSync(join(p.config,'master.key')).length).toBe(32);if(process.platform!=='win32')expect(statSync(join(p.config,'master.key')).mode&0o077).toBe(0);
 });
+
+it('remembers purposes across replacements and legacy shared routes without changing routes or conversations', () => {
+  const p = paths(mkdtempSync(join(tmpdir(), 'bff model purposes '))); preparePaths(p);
+  const db = openDatabase(p.database); cleanup = () => { db.close(); rmSync(p.root, {recursive:true, force:true}); };
+  const config = new Configuration(db, p);
+  const draft = (id:string) => ({ id, model:id, provider:'openai', baseURL:'http://127.0.0.1:99/v1' });
+  for (const id of ['shared','voice','new-voice','legacy','conversation']) config.saveModel(draft(id));
+  config.saveModel({...draft('asr-config'), purpose:'asr'});
+  db.prepare("INSERT INTO settings(key,value) VALUES('model_routes',?)").run(JSON.stringify({vision:'shared',asr:'shared',tts:'voice'}));
+  db.prepare("INSERT INTO conversations(id,title,model_id,created_at) VALUES('kept','旧对话','conversation','2026-01-01')").run();
+  expect(config.models().find(m => m.id === 'legacy')?.purposes).toBeUndefined();
+  expect(config.models().find(m => m.id === 'conversation')?.purposes).toEqual(['chat']);
+  expect(config.models().find(m => m.id === 'shared')?.purposes).toEqual(['chat','asr']);
+  expect(config.saveRoutes({chat:'shared',asr:'asr-config',tts:'new-voice'})).toEqual({chat:'shared',asr:'asr-config',tts:'new-voice'});
+  config.saveRoutes({chat:'shared'});
+  config.saveModel(draft('voice')); // old clients do not send purpose
+  const reopened = new Configuration(db, p);
+  expect(Object.fromEntries(reopened.models().map(m => [m.id,m.purposes]))).toMatchObject({
+    shared:['chat','asr'], voice:['tts'], 'new-voice':['tts'], 'asr-config':['asr'], conversation:['chat'],
+  });
+  expect(reopened.routes()).toEqual({chat:'shared'});
+  expect(db.prepare("SELECT title FROM conversations WHERE id='kept'").get()?.title).toBe('旧对话');
+});

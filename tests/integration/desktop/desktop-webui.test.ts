@@ -219,7 +219,7 @@ it.skipIf(!existsSync(executable))(
           }
           if (route === "/v1/models") {
             const list = data[route] as {id:string}[];
-            data[route] = [...list.filter(x=>x.id !== args.body?.id), { ...args.body, hasKey:false }];
+            data[route] = [...list.filter(x=>x.id !== args.body?.id), { ...args.body, purposes:[args.body?.purpose], hasKey:false }];
             return args.body;
           }
           return {};
@@ -331,7 +331,13 @@ it.skipIf(!existsSync(executable))(
       expect(requests.filter((r) => r.route.endsWith("/messages"))).toHaveLength(0);
       await input.fill("保留的草稿");
       await page.getByRole("button", { name: "设置", exact: true }).click();
-      await page.getByRole("button", { name: "新建配置", exact: true }).click();
+      const purposeMenu = page.locator(".model-purpose-menu");
+      await purposeMenu.getByText("日常聊天", {exact:true}).waitFor();
+      expect(await purposeMenu.getByRole("button").allTextContents()).toEqual(["文本模型日常聊天", "语音输入模型未设置", "朗读模型未设置"]);
+      expect(await page.getByRole("heading", {name:"默认用途"}).count()).toBe(0);
+      await page.screenshot({ path: "build/beui-interface/model-purpose-menu-1100.png" });
+      await page.getByRole("button", { name: "文本模型", exact: true }).click();
+      await page.getByRole("button", { name: "添加模型", exact: true }).click();
       await page.getByRole("combobox", {name:"服务商",exact:true}).click(); await page.getByRole("option", {name:"自定义 / OpenAI 兼容",exact:true}).click();
       await page.getByLabel("服务地址", { exact: true }).waitFor();
       expect(
@@ -345,7 +351,7 @@ it.skipIf(!existsSync(executable))(
       await page.getByRole("tab", { name: "通用", exact: true }).click();
       await page.getByText("/isolated/fixture", { exact: true }).waitFor();
       const preferences = await Promise.all([
-        page.getByLabel("关闭窗口后继续在后台运行", { exact: true }).boundingBox(),
+        page.getByLabel("关闭窗口时最小化", { exact: true }).boundingBox(),
         page.getByLabel("登录电脑时启动", { exact: true }).boundingBox(),
         page.getByRole("button", { name: "保存设置", exact: true }).boundingBox(),
       ]);
@@ -511,22 +517,59 @@ it.skipIf(!existsSync(executable))(
       data["/v1/conversations/local"] = []; data["/v1/conversations"] = [];
       await page.reload();
       await page.getByRole("button", { name: "添加聊天模型", exact: true }).click();
-      await page.getByRole("dialog", {name:"设置聊天模型"}).waitFor();
+      await page.getByRole("dialog", {name:"设置文本模型"}).waitFor();
       await page.getByRole("combobox", {name:"服务商",exact:true}).click(); await page.getByRole("option", {name:"自定义 / OpenAI 兼容",exact:true}).click();
       await page.getByLabel("服务地址", {exact:true}).fill("https://unused.invalid/v1"); await page.getByLabel("模型名称", {exact:true}).fill("my-chat");
       await page.getByRole("button",{name:"保存并回到聊天"}).click();
       await page.getByRole("dialog").waitFor({state:"hidden"});
       expect(await input.isEnabled()).toBe(true);
       await page.getByRole("button",{name:"设置",exact:true}).click();
-      await page.getByRole("button",{name:"语音输入与朗读",exact:true}).click();
       for (const [title,purpose] of [["语音输入","asr"],["朗读","tts"]]) {
-        await page.getByRole("button",{name:"设置"+title+"模型",exact:true}).click();
+        await page.getByRole("button",{name:title+"模型",exact:true}).click();
         await page.getByRole("dialog",{name:"设置"+title+"模型"}).waitFor();
+        expect(await page.getByRole("combobox",{name:"模型用途"}).count()).toBe(0);
         await page.getByLabel("服务地址",{exact:true}).fill("https://unused.invalid/v1");await page.getByLabel("模型名称",{exact:true}).fill("my-"+purpose);
-        await page.getByRole("button",{name:"保存模型",exact:true}).click();
+        await page.getByRole("button",{name:"保存并使用",exact:true}).click();
         await page.getByRole("dialog").waitFor({state:"hidden"});
-        expect((data["/v1/model-routes"] as Record<string,string>)[purpose]).toBeTruthy();
+        const current = (data["/v1/model-routes"] as Record<string,string>)[purpose];
+        expect(current).toBeTruthy();
+        await page.getByRole("heading",{name:purpose === "asr" ? "试试转写" : "试试朗读"}).waitFor();
+        await page.getByRole("button",{name:"停用 my-"+purpose,exact:true}).click();
+        await page.getByRole("button",{name:"使用 my-"+purpose,exact:true}).click();
+        await page.getByRole("button",{name:"停用 my-"+purpose,exact:true}).waitFor();
+        expect((data["/v1/model-routes"] as Record<string,string>)[purpose]).toBe(current);
+        await page.getByRole("button",{name:"模型与声音",exact:true}).click();
       }
+      await page.getByRole("button",{name:"文本模型",exact:true}).click();
+      expect(await page.getByRole("heading",{name:"my-tts",exact:true}).count()).toBe(0);
+      expect(await page.getByRole("heading",{name:"my-asr",exact:true}).count()).toBe(0);
+      const previousRoutes = {...data["/v1/model-routes"] as Record<string, string>};
+      await page.getByRole("button",{name:"添加模型",exact:true}).click();
+      await page.getByRole("combobox",{name:"服务商",exact:true}).click();
+      await page.getByRole("option",{name:"自定义 / OpenAI 兼容",exact:true}).click();
+      await page.getByLabel("服务地址",{exact:true}).fill("https://unused.invalid/v1");
+      await page.getByLabel("模型名称",{exact:true}).fill("备用文本");
+      await page.getByRole("button",{name:"保存并使用",exact:true}).click();
+      await page.getByRole("button",{name:"停用 备用文本",exact:true}).waitFor();
+      const incomingRoutes = {...data["/v1/model-routes"] as Record<string, string>};
+      expect(incomingRoutes).toMatchObject({asr:previousRoutes.asr, tts:previousRoutes.tts});
+      expect(incomingRoutes.chat).not.toBe(previousRoutes.chat);
+      await page.getByRole("button",{name:"编辑 my-chat",exact:true}).click();
+      expect(await page.getByText(/修改会同时生效。/).count()).toBe(0);
+      await page.getByRole("button",{name:"保存修改",exact:true}).click();
+      await page.getByRole("dialog").waitFor({state:"hidden"});
+      expect(data["/v1/model-routes"]).toEqual(incomingRoutes);
+      await page.getByRole("button",{name:"使用 my-chat",exact:true}).click();
+      await page.getByRole("button",{name:"停用 my-chat",exact:true}).waitFor();
+      expect(data["/v1/model-routes"]).toEqual(previousRoutes);
+      // An existing configuration may deliberately serve more than one purpose.
+      data["/v1/model-routes"] = {...previousRoutes, tts:previousRoutes.chat};
+      await page.reload();
+      await page.getByRole("button",{name:"设置",exact:true}).click();
+      await page.getByRole("button",{name:"朗读模型",exact:true}).click();
+      await page.getByRole("button",{name:"编辑 my-chat",exact:true}).click();
+      await page.getByRole("dialog").getByText("也用于文本模型，修改会同时生效。", {exact:true}).waitFor();
+      await page.getByRole("dialog").getByRole("button",{name:"关闭",exact:true}).click();
       // First run uses the system data directory and persona without presenting background controls.
       setupComplete = false; data["/v1/models"] = []; data["/v1/model-routes"] = {};
       await page.reload();
@@ -535,11 +578,11 @@ it.skipIf(!existsSync(executable))(
       expect(await page.getByRole("button", {name:"自定义名字和数据目录"}).getAttribute("aria-expanded")).toBe("false");
       expect(await page.getByLabel("登录电脑时启动").count()).toBe(0);
       await page.getByRole("button",{name:"开始设置模型"}).click();
-      await page.getByRole("dialog",{name:"设置聊天模型"}).waitFor();
+      await page.getByRole("dialog",{name:"设置文本模型"}).waitFor();
       await page.getByRole("combobox",{name:"服务商",exact:true}).click();
       await page.getByRole("option",{name:"阿里云百炼（按量，北京）",exact:true}).click();
       expect(await page.getByRole("textbox",{name:"服务地址",exact:true}).count()).toBe(0);
-      expect(await page.getByRole("combobox",{name:"聊天模型",exact:true}).innerText()).toBe("qwen3.7-plus");
+      expect(await page.getByRole("combobox",{name:"文本模型",exact:true}).innerText()).toBe("qwen3.7-plus");
       await page.getByLabel("API Key",{exact:true}).fill("sk-sp-fixture-only");
       expect(await page.getByRole("button",{name:"保存并回到聊天"}).isDisabled()).toBe(true);
       await page.getByLabel("API Key",{exact:true}).fill("fixture-payg-key");

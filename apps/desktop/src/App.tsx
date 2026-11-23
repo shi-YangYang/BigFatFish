@@ -114,9 +114,6 @@ export default function App() {
       await complete?.(id); setModelTask(undefined); navigate("聊天");
     } });
   }
-  function openSoundModel(purpose: "asr" | "tts") {
-    setModelTask({ purpose, complete: () => setModelTask(undefined) });
-  }
   function openPlan(platform: "bilibili" | "douyin") {
     setPlanIntent({ platform, id: ++nextPlanId.current }); navigate("我的鱼");
   }
@@ -180,7 +177,6 @@ export default function App() {
                     <Connections fail={fail} onPlan={openPlan} />
                   ) : (
                     <Settings
-                      openSoundModel={openSoundModel}
                       models={models}
                       reload={reload}
                       fail={fail}

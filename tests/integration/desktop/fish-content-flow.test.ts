@@ -37,6 +37,7 @@ it.skipIf(!existsSync(executable))("opens the promised fish task, reads memories
     expect(await page.getByText("暂无经历",{exact:true}).count()).toBe(0);
     await button("去写第一篇").click();
     await page.getByRole("dialog",{name:"手动写日记"}).getByLabel("日记日期").waitFor();
+    expect(await page.getByRole("tab",{name:"日记",exact:true}).getAttribute("aria-selected")).toBe("true");
     await page.keyboard.press("Escape");
     await tab("概览");await tab("经历");
     expect(await page.getByRole("dialog").count()).toBe(0);
@@ -66,4 +67,64 @@ it.skipIf(!existsSync(executable))("opens the promised fish task, reads memories
     }
     expect(writes).toEqual([]);
   } finally { await browser.close();await server.close(); }
+}, 30000);
+
+it.skipIf(!existsSync(executable))("separates the diary from experiences and keeps observed interests and relationships off the overview", async () => {
+  const server = await createServer({configFile:resolve("apps/desktop/vite.config.ts"),server:{host:"127.0.0.1",port:0,fs:{allow:[resolve(".")]}}});
+  await server.listen();
+  const browser = await chromium.launch({executablePath:executable,headless:true});
+  try {
+    const page = await browser.newPage({viewport:{width:320,height:720},reducedMotion:"reduce"});
+    page.setDefaultTimeout(4000);
+    await installFixtureIPC(page);
+    const diary = {id:"d1",day:"2026-11-21",content:"今天和朋友看了日落。",copyStatus:"failed",sources:[{type:"activity",id:"a1",quote:"海边日落"}]};
+    const recent = [{id:"a1",kind:"chat.completed",summary:"完成对话：海边散步",occurredAt:"2026-11-21T18:02:00Z"}];
+    const requests:string[] = [];
+    await page.route("**/ipc/v1/**", async route => {
+      const path = new URL(route.request().url()).pathname.replace("/ipc/v1/", "");
+      requests.push(path);
+      if (path === "diaries/d1/rebuild") diary.copyStatus = "ready";
+      const response:Record<string,unknown> = {
+        "life/updates":{revision:"1"},
+        life:{persona:{name:"小肥鱼"},mood:{mood:"平静"},diaries:[diary],activity:[],recent,
+          interests:[{id:"i",content:"喜欢喝茶"}],relationships:[{id:"r",content:"新认识的朋友"}],confirmedCount:2,chattingCount:0},
+        activities:{paused:false,tasks:[],schedules:[]}, "life/timeline":recent, diaries:[diary],
+        "memory-tasks":[{id:"t1",kind:"diary",status:"completed"},{id:"t2",kind:"extract",status:"running"}],
+        "life/source":{content:"那天的原始活动",occurredAt:recent[0].occurredAt}
+      };
+      return route.fulfill({json:response[path] ?? {}});
+    });
+    await page.goto(server.resolvedUrls!.local[0]+"@fs/"+resolve("tests/fixtures/desktop/desktop-usability.html")+"?fish");
+    const button = (name:string) => page.getByRole("button",{name,exact:true});
+    const tab = (name:string) => page.getByRole("tab",{name,exact:true});
+    await page.getByText(diary.content,{exact:true}).waitFor();
+    for (const text of ["最近经历","兴趣与关系","喜欢喝茶","新认识的朋友","聊了聊：海边散步"])
+      expect(await page.getByText(text,{exact:true}).count()).toBe(0);
+
+    await button("向右滚动分类").waitFor();
+    await button("查看全部日记").click();
+    await button("重试保存副本").waitFor();
+    expect(await tab("日记").getAttribute("aria-selected")).toBe("true");
+    expect(requests).not.toContain("life/timeline");
+    await button("查看来源（1）").click();
+    await button("打开原文").click();
+    await page.getByText("那天的原始活动",{exact:true}).waitFor();
+    await button("重试保存副本").click();
+    await button("重试保存副本").waitFor({state:"hidden"});
+    await button("日记生成记录").click();
+    await page.getByText("日记 · 已完成",{exact:true}).waitFor();
+    expect(await page.getByText("记忆整理 · 正在整理",{exact:true}).count()).toBe(0);
+
+    requests.length = 0;
+    await tab("日记").focus();
+    await page.keyboard.press("ArrowLeft");
+    await page.getByText("聊了聊：海边散步",{exact:true}).waitFor();
+    expect(await tab("经历").getAttribute("aria-selected")).toBe("true");
+    expect(await page.getByText(diary.content,{exact:true}).count()).toBe(0);
+    expect(await button("手动写日记").count()).toBe(0);
+    expect(requests).toContain("life/timeline");
+    expect(requests).not.toContain("diaries");
+    expect(requests).not.toContain("memory-tasks");
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  } finally { await browser.close(); await server.close(); }
 }, 30000);

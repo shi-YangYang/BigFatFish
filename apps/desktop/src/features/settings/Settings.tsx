@@ -9,7 +9,6 @@ import { errorText } from "../../api/errors";
 import { api } from "../../api/client";
 import { Models } from "./Models";
 import { Plugins } from "./Plugins";
-import { Media } from "./Media";
 import { Setup, Backup, Updates } from "./Setup";
 import assetNotice from "../../assets/fish-girl.NOTICE.txt?raw";
 import type { ModelConfig } from "../../../../runtime/src/ai/types";
@@ -22,21 +21,19 @@ export function Settings({
   fail,
   done,
   tab,
-  setTab, openSoundModel,
+  setTab,
 }: Fail & {
   models: (ModelConfig & { hasKey: boolean })[];
   reload: () => Promise<void>;
   done: () => void;
   tab: string;
   setTab: (s: string) => void;
-  openSoundModel: (purpose: "asr" | "tts") => void;
 }) {
   const [tool, setTool] = useState<"扩展" | "版本与更新" | "运行诊断" | null>(null);
   return <Tabs items={["模型与声音", "通用", "数据与维护"]} value={tab} onChange={next => { setTool(null); setTab(next); }} label="设置分类">
-    {tab === "模型与声音" ? <PageStack>
+    {tab === "模型与声音" ? (
       <Models models={models} reload={reload} fail={fail} />
-      <Disclosure title="语音输入与朗读"><Media fail={fail} configureModel={openSoundModel} modelRevision={models} /></Disclosure>
-    </PageStack> : tab === "通用" ? (
+    ) : tab === "通用" ? (
       <Setup fail={fail} done={done} />
     ) : <PageStack>
       {tool ? <>

@@ -5,6 +5,7 @@ import { api } from "../../../apps/desktop/src/api/client";
 import { errorText } from "../../../apps/desktop/src/api/errors";
 import type { ModelConfig } from '../../../apps/runtime/src/ai/types';
 import '../../../apps/desktop/src/styles/style.css';
+import '../../../apps/desktop/src/features/settings/settings.css';
 function Fixture() {
   const [models, setModels] = useState<(ModelConfig & { hasKey: boolean })[]>([]), [error, setError] = useState('');
   return <div className="app-shell"><div className="app-workspace"><header className="workspace-header"><h1 className="page-title">设置</h1></header><main className="workspace-main"><div className="content-page settings-page">

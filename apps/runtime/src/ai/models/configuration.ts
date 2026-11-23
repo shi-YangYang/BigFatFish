@@ -1,10 +1,16 @@
 import { modelURL, parseReasoning, normalizeModel } from './model-options.js';
 import type { DatabaseSync } from 'node:sqlite';
-import { InputError, object, string, type ModelConfig, type Persona } from '../types.js';
+import { InputError, object, string, type ModelConfig, type ModelPurpose, type Persona } from '../types.js';
 import { SecretStore } from './secrets.js';
 import type { DataPaths } from '../../storage/paths.js';
+import { transaction } from '../../storage/database.js';
 import { defaultPersona } from '../persona/presets.js';
 export { defaultPersona } from '../persona/presets.js';
+const purposes = ['chat', 'asr', 'tts'] as const;
+type Routes = Partial<Record<ModelPurpose, string>>;
+function knownUses(model: ModelConfig, routes: Routes, more: readonly ModelPurpose[] = []) {
+  return purposes.filter(p => (Array.isArray(model.purposes) && model.purposes.includes(p)) || routes[p] === model.id || more.includes(p));
+}
 export class Configuration {
   private secrets: SecretStore;
   constructor(private db: DatabaseSync, p: DataPaths) {
@@ -13,7 +19,15 @@ export class Configuration {
   }
   encryptSecret(value: string) { return this.secrets.encrypt(value); }
   decryptSecret(value: string) { return this.secrets.decrypt(value); }
-  models() { return this.db.prepare('SELECT id, config, secret FROM models ORDER BY id').all().map(row => ({ ...normalizeModel(JSON.parse(row.config as string)), hasKey: !!row.secret })); }
+  models() {
+    const routes = this.routes();
+    const usedInChat = new Set(this.db.prepare('SELECT DISTINCT model_id FROM conversations').all().map(row => row.model_id));
+    return this.db.prepare('SELECT id, config, secret IS NOT NULL AS has_key FROM models ORDER BY id').all().map(row => {
+      const config = JSON.parse(String(row.config)) as ModelConfig;
+      const known = knownUses(config, routes, usedInChat.has(row.id) ? ['chat'] : []);
+      return { ...normalizeModel(config), ...(known.length ? { purposes: known } : {}), hasKey: !!row.has_key };
+    });
+  }
   model(id: string) {
     const row = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
     if (!row) throw new InputError('MODEL_NOT_CONFIGURED', 409);
@@ -29,6 +43,9 @@ export class Configuration {
     const config: ModelConfig = { id, label: b.label === undefined ? string(b.model, 200) : string(b.label, 200), provider, baseURL, model: string(b.model, 200), ...(reasoningEffort ? { reasoningEffort } : {}) };
     const old = this.db.prepare('SELECT config, secret FROM models WHERE id=?').get(id);
     const previous = old ? JSON.parse(old.config as string) as ModelConfig : undefined;
+    if (b.purpose !== undefined && !purposes.some(p => p === b.purpose)) throw new InputError('INVALID_MODEL_PURPOSE');
+    const known = knownUses(previous ?? config, this.routes(), b.purpose ? [b.purpose as ModelPurpose] : []);
+    if (known.length) config.purposes = known;
     if (previous && this.modelIdentity(previous) !== this.modelIdentity(config) && this.db.prepare('SELECT id FROM conversations WHERE model_id=? LIMIT 1').get(id)) throw new InputError('MODEL_IN_USE', 409);
     if (previous && old?.secret && b.apiKey === undefined && (previous.provider !== provider || modelURL(previous.baseURL) !== baseURL)) throw new InputError('MODEL_KEY_REENTRY_REQUIRED');
     const secret = b.apiKey === undefined ? old?.secret ?? null : (string(b.apiKey, 8192, true) ? this.secrets.encrypt(b.apiKey as string) : null);
@@ -61,7 +78,21 @@ export class Configuration {
     if (Object.keys(routes).some(key => !['chat','asr','tts','reasoning','vision','memory'].includes(key))) throw new InputError('INVALID_MODEL_PURPOSE');
     const result = this.normalizeRoutes(routes);
     for (const id of Object.values(result)) this.model(id);
-    this.db.prepare("INSERT INTO settings(key,value) VALUES('model_routes',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(result)); return result;
+    const write = () => {
+      // A previously assigned audio model stays in its own picker even after replacement or unbinding.
+      const previous = this.routes();
+      for (const id of new Set([...Object.values(previous), ...Object.values(result)])) {
+        const row = this.db.prepare('SELECT config FROM models WHERE id=?').get(id);
+        if (!row) continue;
+        const model = JSON.parse(String(row.config)) as ModelConfig;
+        const known = knownUses(model, previous, purposes.filter(p => result[p] === id));
+        if (JSON.stringify(known) !== JSON.stringify(model.purposes))
+          this.db.prepare('UPDATE models SET config=? WHERE id=?').run(JSON.stringify({...model, purposes: known}), id);
+      }
+      this.db.prepare("INSERT INTO settings(key,value) VALUES('model_routes',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(result));
+    };
+    if (this.db.isTransaction) write(); else transaction(this.db, write);
+    return result;
   }
   persona(): Persona { return JSON.parse(this.db.prepare('SELECT config FROM personas ORDER BY version DESC LIMIT 1').get()!.config as string); }
   history() { return this.db.prepare('SELECT config FROM personas ORDER BY version DESC LIMIT 100').all().map(row => JSON.parse(row.config as string) as Persona); }

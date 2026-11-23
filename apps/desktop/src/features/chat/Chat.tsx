@@ -1,3 +1,4 @@
+import { acceptsPurpose } from "../../api/model-purposes";
 import { cancelMessage, createConversation, loadLocalConversations, sendMessage, type PendingMessage } from "../../api/chat";
 import { subscribeChat } from '../../api/chat-stream';
 import { mergeChatMessage, statusText } from './chat-messages';
@@ -65,10 +66,8 @@ export function Chat({
   const currentSession = sessions.find(session => session.id === selected);
   const sessionModel = currentSession?.modelId;
   const canChat = models.some(model => model.id === (selected ? sessionModel : routes.chat));
-  const chatCandidates = models.filter(({ id }) => id !== sessionModel && (
-    id === routes.chat || sessions.some(session => session.modelId === id)
-    || (id !== routes.asr && id !== routes.tts)
-  ));
+  const chatCandidates = models.filter(model => model.id !== sessionModel
+    && acceptsPurpose(model, "chat", routes, sessions.some(session => session.modelId === model.id)));
   const lastReply = messages.filter(message => message.role === "assistant").at(-1);
   const failedModel = lastReply?.status === "failed" && !!lastReply.error && !!modelErrorText(lastReply.error) && lastRepaired !== lastReply.id;
   const recoverModel = !currentSession?.readOnly && (!canChat || failedModel);

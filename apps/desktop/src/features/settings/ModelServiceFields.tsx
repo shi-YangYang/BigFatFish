@@ -52,7 +52,7 @@ export function ModelServiceFields({ serviceId, purpose, form, setForm, secret, 
   </>;
   return <>
     {!preset && address}
-    {suggestions.length > 0 && <Field className="field-wide">聊天模型<Select value={manual ? "__manual" : form.model} onValueChange={value => pickModel(value === "__manual" ? "" : value)}>
+    {suggestions.length > 0 && <Field className="field-wide">文本模型<Select value={manual ? "__manual" : form.model} onValueChange={value => pickModel(value === "__manual" ? "" : value)}>
       {suggestions.map(model => <option value={model} key={model}>{model}</option>)}<option value="__manual">手动填写模型名称</option>
     </Select></Field>}
     {manual && manualModel}

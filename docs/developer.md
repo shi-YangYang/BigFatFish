@@ -18,7 +18,7 @@ node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 
 `npm run desktop:dev` 先编译 Node 源码和资源，再启动受管 Runtime、Vite 与 Tauri；无需 `release:prepare`。默认读取已保存的桌面数据目录，首次运行使用系统默认目录。`BIGFATFISH_DATA_DIR` 显式覆盖后，supervisor、原生 API 和开发 CLI 都使用同一路径。已有配置和记录原地保留。仅精确识别为本仓库 `dist`、旧 debug Runtime 或 `build/portable` 入口的后台可以优雅接管；其他入口需先从对应应用正常退出。
 
-关闭窗口、退出菜单和 Ctrl+C 结束本次开发会话，启动失败也会清理已启动资源。同一数据目录不能并行启动两套开发会话。前端与 Rust 维持热重载；Node 后端改动后重新运行命令。Tauri 参数仍可传入，例如 `npm run desktop:dev -- --no-watch`；托管模式不支持 `--release`，发行请用 `desktop:build`。
+关闭主窗口和安装版一样默认最小化，不结束开发会话。选择「退出并停止服务」、在终端按 Ctrl+C，或在通用设置中关闭最小化选项后关窗，都会结束会话；启动失败也会清理已启动资源。同一数据目录不能并行启动两套开发会话。前端与 Rust 维持热重载；Node 后端改动后重新运行命令。Tauri 参数仍可传入，例如 `npm run desktop:dev -- --no-watch`；托管模式不支持 `--release`，发行请用 `desktop:build`。
 
 托管原生入口会在执行前拒绝备份导出/恢复、安装更新及应用重启，防止维护停服触发 supervisor 回收、使维护子进程在写入中途结束。备份检查、更新检查与离线签名验证仍可使用。数据维护需先退出开发会话，再通过独立 CLI 操作；应用更新使用正常安装版，重启开发则退出后重新运行 `npm run desktop:dev`。此限制不改变独立 CLI 或安装版的维护流程。
 
@@ -51,7 +51,7 @@ node dist/cli/src/main.js stop --data-dir /absolute/path/fish
 
 模型诊断输入包含`provider/baseURL`，可附`id/apiKey/timeoutMs`；测试另需`model`，可附`maxTokens/reasoningEffort`。省略apiKey时仅允许对同提供商、同规范化地址复用id对应密钥，显式空字符串表示不使用密钥。发现返回`{models:[{id,name}],elapsedMs}`，测试返回`{ok:true,elapsedMs}`；错误为稳定错误码，不返回上游正文。推理字段的值、默认与已有配置约束见[模型说明](ai-core.md)。
 
-ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；桌面聊天中可上传音频转写、朗读回复，「设置 → 模型与声音 → 语音输入与朗读」保留声音与媒体操作。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
+ASR 输入 `{data:base64,mimeType}`，最大2MB，支持 WAV/MP3/M4A/WebM/Ogg 类型，按真实 MIME 使用对应文件名；使用所选 OpenAI 兼容模型的 `/audio/transcriptions`。TTS 输入 `{text,voice}`，最多4096字符，调用 `/audio/speech` 请求 WAV，输出最多4MB、校验RIFF/WAVE。模型/voice由用户按服务文档配置，不自动套用过时模型或把不兼容 Realtime 模型放入 Speech 协议。独立CLI：`bigfatfish media transcribe|synthesize < input.json`；桌面聊天中可上传音频转写、朗读回复，在「设置 → 模型与声音」分别进入「语音输入模型」或「朗读模型」配置对应服务。这里的 OpenAI 指兼容协议，不保证所有服务实现相同；真实服务、计费和音质需用户自己的账号验证。
 
 ## 从外部目录开发插件
 

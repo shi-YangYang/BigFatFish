@@ -1,5 +1,5 @@
 import { PageStack, SectionHeading, SectionCard } from "../../components/PageLayout";
-import { Alert, Disclosure, Loading } from "../../components/Surfaces";
+import { Alert, Card, Disclosure, Loading } from "../../components/Surfaces";
 import { Field, Input, Checkbox, Button, ActionRow, FormGrid } from "../../components/Controls";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -50,14 +50,15 @@ export function Setup({
   return (
     <PageStack className="settings-runtime">
       <SectionHeading title={s.complete ? "运行设置" : "欢迎养一条自己的鱼"} />
-      <form className="settings setup-form" onSubmit={event => { event.preventDefault(); if (!busy) void save(); }}>
+      <Card className="runtime-card">
+        <form className="settings setup-form" onSubmit={event => { event.preventDefault(); if (!busy) void save(); }}>
           {!s.complete ? <Disclosure title="自定义名字和数据目录">
             <FormGrid>
               <Field>鱼的名字<Input value={name} onChange={e => setName(e.target.value)} /></Field>
               <Field>数据目录<Input value={s.dataDir} onChange={e => setS({ ...s, dataDir: e.target.value })} /></Field>
             </FormGrid>
-          </Disclosure> : <fieldset className="runtime-preferences"><legend>启动与后台</legend>
-            <Field><Checkbox checked={s.background} onCheckedChange={value => setS({ ...s, background: value })} />关闭窗口后继续在后台运行</Field>
+          </Disclosure> : <fieldset className="runtime-preferences"><legend>窗口与启动</legend>
+            <Field><Checkbox checked={s.background} onCheckedChange={value => setS({ ...s, background: value })} />关闭窗口时最小化</Field>
             <Field><Checkbox checked={s.autostart} onCheckedChange={value => setS({ ...s, autostart: value })} />登录电脑时启动</Field>
           </fieldset>}
           <Button
@@ -67,8 +68,9 @@ export function Setup({
           >
             {s.complete ? "保存设置" : "开始设置模型"}
           </Button>
-          {s.complete && <div className="readonly-setting"><span>数据保存位置</span><span>{s.dataDir}</span></div>}
-      </form>
+        </form>
+        {s.complete && <dl className="runtime-location"><dt>数据保存位置</dt><dd>{s.dataDir}</dd></dl>}
+      </Card>
     </PageStack>
   );
 }

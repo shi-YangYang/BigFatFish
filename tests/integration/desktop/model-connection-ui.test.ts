@@ -13,6 +13,7 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     const page = await browser.newPage({ viewport: { width: 1100, height: 900 }, reducedMotion: 'reduce' });
     page.setDefaultTimeout(4000);
     let hold = false, rejectTest = false, saved: Record<string, unknown>[] = [];
+    let routes: Record<string, unknown> = {};
     const requests: { route: string; body: Record<string, unknown> }[] = [];
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await installFixtureIPC(page);
@@ -21,15 +22,19 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
       if (hold && (name.endsWith('/test') || name.endsWith('/discover'))) await new Promise<void>(resolve => { release = resolve; });
       if (name.endsWith('/test')) return route.fulfill({ status: rejectTest ? 409 : 200, json: rejectTest ? { error: 'MODEL_AUTH_FAILED' } : { ok: true, elapsedMs: 123 } });
       if (name.endsWith('/discover')) return route.fulfill({ json: { models: [{ id: 'fixture-one', name: '测试模型' }, { id: 'fixture-two', name: 'fixture-two' }], elapsedMs: 20 } });
+      if (name.endsWith('/model-routes')) {
+        if (route.request().method() === 'PUT') routes = body;
+        return route.fulfill({json: routes});
+      }
       if (name.endsWith('/models') && route.request().method() === 'POST') { saved = [{ ...body, apiKey: undefined, hasKey: body.apiKey === undefined ? !!saved[0]?.hasKey : !!body.apiKey }]; return route.fulfill({ json: saved[0] }); }
       return route.fulfill({ json: name.endsWith('/models') ? saved : {} });
     });
     await page.goto(`http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/model-connection.html')}`);
     expect(await page.getByLabel('服务地址', { exact: true }).count()).toBe(0);
-    await page.getByRole('button', { name: '新建配置', exact: true }).click();
+    await page.getByRole('button', { name: '文本模型', exact: true }).click();
     const selectService = async (name:string) => {await page.getByRole('combobox', {name:'服务商',exact:true}).click(); await page.getByRole('option', {name,exact:true}).click();};
     await selectService('阿里云百炼（按量，北京）');
-    await page.getByRole('dialog').getByRole('combobox',{name:'聊天模型',exact:true}).click();
+    await page.getByRole('dialog').getByRole('combobox',{name:'文本模型',exact:true}).click();
     await page.getByRole('option',{name:'手动填写模型名称',exact:true}).click();
     await page.getByLabel('模型名称',{exact:true}).pressSequentially('qwen3.7-plus-my-version');
     expect(await page.getByLabel('模型名称',{exact:true}).inputValue()).toBe('qwen3.7-plus-my-version');
@@ -56,14 +61,14 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     await page.getByRole('combobox', { name: '推理强度', exact: true }).click(); await page.screenshot({ path: 'build/model-connection/effort-1100.png' }); await page.keyboard.press('Escape');
     await page.getByLabel('模型名称', { exact: true }).fill('manual-model');
     expect(await page.getByText(/连接成功/).count()).toBe(0);
-    await page.getByRole('button', { name: '保存模型', exact: true }).click(); await page.getByText('配置已保存', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '保存并使用', exact: true }).click(); await page.getByText('配置已保存', { exact: true }).waitFor();
     expect(saved[0]).toMatchObject({ model: 'manual-model', reasoningEffort: 'max' });
     expect(await page.getByLabel('API Key', { exact: true }).count()).toBe(0);
-    expect(await page.getByRole('heading', { name: '默认用途' }).count()).toBe(1);
+    expect(await page.getByRole('heading', { name: '默认用途' }).count()).toBe(0);
     const editor = page.getByRole('button', { name: '编辑 manual-model', exact: true });
     const position = await page.locator('.model-row').first().boundingBox();
     await editor.click();
-    await page.getByRole('dialog', { name: '编辑模型', exact: true }).waitFor();
+    await page.getByRole('dialog', { name: '编辑文本模型', exact: true }).waitFor();
     expect(await page.locator('.model-row').first().boundingBox()).toEqual(position);
     await page.keyboard.press('Escape');
     expect(await editor.evaluate(element => element === document.activeElement)).toBe(true);
@@ -84,11 +89,11 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     await page.getByRole('button',{name:'获取模型列表',exact:true}).click();
     await page.getByText('获取到 2 个模型',{exact:true}).waitFor();
     expect(requests.filter(r=>r.route.endsWith('/discover')).at(-1)?.body.apiKey).toBe('');
-    await page.getByRole('button',{name:'保存模型',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'保存修改',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
     expect(requests.filter(r=>r.route.endsWith('/models') && 'id' in r.body).at(-1)?.body).toMatchObject({apiKey:'',baseURL:'https://other.invalid/v1'});
     await page.getByRole('button',{name:'编辑 changed-model',exact:true}).click();
     await selectService('DeepSeek');
-    expect(await page.getByRole('dialog').getByRole('combobox',{name:'聊天模型',exact:true}).innerText()).toBe('deepseek-flash');
+    expect(await page.getByRole('dialog').getByRole('combobox',{name:'文本模型',exact:true}).innerText()).toBe('deepseek-flash');
     await page.getByRole('button',{name:'连接选项',exact:true}).click();
     expect(await page.getByLabel('服务地址',{exact:true}).inputValue()).toBe('https://api.deepseek.com/anthropic');
     expect(await page.getByRole('combobox', { name: '推理强度', exact: true }).innerText()).toBe('默认');
@@ -98,16 +103,16 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector('.workspace-main')!.scrollWidth <= document.querySelector('.workspace-main')!.clientWidth)).toBe(true);
     await page.getByRole('button', { name: '测试连接', exact: true }).scrollIntoViewIfNeeded(); await page.screenshot({ path: 'build/model-connection/models-380.png' });
     await page.getByLabel('服务地址',{exact:true}).fill('http://127.0.0.1:9090/anthropic');
-    await page.getByRole('dialog').getByRole('combobox',{name:'聊天模型',exact:true}).click(); await page.getByRole('option',{name:'手动填写模型名称',exact:true}).click();
+    await page.getByRole('dialog').getByRole('combobox',{name:'文本模型',exact:true}).click(); await page.getByRole('option',{name:'手动填写模型名称',exact:true}).click();
     await page.getByLabel('模型名称',{exact:true}).fill('local-messages');
-    await page.getByRole('button',{name:'保存模型',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'保存修改',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
     await page.getByRole('button',{name:'编辑 local-messages',exact:true}).click();
     expect(await page.getByLabel('服务地址',{exact:true}).inputValue()).toBe('http://127.0.0.1:9090/anthropic');
     expect(await page.getByLabel('模型名称',{exact:true}).inputValue()).toBe('local-messages');
     expect(await page.getByLabel('API Key',{exact:true}).getAttribute('required')).toBe(null);
     await page.getByRole('button',{name:'测试连接',exact:true}).click(); await page.getByText('连接成功，模型已响应 · 123 毫秒',{exact:true}).waitFor();
     expect(requests.filter(r=>r.route.endsWith('/test')).at(-1)?.body).toMatchObject({provider:'deepseek',baseURL:'http://127.0.0.1:9090/anthropic',model:'local-messages'});
-    await page.getByRole('button',{name:'保存模型',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'保存修改',exact:true}).click(); await page.getByText('配置已保存',{exact:true}).waitFor();
     expect(saved[0]).toMatchObject({provider:'deepseek',hasKey:false,model:'local-messages'});
     expect(await page.getByRole('button',{name:'删除配置'}).count()).toBe(0);
     await page.getByRole('button',{name:'编辑 local-messages',exact:true}).click();
@@ -115,7 +120,7 @@ it.skipIf(!existsSync(executable))('model form tests current drafts, fetches/sel
     const writes = requests.length;
     await page.getByRole('button',{name:'删除配置',exact:true}).click();
     expect(requests.slice(writes).some(r=>r.route.endsWith('/'+saved[0]!.id))).toBe(false);
-    await page.getByRole('dialog',{name:'编辑模型'}).waitFor();
+    await page.getByRole('dialog',{name:'编辑文本模型'}).waitFor();
     expect(errors).toEqual([]);
   } finally { release(); await browser.close(); await server.close(); }
 }, 30000);

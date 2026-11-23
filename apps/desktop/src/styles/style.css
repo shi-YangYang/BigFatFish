@@ -1080,7 +1080,6 @@ audio {
 /* Secondary settings stay out of the primary task flow. */
 .settings-empty { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .settings-empty p { margin: 0; color: var(--muted); }
-.readonly-setting { margin-top: 8px; display: grid; gap: 6px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .detail-list { margin: 0; display: grid; gap: 16px; }
 .detail-list > div { display: grid; gap: 4px; }
 .detail-list dt { font-size: 12px; color: var(--muted); }

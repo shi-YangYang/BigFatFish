@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Tabs } from "../../components/UI";
-import { Home, Life } from "./life/Life";
+import { Experiences, Home } from "./life/Life";
+import { DiaryPage } from "./life/DiaryPage";
 import { Memories } from "./memory/Memories";
 import { Personality } from "./Personality";
 import { Activities, type PlanIntent } from "./activities/Activities";
@@ -25,14 +26,15 @@ export function MyFish({ fail, onChat, planIntent, onPlanHandled }: {
   function navigate(next: string) {
     setPendingPlan(undefined);
     setWriteDiary(next === "写日记");
-    setTab(next === "写日记" ? "经历" : next);
+    setTab(next === "写日记" ? "日记" : next);
   }
   return (
-    <Tabs items={["概览", "设定", "记忆", "经历", "活动计划"]} value={tab} onChange={navigate} label="我的鱼">
+    <Tabs items={["概览", "设定", "记忆", "经历", "日记", "活动计划"]} value={tab} onChange={navigate} label="我的鱼">
       {tab === "概览" ? <Home navigate={navigate} onChat={onChat} />
         : tab === "设定" ? <Personality fail={fail} />
         : tab === "记忆" ? <Memories fail={fail} onChat={onChat} />
-        : tab === "经历" ? <Life fail={fail} startWriting={writeDiary} />
+        : tab === "经历" ? <Experiences />
+        : tab === "日记" ? <DiaryPage fail={fail} startWriting={writeDiary} />
         : <Activities fail={fail} planIntent={pendingPlan} onPlanHandled={() => setPendingPlan(undefined)} />}
     </Tabs>
   );

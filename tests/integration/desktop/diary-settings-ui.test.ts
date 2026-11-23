@@ -28,7 +28,7 @@ it.skipIf(!existsSync(executable))("saves a diary schedule once, keeps the exist
       }
       return route.fulfill({json:path.endsWith("/life/updates") ? {revision:"one"} : []});
     });
-    await page.goto(server.resolvedUrls!.local[0]+"@fs/"+resolve("tests/fixtures/desktop/desktop-clarity.html")+"?life");
+    await page.goto(server.resolvedUrls!.local[0]+"@fs/"+resolve("tests/fixtures/desktop/desktop-clarity.html")+"?diary");
     await page.getByText("还没有日记。",{exact:true}).waitFor();
     const open = () => page.getByRole("button",{name:"日记设置",exact:true}).click();
     const dialog = page.getByRole("dialog",{name:"日记设置"});
@@ -99,7 +99,7 @@ it.skipIf(!existsSync(executable))("reloads a conflicting diary schedule only on
       }
       return route.fulfill({json:options});
     });
-    await page.goto(server.resolvedUrls!.local[0]+"@fs/"+resolve("tests/fixtures/desktop/desktop-clarity.html")+"?life");
+    await page.goto(server.resolvedUrls!.local[0]+"@fs/"+resolve("tests/fixtures/desktop/desktop-clarity.html")+"?diary");
     await page.getByRole("button",{name:"日记设置",exact:true}).click();
     const dialog = page.getByRole("dialog",{name:"日记设置"});
     const zone = dialog.getByRole("textbox",{name:"时区"}), save = dialog.getByRole("button",{name:"保存",exact:true});

@@ -28,7 +28,7 @@ it.skipIf(!existsSync(executable))('keeps existing persona details while simplif
       ].map(item => ({ ...item, sourceId: item.id, occurredAt: '2026-11-07T08:00:00Z' }));
       const json = path.endsWith('/life/updates') ? { revision: '1' } : path.endsWith('/life') ? {
         persona: { ...persona, avatar: '' }, recent, activity: [], diaries: [], interests: [], relationships: [], chattingCount: 0, confirmedCount: 0,
-      } : { paused: false, tasks: [], schedules: [] };
+      } : path.endsWith('/life/timeline') ? recent : { paused: false, tasks: [], schedules: [] };
       return route.fulfill({ json });
     });
     const url = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}/@fs/${resolve('tests/fixtures/desktop/desktop-clarity.html')}`;
@@ -58,6 +58,9 @@ it.skipIf(!existsSync(executable))('keeps existing persona details while simplif
       await page.screenshot({ path: `build/desktop-clarity/browser/persona-${width}.png` });
     }
     await page.goto(`${url}?home`);
+    await page.getByRole('heading', {name: '小肥鱼', exact: true}).waitFor();
+    expect(await page.getByText('聊了聊：一起去看海', {exact: true}).count()).toBe(0);
+    await page.goto(`${url}?life`);
     await page.getByText('聊了聊：一起去看海', { exact: true }).waitFor();
     expect(await page.getByText('QQ 消息发送已由协议服务确认', { exact: true }).count()).toBe(0);
     expect(await page.getByText('收到 QQ 群聊消息', { exact: true }).count()).toBe(0);

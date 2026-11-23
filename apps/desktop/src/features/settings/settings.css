@@ -1,20 +1,33 @@
-.settings-audio-grid {
-  display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 300px),1fr));
-  align-items: start; gap: var(--form-gap);
+.model-purpose-menu {
+  display: grid; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--color-background, white); overflow: hidden;
 }
-.settings-audio-grid audio { width: min(100%, 420px); }
-.settings-audio-grid .business-card { margin: 0; }
+.model-purpose-menu .model-purpose-link {
+  width: 100%; height: auto; min-height: 60px; padding: 12px var(--surface-padding);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; align-items: center;
+  gap: 12px; border: 0; border-radius: 0; text-align: start; color: var(--color-foreground);
+}
+.model-purpose-menu .model-purpose-link + .model-purpose-link { border-block-start: 1px solid var(--border); }
+.model-purpose-link > [id], .model-purpose-link > svg { color: var(--muted); }
+.model-purpose-link > [id] { text-align: end; overflow-wrap: anywhere; font-weight: 400; }
+.model-purpose-menu .model-purpose-link:focus-visible { outline-offset: -3px; }
+.model-active { color: var(--accent); font-size: 12px; }
+.model-preview audio { width: min(100%, 420px); }
 .settings-brand { display: flex; align-items: center; gap: 16px; padding-block: 8px; }
 .settings-brand .fish-portrait { width: 54px; height: 54px; object-fit: cover; border-radius: 14px; }
-.settings-runtime .setup-form {
-  max-width: 680px; background: var(--color-background, white); border: 1px solid var(--border);
-  border-radius: 14px; padding: var(--surface-padding);
-}
+.settings-runtime .runtime-card { width: min(100%, 680px); flex: none; height: fit-content; }
+.settings-runtime .runtime-card:has(.runtime-location) { padding-block-end: 8px; }
 .setup-form .runtime-preferences {
   display: grid; gap: 14px; min-width: 0; margin: 0; border: 0; padding: 0;
 }
 .runtime-preferences legend { font-weight: 600; padding: 0 0 12px; }
-.setup-form .readonly-setting { padding-block-start: 14px; border-block-start: 1px solid var(--border); overflow-wrap: anywhere; }
+/* Keep the checkmark from activating its wrapping label a second time in WebKit. */
+.runtime-preferences .ui-checkbox svg { pointer-events: none; }
+.runtime-location {
+  display: grid; gap: 4px; margin: 0; padding-block-start: 12px; border-block-start: 1px solid var(--border);
+  color: var(--muted); font-size: 12px; overflow-wrap: anywhere;
+}
+.runtime-location dd { margin: 0; }
 .settings-backup { max-width: 760px; }
 .backup-file-choice > span { min-width: 0; overflow-wrap: anywhere; }
 .settings-about .asset-notice { overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -28,7 +41,6 @@
 .settings-models .model-row + .model-row { border-block-start: 1px solid var(--border); }
 .model-options { display: grid; gap: var(--form-gap); }
 .model-form .form-feedback { border-block: 1px solid var(--border); padding-block: 14px; }
-.settings-models .model-defaults { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,156px),1fr)); gap: var(--form-gap); }
 
 .maintenance-tools { border-top: 1px solid var(--border); padding-top: var(--surface-padding); }
 .maintenance-tools h3 { margin: 0 0 var(--action-gap); }

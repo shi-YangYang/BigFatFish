@@ -1,22 +1,19 @@
-import { PageStack, SectionHeading, SectionCard, EmptyState } from "../../../components/PageLayout";
+import { PageStack, SectionHeading, EmptyState } from "../../../components/PageLayout";
 import { DiaryEntry } from "./DiaryEntry";
 import "../fish.css";
-import { DiarySettings } from './DiarySettings';
-import { memoryOrigin } from "../memory/memory-origin";
 import { visibleExperiences } from "./life-presentation";
 import { usePoll } from "../../../hooks/usePoll";
 import { loadActivities, type ActivityOverview } from "../../../api/activities";
 import { activityState } from "../activities/activity-labels";
-import { ContentScroll, Card, Disclosure , Alert, Loading} from "../../../components/Surfaces";
-import { Button, Field, Input, ActionRow } from "../../../components/Controls";
-import { Drawer, FishAvatar } from "../../../components/UI";
+import { ContentScroll, Card, Disclosure, Alert, Loading } from "../../../components/Surfaces";
+import { Button, ActionRow } from "../../../components/Controls";
+import { FishAvatar } from "../../../components/UI";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { errorText } from "../../../api/errors";
 import type {
   LifeOverview,
   Activity,
-  Diary,
   MemoryTask,
   Source,
 } from "../../../../../runtime/src/memory/types";
@@ -92,7 +89,6 @@ export function Home({ navigate, onChat }: { navigate?: (page: string) => void; 
   }, []);
   const refreshError = useLifeRefresh(load);
   if (!data) return refreshError ? <Alert>{refreshError}</Alert> : <Loading />;
-  const recent = visibleExperiences(data.recent);
   const diary = data.diaries[0];
   return <PageStack className="fish-overview">
     {refreshError && <Alert role="alert">{refreshError}</Alert>}
@@ -105,21 +101,10 @@ export function Home({ navigate, onChat }: { navigate?: (page: string) => void; 
       {onChat && <div className="fish-memory-count"><Button onClick={onChat}>和它聊聊</Button></div>}
     </div>
     {diary && <section className="fish-reading-section">
-      <SectionHeading title="最近日记" level={3} actions={navigate && <Button size="compact" onClick={() => navigate("经历")}>查看全部日记</Button>} />
+      <SectionHeading title="最近日记" level={3} actions={navigate && <Button size="compact" onClick={() => navigate("日记")}>查看全部日记</Button>} />
       <DiaryEntry day={diary.day} content={diary.content.slice(0, 240)} />
     </section>}
-    {recent.length > 0 && <section className="fish-reading-section">
-      <SectionHeading level={3} title="最近经历" />
-      <ContentScroll label="最近经历" className="overview-recent">
-        {recent.slice(0, 3).map(a => <div key={a.id} className="summary-entry"><p>{a.summary}</p><time>{new Date(a.occurredAt).toLocaleString()}</time></div>)}
-      </ContentScroll>
-    </section>}
     <CurrentActivities life={data} />
-    {(data.interests.length > 0 || data.relationships.length > 0) && <SectionCard level={3} title="兴趣与关系">
-      <ContentScroll label="兴趣与关系">
-        {[...data.interests, ...data.relationships].map(m => <p key={m.id}>{m.content} <small className="muted">{memoryOrigin(m)}</small></p>)}
-      </ContentScroll>
-    </SectionCard>}
     {navigate && (!diary || data.confirmedCount > 0) && <ActionRow>
       {!diary && <Button variant="ghost" onClick={() => navigate("写日记")}>去写第一篇</Button>}
       {data.confirmedCount > 0 && <Button variant="ghost" onClick={() => navigate("记忆")}>已记住 {data.confirmedCount} 条</Button>}
@@ -158,126 +143,27 @@ export function TaskList({
     </ContentScroll>
   );
 }
-export function Life({ fail, startWriting = false }: { fail: (e: unknown) => void; startWriting?: boolean }) {
-  const [panel, setPanel] = useState<"write" | "options" | null>(startWriting ? "write" : null);
-  const [ready, setReady] = useState(false);
-  const [timeline, setTimeline] = useState<Activity[]>([]),
-    [diaries, setDiaries] = useState<Diary[]>([]),
-    [tasks, setTasks] = useState<MemoryTask[]>([]),
-    [day, setDay] = useState(new Date().toLocaleDateString("en-CA")),
-    [timezone, setTimezone] = useState(
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-    ),
-    [busy, setBusy] = useState(false);
+export function Experiences() {
+  const [timeline, setTimeline] = useState<Activity[]>();
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
-    const [a, b, c] = await Promise.all([
-      api<Activity[]>("/v1/life/timeline"),
-      api<Diary[]>("/v1/diaries"),
-      api<MemoryTask[]>("/v1/memory-tasks"),
-    ]);
-    if (isCurrent()) {
-      setReady(true);
-      setTimeline(visibleExperiences(a));
-      setDiaries(b);
-      setTasks(c);
-    }
+    const items = await api<Activity[]>("/v1/life/timeline");
+    if (isCurrent()) setTimeline(visibleExperiences(items));
   }, []);
-  const refreshError = useLifeRefresh(load);
-  const generate = async () => {
-    setBusy(true);
-    try {
-      await api("/v1/memory-tasks/diary", "POST", {
-        day,
-        timezone,
-        requestId: crypto.randomUUID(),
-      });
-      await load();
-      setPanel(null);
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <PageStack className="fish-journal">
-      {refreshError && (
-        <Alert role="alert" className="error">
-          {refreshError}
-        </Alert>
-      )}
-      <section className="fish-reading-section">
-      <SectionHeading title="日记" actions={<ActionRow>
-        <Button size="compact" onClick={() => setPanel("write")}>手动写日记</Button>
-        <Button size="compact" variant="ghost" onClick={() => setPanel("options")}>日记设置</Button>
-      </ActionRow>} />
-      {!ready && !refreshError && <Loading>正在读取经历…</Loading>}
-      {ready && !diaries.length && <EmptyState title="还没有日记。" />}
-      <ContentScroll label="日记" className="content-scroll-list">
-      {diaries.map((d) => (
-        <DiaryEntry key={d.id} day={d.day} content={d.content}>
-          <Sources sources={d.sources} fail={fail} />
-          {d.copyStatus !== "ready" && <><p className="muted">文件副本保存失败，日记仍保存在应用中。</p>
-          <Button
-            type="button"
-            onClick={() =>
-              void api(`/v1/diaries/${d.id}/rebuild`, "POST")
-                .then(() => load())
-                .catch(fail)
-            }
-          >
-            重试保存副本
-          </Button></>}
-        </DiaryEntry>
-      ))}
-      </ContentScroll>
-      </section>
-      <section className="fish-reading-section">
-      <SectionHeading title="经历时间线" level={3} />
-      {ready && !timeline.length && <EmptyState title="暂无经历" description="开始聊天后会记录实际活动。" />}
-      <ContentScroll label="经历时间线" className="content-scroll-list">
-      {timeline.map((a) => (
-        <div className="timeline-entry" key={a.id}>
+  const error = useLifeRefresh(load);
+  return <PageStack className="fish-journal">
+    <section className="fish-reading-section">
+      <SectionHeading title="经历时间线" />
+      {error && <Alert role="alert">{error}</Alert>}
+      {!timeline && !error && <Loading>正在读取经历…</Loading>}
+      {timeline?.length === 0 && <EmptyState title="暂无经历" description="开始聊天后会记录实际活动。" />}
+      {!!timeline?.length && <ContentScroll label="经历时间线" className="content-scroll-list">
+        {timeline.map(a => <div className="timeline-entry" key={a.id}>
           <time>{new Date(a.occurredAt).toLocaleString()}</time>
           <p>{a.summary}</p>
-        </div>
-      ))}
-      </ContentScroll>
-      </section>
-      {tasks.some(t => t.kind === "diary") && <Disclosure title="日记生成记录" className="secondary-options"><TaskList tasks={tasks.filter(t => t.kind === "diary")} refresh={load} fail={fail} /></Disclosure>}
-      {panel === "options" && <Drawer title="日记设置" close={() => setPanel(null)}><DiarySettings onSaved={() => setPanel(null)}/></Drawer>}
-      {panel === "write" && <Drawer title="手动写日记" close={() => { if (!busy) setPanel(null); }}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void generate();
-        }}
-      >
-        <ActionRow className="diary-controls">
-          <Field>
-            日记日期
-            <Input
-              type="date"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              required
-            />
-          </Field>
-          <Button type="submit" variant="primary" busy={busy} disabled={busy}>
-            生成或更新日记
-          </Button>
-        </ActionRow>
-        <p className="muted">使用聊天模型，根据这一天的经历写日记。</p>
-        <Disclosure title="日期设置" className="secondary-options">
-          <Field>
-            时区
-            <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} required />
-          </Field>
-        </Disclosure>
-      </form>
-      </Drawer>}
-    </PageStack>
-  );
+        </div>)}
+      </ContentScroll>}
+    </section>
+  </PageStack>;
 }
 
 type SourceListProps = { sources: Source[]; fail: (error: unknown) => void };
